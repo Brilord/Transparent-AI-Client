@@ -81,3 +81,33 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   } catch (err) { /* ignore injection errors on some pages */ }
 });
+
+// Keyboard resize for link windows: Ctrl+Alt + Arrows
+document.addEventListener('keydown', async (e) => {
+  if (!(e.ctrlKey && e.altKey)) return;
+  const step = 20;
+  try {
+    const bounds = await ipcRenderer.invoke('get-window-bounds');
+    if (!bounds) return;
+    switch (e.key) {
+      case 'ArrowLeft':
+        bounds.width = Math.max(200, bounds.width - step);
+        break;
+      case 'ArrowRight':
+        bounds.width = bounds.width + step;
+        break;
+      case 'ArrowUp':
+        bounds.height = Math.max(120, bounds.height - step);
+        break;
+      case 'ArrowDown':
+        bounds.height = bounds.height + step;
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+    await ipcRenderer.invoke('set-window-bounds', bounds);
+  } catch (err) {
+    // ignore
+  }
+});

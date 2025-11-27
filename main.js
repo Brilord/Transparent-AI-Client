@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -62,13 +62,54 @@ function createWindow() {
   mainWindow.on('closed', function () {
     mainWindow = null;
   });
+
+  // Snap main window to screen edges when moved
+  (function attachMainSnap() {
+    const SNAP = 20; // pixels
+    let snapTimeout = null;
+    mainWindow.on('move', () => {
+      if (snapTimeout) clearTimeout(snapTimeout);
+      snapTimeout = setTimeout(() => {
+        try {
+          const [x, y] = mainWindow.getPosition();
+          const bounds = mainWindow.getBounds();
+          const display = screen.getDisplayMatching(bounds) || screen.getPrimaryDisplay();
+          const d = display.workArea; // use workArea to avoid taskbar overlap
+          let nx = x;
+          let ny = y;
+          if (Math.abs(x - d.x) <= SNAP) nx = d.x;
+          if (Math.abs((x + bounds.width) - (d.x + d.width)) <= SNAP) nx = d.x + d.width - bounds.width;
+          if (Math.abs(y - d.y) <= SNAP) ny = d.y;
+          if (Math.abs((y + bounds.height) - (d.y + d.height)) <= SNAP) ny = d.y + d.height - bounds.height;
+          if (nx !== x || ny !== y) mainWindow.setPosition(nx, ny);
+        } catch (err) {
+          // ignore
+        }
+      }, 80);
+    });
+  })();
 }
 
 ipcMain.on('drag-window', (event, { deltaX, deltaY }) => {
   const window = BrowserWindow.fromWebContents(event.sender);
   if (window) {
-    const [x, y] = window.getPosition();
-    window.setPosition(x + deltaX, y + deltaY);
+    let [x, y] = window.getPosition();
+    x = x + deltaX;
+    y = y + deltaY;
+    // Snap to edges if close
+    try {
+      const bounds = window.getBounds();
+      const display = screen.getDisplayMatching(bounds) || screen.getPrimaryDisplay();
+      const d = display.workArea;
+      const SNAP = 20;
+      if (Math.abs(x - d.x) <= SNAP) x = d.x;
+      if (Math.abs((x + bounds.width) - (d.x + d.width)) <= SNAP) x = d.x + d.width - bounds.width;
+      if (Math.abs(y - d.y) <= SNAP) y = d.y;
+      if (Math.abs((y + bounds.height) - (d.y + d.height)) <= SNAP) y = d.y + d.height - bounds.height;
+    } catch (err) {
+      // ignore
+    }
+    window.setPosition(x, y);
   }
 });
 
@@ -220,6 +261,30 @@ ipcMain.handle('open-link', (event, url) => {
       }
     `);
   });
+
+  // Snap behavior for link windows as well
+  (function attachLinkSnap(win) {
+    const SNAP = 20;
+    let snapTimeout = null;
+    win.on('move', () => {
+      if (snapTimeout) clearTimeout(snapTimeout);
+      snapTimeout = setTimeout(() => {
+        try {
+          const [x, y] = win.getPosition();
+          const bounds = win.getBounds();
+          const display = screen.getDisplayMatching(bounds) || screen.getPrimaryDisplay();
+          const d = display.workArea;
+          let nx = x;
+          let ny = y;
+          if (Math.abs(x - d.x) <= SNAP) nx = d.x;
+          if (Math.abs((x + bounds.width) - (d.x + d.width)) <= SNAP) nx = d.x + d.width - bounds.width;
+          if (Math.abs(y - d.y) <= SNAP) ny = d.y;
+          if (Math.abs((y + bounds.height) - (d.y + d.height)) <= SNAP) ny = d.y + d.height - bounds.height;
+          if (nx !== x || ny !== y) win.setPosition(nx, ny);
+        } catch (err) {}
+      }, 80);
+    });
+  })(linkWindow);
 
   linkWindow.on('closed', function () {
     linkWindow = null;
