@@ -82,31 +82,7 @@ resizers.forEach(resizer => {
   });
 });
 
-// Keyboard resize: Ctrl+Alt + Arrow keys to resize window by increments
-document.addEventListener('keydown', async (e) => {
-  if (!(e.ctrlKey && e.altKey)) return;
-  const step = 20;
-  const bounds = await window.windowManager.getBounds();
-  if (!bounds) return;
-  switch (e.key) {
-    case 'ArrowLeft':
-      bounds.width = Math.max(200, bounds.width - step);
-      break;
-    case 'ArrowRight':
-      bounds.width = bounds.width + step;
-      break;
-    case 'ArrowUp':
-      bounds.height = Math.max(120, bounds.height - step);
-      break;
-    case 'ArrowDown':
-      bounds.height = bounds.height + step;
-      break;
-    default:
-      return;
-  }
-  e.preventDefault();
-  await window.windowManager.setBounds(bounds);
-});
+// Keyboard resize now handled in preload for consistent behavior across windows
 
 async function loadLinks() {
   const links = await window.electron.getLinks();

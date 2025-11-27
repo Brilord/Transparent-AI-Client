@@ -111,3 +111,44 @@ document.addEventListener('keydown', async (e) => {
     // ignore
   }
 });
+
+// Additional keybindings for link windows
+document.addEventListener('keydown', async (e) => {
+  try {
+    // Move window: Ctrl+Alt+Shift + Arrow
+    if (e.ctrlKey && e.altKey && e.shiftKey) {
+      const moveStep = 20;
+      let dx = 0, dy = 0;
+      switch (e.key) {
+        case 'ArrowLeft': dx = -moveStep; break;
+        case 'ArrowRight': dx = moveStep; break;
+        case 'ArrowUp': dy = -moveStep; break;
+        case 'ArrowDown': dy = moveStep; break;
+        default: return;
+      }
+      e.preventDefault();
+      await ipcRenderer.invoke('move-window', { dx, dy });
+      return;
+    }
+
+    // Toggle maximize: Ctrl+Alt+M
+    if (e.ctrlKey && e.altKey && !e.shiftKey && (e.key === 'm' || e.key === 'M')) {
+      e.preventDefault();
+      await ipcRenderer.invoke('toggle-maximize');
+      return;
+    }
+
+    // Snapping with numbers (Ctrl+Alt + 1..5)
+    if (e.ctrlKey && e.altKey && !e.shiftKey) {
+      switch (e.key) {
+        case '1': await ipcRenderer.invoke('snap-window', 'left'); e.preventDefault(); return;
+        case '2': await ipcRenderer.invoke('snap-window', 'right'); e.preventDefault(); return;
+        case '3': await ipcRenderer.invoke('snap-window', 'top'); e.preventDefault(); return;
+        case '4': await ipcRenderer.invoke('snap-window', 'bottom'); e.preventDefault(); return;
+        case '5': await ipcRenderer.invoke('snap-window', 'center'); e.preventDefault(); return;
+      }
+    }
+  } catch (err) {
+    // ignore
+  }
+});

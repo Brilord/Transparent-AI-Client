@@ -131,6 +131,66 @@ ipcMain.handle('set-window-bounds', (event, bounds) => {
     return false;
   }
 });
+ 
+// Move window by delta
+ipcMain.handle('move-window', (event, { dx = 0, dy = 0 } = {}) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return false;
+  try {
+    const [x, y] = win.getPosition();
+    win.setPosition(x + dx, y + dy);
+    return true;
+  } catch (err) {
+    console.error('Error moving window:', err);
+    return false;
+  }
+});
+ 
+// Toggle maximize / restore
+ipcMain.handle('toggle-maximize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return false;
+  try {
+    if (win.isMaximized()) win.unmaximize(); else win.maximize();
+    return true;
+  } catch (err) {
+    console.error('Error toggling maximize:', err);
+    return false;
+  }
+});
+ 
+// Snap window to edges (left, right, top, bottom, center)
+ipcMain.handle('snap-window', (event, direction) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return false;
+  try {
+    const bounds = win.getBounds();
+    const display = screen.getDisplayMatching(bounds) || screen.getPrimaryDisplay();
+    const d = display.workArea;
+    let nb = Object.assign({}, bounds);
+    switch (direction) {
+      case 'left':
+        nb.x = d.x; nb.y = d.y; nb.width = Math.floor(d.width / 2); nb.height = d.height; break;
+      case 'right':
+        nb.x = d.x + Math.floor(d.width / 2); nb.y = d.y; nb.width = Math.floor(d.width / 2); nb.height = d.height; break;
+      case 'top':
+        nb.x = d.x; nb.y = d.y; nb.width = d.width; nb.height = Math.floor(d.height / 2); break;
+      case 'bottom':
+        nb.x = d.x; nb.y = d.y + Math.floor(d.height / 2); nb.width = d.width; nb.height = Math.floor(d.height / 2); break;
+      case 'center':
+        nb.width = Math.min(bounds.width, Math.floor(d.width * 0.8)); nb.height = Math.min(bounds.height, Math.floor(d.height * 0.8)); nb.x = d.x + Math.floor((d.width - nb.width) / 2); nb.y = d.y + Math.floor((d.height - nb.height) / 2); break;
+      case 'fullscreen':
+        win.maximize(); return true;
+      default:
+        return false;
+    }
+    win.setBounds(nb);
+    return true;
+  } catch (err) {
+    console.error('Error snapping window:', err);
+    return false;
+  }
+});
 
 app.on('ready', () => {
   initializeLinksStorage();
