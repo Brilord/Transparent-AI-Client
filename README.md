@@ -1,6 +1,6 @@
-# Electron Link Storage
+# PlanaClientV2.0
 
-A minimal Electron application with a transparent, glass-style UI for storing and managing website links.
+A minimal Electron application (PlanaClientV2.0) with a transparent, glass-style UI for storing and managing website links.
 
 ## Features
 
