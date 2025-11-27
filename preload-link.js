@@ -29,3 +29,55 @@ document.addEventListener('mouseup', () => {
 document.addEventListener('mouseleave', () => {
   isDragging = false;
 });
+
+// Insert resizers into external pages so users can resize link windows
+window.addEventListener('DOMContentLoaded', () => {
+  try {
+    const edges = ['n','e','s','w','ne','nw','se','sw'];
+    edges.forEach(edge => {
+      const el = document.createElement('div');
+      el.className = `resizer resizer-${edge}`;
+      el.dataset.edge = edge;
+      // Basic transparent style to ensure visibility of cursor
+      el.style.position = 'fixed';
+      el.style.zIndex = 999999;
+      el.style.background = 'transparent';
+      if (edge === 'n' || edge === 's') { el.style.left = '0'; el.style.right = '0'; el.style.height = '8px'; el.style.cursor = 'ns-resize'; if (edge === 'n') el.style.top = '0'; else el.style.bottom = '0'; }
+      if (edge === 'e' || edge === 'w') { el.style.top = '0'; el.style.bottom = '0'; el.style.width = '8px'; el.style.cursor = 'ew-resize'; if (edge === 'e') el.style.right = '0'; else el.style.left = '0'; }
+      if (edge === 'ne' || edge === 'nw' || edge === 'se' || edge === 'sw') {
+        el.style.width = '12px'; el.style.height = '12px';
+        if (edge === 'ne') { el.style.right = '0'; el.style.top = '0'; el.style.cursor = 'nesw-resize'; }
+        if (edge === 'nw') { el.style.left = '0'; el.style.top = '0'; el.style.cursor = 'nwse-resize'; }
+        if (edge === 'se') { el.style.right = '0'; el.style.bottom = '0'; el.style.cursor = 'nwse-resize'; }
+        if (edge === 'sw') { el.style.left = '0'; el.style.bottom = '0'; el.style.cursor = 'nesw-resize'; }
+      }
+      el.style.pointerEvents = 'auto';
+      document.documentElement.appendChild(el);
+
+      // Add handlers that communicate with main to resize
+      let resizing = false;
+      let sx = 0, sy = 0, startBounds = null;
+      el.addEventListener('mousedown', async (ev) => {
+        ev.preventDefault();
+        resizing = true;
+        sx = ev.clientX; sy = ev.clientY;
+        startBounds = await ipcRenderer.invoke('get-window-bounds');
+
+        const onMove = async (me) => {
+          if (!resizing || !startBounds) return;
+          const dx = me.clientX - sx; const dy = me.clientY - sy;
+          const bounds = Object.assign({}, startBounds);
+          if (edge.includes('e')) bounds.width = Math.max(200, startBounds.width + dx);
+          if (edge.includes('s')) bounds.height = Math.max(120, startBounds.height + dy);
+          if (edge.includes('w')) { bounds.width = Math.max(200, startBounds.width - dx); bounds.x = startBounds.x + dx; }
+          if (edge.includes('n')) { bounds.height = Math.max(120, startBounds.height - dy); bounds.y = startBounds.y + dy; }
+          await ipcRenderer.invoke('set-window-bounds', bounds);
+        };
+
+        const onUp = () => { resizing = false; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      });
+    });
+  } catch (err) { /* ignore injection errors on some pages */ }
+});

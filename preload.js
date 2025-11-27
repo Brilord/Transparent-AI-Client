@@ -8,3 +8,9 @@ contextBridge.exposeInMainWorld('electron', {
   closeWindow: () => ipcRenderer.invoke('close-window'),
   openLink: (url) => ipcRenderer.invoke('open-link', url)
 });
+
+// Window management helpers
+contextBridge.exposeInMainWorld('windowManager', {
+  getBounds: () => ipcRenderer.invoke('get-window-bounds'),
+  setBounds: (bounds) => ipcRenderer.invoke('set-window-bounds', bounds)
+});

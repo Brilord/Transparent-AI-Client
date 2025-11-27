@@ -31,6 +31,83 @@ closeBtn.addEventListener('click', () => {
   window.electron.closeWindow();
 });
 
+// Resizers
+const resizers = document.querySelectorAll('.resizer');
+
+// Mouse-based resizing for frameless window
+resizers.forEach(resizer => {
+  let isResizing = false;
+  let startX = 0;
+  let startY = 0;
+  let startBounds = null;
+  const edge = resizer.dataset.edge;
+
+  const onMouseMove = async (e) => {
+    if (!isResizing || !startBounds) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    const bounds = Object.assign({}, startBounds);
+
+    // Adjust bounds based on which edge/corner is being dragged
+    if (edge.includes('e')) {
+      bounds.width = Math.max(200, startBounds.width + dx);
+    }
+    if (edge.includes('s')) {
+      bounds.height = Math.max(120, startBounds.height + dy);
+    }
+    if (edge.includes('w')) {
+      bounds.width = Math.max(200, startBounds.width - dx);
+      bounds.x = startBounds.x + dx;
+    }
+    if (edge.includes('n')) {
+      bounds.height = Math.max(120, startBounds.height - dy);
+      bounds.y = startBounds.y + dy;
+    }
+
+    await window.windowManager.setBounds(bounds);
+  };
+
+  resizer.addEventListener('mousedown', async (ev) => {
+    ev.preventDefault();
+    isResizing = true;
+    startX = ev.clientX;
+    startY = ev.clientY;
+    startBounds = await window.windowManager.getBounds();
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', () => {
+      isResizing = false;
+      window.removeEventListener('mousemove', onMouseMove);
+    }, { once: true });
+  });
+});
+
+// Keyboard resize: Ctrl+Alt + Arrow keys to resize window by increments
+document.addEventListener('keydown', async (e) => {
+  if (!(e.ctrlKey && e.altKey)) return;
+  const step = 20;
+  const bounds = await window.windowManager.getBounds();
+  if (!bounds) return;
+  switch (e.key) {
+    case 'ArrowLeft':
+      bounds.width = Math.max(200, bounds.width - step);
+      break;
+    case 'ArrowRight':
+      bounds.width = bounds.width + step;
+      break;
+    case 'ArrowUp':
+      bounds.height = Math.max(120, bounds.height - step);
+      break;
+    case 'ArrowDown':
+      bounds.height = bounds.height + step;
+      break;
+    default:
+      return;
+  }
+  e.preventDefault();
+  await window.windowManager.setBounds(bounds);
+});
+
 async function loadLinks() {
   const links = await window.electron.getLinks();
   renderLinks(links);

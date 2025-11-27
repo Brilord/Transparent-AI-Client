@@ -72,6 +72,25 @@ ipcMain.on('drag-window', (event, { deltaX, deltaY }) => {
   }
 });
 
+// Window bounds helpers for renderer processes
+ipcMain.handle('get-window-bounds', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return null;
+  return win.getBounds();
+});
+
+ipcMain.handle('set-window-bounds', (event, bounds) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || !bounds) return false;
+  try {
+    win.setBounds(bounds);
+    return true;
+  } catch (err) {
+    console.error('Error setting bounds:', err);
+    return false;
+  }
+});
+
 app.on('ready', () => {
   initializeLinksStorage();
   createWindow();

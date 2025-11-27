@@ -137,6 +137,42 @@ body {
     flex-direction: column;
 }
 
+/* Resizer handles (frameless window resizing) */
+.resizer {
+    position: fixed;
+    z-index: 99999;
+    -webkit-app-region: no-drag;
+    background: transparent;
+}
+
+.resizer-n, .resizer-s {
+    left: 0;
+    right: 0;
+    height: 8px;
+    cursor: ns-resize;
+}
+.resizer-n { top: 0; }
+.resizer-s { bottom: 0; }
+
+.resizer-e, .resizer-w {
+    top: 0;
+    bottom: 0;
+    width: 8px;
+    cursor: ew-resize;
+}
+.resizer-e { right: 0; }
+.resizer-w { left: 0; }
+
+.resizer-ne, .resizer-nw, .resizer-se, .resizer-sw {
+    width: 12px;
+    height: 12px;
+    position: fixed;
+}
+.resizer-ne { right: 0; top: 0; cursor: nesw-resize; }
+.resizer-nw { left: 0; top: 0; cursor: nwse-resize; }
+.resizer-se { right: 0; bottom: 0; cursor: nwse-resize; }
+.resizer-sw { left: 0; bottom: 0; cursor: nesw-resize; }
+
 .links-list {
     display: flex;
     flex-direction: column;
