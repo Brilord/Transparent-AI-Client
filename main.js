@@ -42,6 +42,10 @@ function createWindow() {
     transparent: true,
     frame: false,
     alwaysOnTop: false,
+    resizable: true,
+    movable: true,
+    minWidth: 420,
+    minHeight: 300,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -119,11 +123,15 @@ ipcMain.handle('close-window', () => {
 });
 
 ipcMain.handle('open-link', (event, url) => {
-  const linkWindow = new BrowserWindow({
+  let linkWindow = new BrowserWindow({
     width: 1000,
     height: 800,
     transparent: true,
     frame: false,
+    resizable: true,
+    movable: true,
+    minWidth: 600,
+    minHeight: 400,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -139,10 +147,33 @@ ipcMain.handle('open-link', (event, url) => {
     linkWindow.webContents.insertCSS(`
       * {
         background-color: transparent !important;
+        color: white !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
       }
       html, body {
-        background: rgba(255, 255, 255, 0.05) !important;
-        backdrop-filter: blur(15px) !important;
+        background: transparent !important;
+      }
+      a {
+        color: #87ceeb !important;
+      }
+      a:visited {
+        color: #da70d6 !important;
+      }
+      button, input[type="button"], input[type="submit"] {
+        color: white !important;
+        background: rgba(255, 255, 255, 0.2) !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+      }
+      button:hover, input[type="button"]:hover, input[type="submit"]:hover {
+        background: rgba(255, 255, 255, 0.3) !important;
+      }
+      input, textarea, select {
+        background: rgba(255, 255, 255, 0.1) !important;
+        color: white !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+      }
+      input::placeholder, textarea::placeholder {
+        color: rgba(255, 255, 255, 0.6) !important;
       }
       html::before {
         content: '';
@@ -162,11 +193,11 @@ ipcMain.handle('open-link', (event, url) => {
         background: transparent;
       }
       ::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.3);
         border-radius: 3px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 255, 255, 0.25);
+        background: rgba(255, 255, 255, 0.5);
       }
     `);
   });

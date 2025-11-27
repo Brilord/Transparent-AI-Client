@@ -5,12 +5,54 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "electron . --remote-debugging-port=9222"
+    "dev": "electron . --remote-debugging-port=9222",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:portable": "electron-builder --win portable"
   },
   "keywords": ["electron", "transparent", "link-storage"],
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "electron": "latest"
+    "electron": "latest",
+    "electron-builder": "^24.6.4"
+  },
+  "build": {
+    "appId": "com.electron.linkstorage",
+    "productName": "Link Storage",
+    "directories": {
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "preload-link.js",
+      "renderer.js",
+      "index.html",
+      "styles.css",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64", "ia32"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Link Storage"
+    },
+    "portable": {
+      "artifactName": "Link-Storage-${version}.exe"
+    }
   }
 }
