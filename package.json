@@ -1,0 +1,16 @@
+{
+  "name": "electron-link-storage",
+  "version": "1.0.0",
+  "description": "Electron application with transparent background for storing website links",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --remote-debugging-port=9222"
+  },
+  "keywords": ["electron", "transparent", "link-storage"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "latest"
+  }
+}
