@@ -6,6 +6,17 @@ let mainWindow;
 let appOpacity = 1.0; // global app opacity applied to all windows
 const linkWindows = new Set();
 const dataFile = path.join(app.getPath('userData'), 'links.json');
+const settingsFile = path.join(app.getPath('userData'), 'settings.json');
+
+// Default app settings
+const DEFAULT_SETTINGS = {
+  appOpacity: 1.0,
+  alwaysOnTop: false,
+  injectResizers: true,
+  persistSettings: true
+};
+
+let appSettings = Object.assign({}, DEFAULT_SETTINGS);
 
 // Initialize links storage
 function initializeLinksStorage() {
@@ -43,7 +54,7 @@ function createWindow() {
     height: 800,
     transparent: true,
     frame: false,
-    alwaysOnTop: false,
+    alwaysOnTop: !!appSettings.alwaysOnTop,
     resizable: true,
     movable: true,
     minWidth: 420,
@@ -200,6 +211,9 @@ ipcMain.handle('snap-window', (event, direction) => {
 
 app.on('ready', () => {
   initializeLinksStorage();
+  // load settings before creating windows
+  try { loadSettings(); } catch (err) { /* ignore */ }
+  if (typeof appSettings.appOpacity === 'number') appOpacity = appSettings.appOpacity;
   createWindow();
 });
 
@@ -258,6 +272,7 @@ ipcMain.handle('open-link', (event, url) => {
     movable: true,
     minWidth: 600,
     minHeight: 400,
+    alwaysOnTop: !!appSettings.alwaysOnTop,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -375,6 +390,9 @@ ipcMain.handle('set-app-opacity', (event, value) => {
     if (isNaN(value)) return false;
     value = Math.max(0.05, Math.min(1, value));
     appOpacity = value;
+    // Mirror to settings and persist if enabled
+    appSettings.appOpacity = appOpacity;
+    if (appSettings.persistSettings) saveSettings();
 
     // Update main window
     if (mainWindow && !mainWindow.isDestroyed() && typeof mainWindow.setOpacity === 'function') {
@@ -402,4 +420,99 @@ ipcMain.handle('set-app-opacity', (event, value) => {
 
 ipcMain.handle('get-app-opacity', () => {
   return appOpacity;
+});
+
+// Settings persistence & helpers
+function loadSettings() {
+  try {
+    if (!fs.existsSync(settingsFile)) {
+      // write defaults if persist setting is enabled
+      fs.writeFileSync(settingsFile, JSON.stringify(appSettings, null, 2));
+      return appSettings;
+    }
+    const raw = fs.readFileSync(settingsFile, 'utf8');
+    const parsed = JSON.parse(raw || '{}');
+    appSettings = Object.assign({}, DEFAULT_SETTINGS, parsed);
+    // reflect appOpacity from settings
+    if (typeof appSettings.appOpacity === 'number') appOpacity = appSettings.appOpacity;
+    return appSettings;
+  } catch (err) {
+    console.error('Error loading settings:', err);
+    appSettings = Object.assign({}, DEFAULT_SETTINGS);
+    return appSettings;
+  }
+}
+
+function saveSettings() {
+  try {
+    fs.writeFileSync(settingsFile, JSON.stringify(appSettings, null, 2));
+  } catch (err) {
+    console.error('Error saving settings:', err);
+  }
+}
+
+ipcMain.handle('get-setting', (event, key) => {
+  if (!key) return null;
+  return appSettings[key];
+});
+
+ipcMain.handle('get-all-settings', () => {
+  return appSettings;
+});
+
+ipcMain.handle('set-setting', (event, key, value) => {
+  if (!key) return false;
+  appSettings[key] = value;
+  // Persist settings if enabled
+  if (appSettings.persistSettings) saveSettings();
+
+  // react to certain setting changes immediately
+  try {
+    if (key === 'alwaysOnTop') {
+      // update main window
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setAlwaysOnTop(!!value);
+      // update link windows
+      for (const win of linkWindows) {
+        if (win && !win.isDestroyed()) win.setAlwaysOnTop(!!value);
+      }
+    }
+
+    if (key === 'appOpacity') {
+      // keep appOpacity in sync
+      const v = typeof value === 'number' ? value : parseFloat(value);
+      if (!isNaN(v)) {
+        appOpacity = Math.max(0.05, Math.min(1, v));
+        if (mainWindow && !mainWindow.isDestroyed() && typeof mainWindow.setOpacity === 'function') mainWindow.setOpacity(appOpacity);
+        for (const win of linkWindows) if (win && !win.isDestroyed() && typeof win.setOpacity === 'function') win.setOpacity(appOpacity);
+      }
+    }
+  } catch (err) { /* ignore */ }
+
+  // Broadcast change to all windows
+  BrowserWindow.getAllWindows().forEach(w => {
+    try { w.webContents.send('setting-changed', key, appSettings[key]); } catch (e) {}
+  });
+
+  return true;
+});
+
+// Expose a reset endpoint
+ipcMain.handle('reset-settings', () => {
+  appSettings = Object.assign({}, DEFAULT_SETTINGS);
+  saveSettings();
+
+  // apply to windows
+  try { appOpacity = appSettings.appOpacity; } catch (e) {}
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    try { mainWindow.setAlwaysOnTop(appSettings.alwaysOnTop); mainWindow.setOpacity(appOpacity); } catch (e) {}
+  }
+  for (const win of linkWindows) if (win && !win.isDestroyed()) {
+    try { win.setAlwaysOnTop(appSettings.alwaysOnTop); win.setOpacity(appOpacity); } catch (e) {}
+  }
+
+  BrowserWindow.getAllWindows().forEach(w => {
+    try { w.webContents.send('settings-reset', appSettings); } catch (e) {}
+  });
+
+  return appSettings;
 });

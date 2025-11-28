@@ -13,6 +13,12 @@ A minimal Electron application (PlanaClientV2.0) with a transparent, glass-style
 ### Options / Transparency
 
 - ⚙️ New Options tab: open the settings (gear) in the titlebar to reveal a "Window transparency" slider. This adjusts the opacity of the main window and any currently open link windows in real time.
+Additional options in the same panel:
+
+- ✅ Always on top — keep the app and link windows above other apps.
+- 🔁 Persist settings — save option changes (opacity / always-on-top / resizer injection) across app restarts.
+- 🔧 Inject resizers — toggle whether the app attempts to insert invisible resizer handles into link windows (some websites block injection; if disabled use keyboard shortcuts for resizing instead).
+- ♻️ Reset to defaults — quickly reset all options to the app defaults.
 
 ## Installation
 

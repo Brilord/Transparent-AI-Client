@@ -14,6 +14,15 @@ contextBridge.exposeInMainWorld('electron', {
   onAppOpacityChanged: (cb) => {
     ipcRenderer.on('app-opacity-changed', (evt, val) => cb(val));
   }
+  ,
+  // Generic settings API
+  getSetting: (key) => ipcRenderer.invoke('get-setting', key),
+  getAllSettings: () => ipcRenderer.invoke('get-all-settings'),
+  setSetting: (key, value) => ipcRenderer.invoke('set-setting', key, value),
+  onSettingChanged: (cb) => {
+    ipcRenderer.on('setting-changed', (evt, key, value) => cb(key, value));
+  },
+  resetSettings: () => ipcRenderer.invoke('reset-settings')
 });
 
 // Window management helpers

@@ -31,8 +31,16 @@ document.addEventListener('mouseleave', () => {
 });
 
 // Insert resizers into external pages so users can resize link windows
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
   try {
+    // Check whether the app settings allow injecting resizers into remote pages
+    let inject = true;
+    try {
+      const val = await ipcRenderer.invoke('get-setting', 'injectResizers');
+      if (typeof val === 'boolean') inject = val;
+    } catch (err) { /* ignore and default to true */ }
+    if (!inject) return; // do not inject resizers when disabled
+
     const edges = ['n','e','s','w','ne','nw','se','sw'];
     edges.forEach(edge => {
       const el = document.createElement('div');

@@ -9,6 +9,10 @@ const settingsBtn = document.getElementById('settingsBtn');
 const settingsPanel = document.getElementById('settingsPanel');
 const opacityRange = document.getElementById('opacityRange');
 const opacityVal = document.getElementById('opacityVal');
+const alwaysOnTopChk = document.getElementById('alwaysOnTopChk');
+const injectResizersChk = document.getElementById('injectResizersChk');
+const persistSettingsChk = document.getElementById('persistSettingsChk');
+const resetSettingsBtn = document.getElementById('resetSettingsBtn');
 
 // Load links on startup
 loadLinks();
@@ -88,6 +92,65 @@ async function initOpacityControl() {
 }
 
 initOpacityControl();
+
+// Initialize other settings UI
+async function initSettingsUI() {
+  try {
+    if (!window.electron || typeof window.electron.getAllSettings !== 'function') return;
+    const s = await window.electron.getAllSettings();
+    if (!s) return;
+
+    // Set UI states
+    if (typeof s.alwaysOnTop === 'boolean') alwaysOnTopChk.checked = s.alwaysOnTop;
+    if (typeof s.injectResizers === 'boolean') injectResizersChk.checked = s.injectResizers;
+    if (typeof s.persistSettings === 'boolean') persistSettingsChk.checked = s.persistSettings;
+
+    // Wire up change listeners
+    alwaysOnTopChk.addEventListener('change', async (e) => {
+      await window.electron.setSetting('alwaysOnTop', !!e.target.checked);
+    });
+
+    injectResizersChk.addEventListener('change', async (e) => {
+      await window.electron.setSetting('injectResizers', !!e.target.checked);
+    });
+
+    persistSettingsChk.addEventListener('change', async (e) => {
+      await window.electron.setSetting('persistSettings', !!e.target.checked);
+    });
+
+    resetSettingsBtn.addEventListener('click', async () => {
+      if (!confirm('Reset settings to defaults?')) return;
+      const newSettings = await window.electron.resetSettings();
+      if (newSettings) {
+        // update UI to reflect defaults
+        opacityRange.value = newSettings.appOpacity;
+        opacityVal.innerText = Math.round(newSettings.appOpacity * 100) + '%';
+        alwaysOnTopChk.checked = newSettings.alwaysOnTop;
+        injectResizersChk.checked = newSettings.injectResizers;
+        persistSettingsChk.checked = newSettings.persistSettings;
+      }
+    });
+
+    // Listen to setting changes from main (applies if other windows change settings)
+    if (typeof window.electron.onSettingChanged === 'function') {
+      window.electron.onSettingChanged((key, value) => {
+        try {
+          if (key === 'appOpacity') {
+            opacityRange.value = value;
+            opacityVal.innerText = Math.round(value * 100) + '%';
+          }
+          if (key === 'alwaysOnTop') alwaysOnTopChk.checked = !!value;
+          if (key === 'injectResizers') injectResizersChk.checked = !!value;
+          if (key === 'persistSettings') persistSettingsChk.checked = !!value;
+        } catch (err) {}
+      });
+    }
+  } catch (err) {
+    // ignore if APIs not present
+  }
+}
+
+initSettingsUI();
 
 // Resizers
 const resizers = document.querySelectorAll('.resizer');

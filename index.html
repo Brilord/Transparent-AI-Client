@@ -45,14 +45,33 @@
             <!-- Settings Panel (hidden by default) -->
             <div id="settingsPanel" class="settings-panel hidden">
                 <h3>Options</h3>
-                <div class="setting-row">
-                    <label for="opacityRange">Window transparency</label>
-                    <div class="range-row">
-                        <input id="opacityRange" type="range" min="0.2" max="1" step="0.01" value="1">
-                        <div id="opacityVal" class="range-val">100%</div>
+                    <div class="setting-row">
+                        <label for="opacityRange">Window transparency</label>
+                        <div class="range-row">
+                            <input id="opacityRange" type="range" min="0.2" max="1" step="0.01" value="1">
+                            <div id="opacityVal" class="range-val">100%</div>
+                        </div>
+                        <small class="hint">Adjust transparency for all currently open windows</small>
                     </div>
-                    <small class="hint">Adjust transparency for all currently open windows</small>
-                </div>
+
+                    <div class="setting-row">
+                        <label><input id="alwaysOnTopChk" type="checkbox"> Always on top (all windows)</label>
+                        <small class="hint">When enabled windows will be kept above other apps</small>
+                    </div>
+
+                    <div class="setting-row">
+                        <label><input id="injectResizersChk" type="checkbox"> Inject resizer handles into opened link pages</label>
+                        <small class="hint">When disabled, injected resizers for external pages will not be added (use keyboard shortcuts instead)</small>
+                    </div>
+
+                    <div class="setting-row">
+                        <label><input id="persistSettingsChk" type="checkbox"> Persist settings between launches</label>
+                        <small class="hint">Save your options so they persist across restarts</small>
+                    </div>
+
+                    <div class="setting-row">
+                        <button id="resetSettingsBtn" class="reset-btn">Reset to defaults</button>
+                    </div>
             </div>
         </div>
     </div>
