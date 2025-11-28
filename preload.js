@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('electron', {
   closeWindow: () => ipcRenderer.invoke('close-window'),
   openLink: (url) => ipcRenderer.invoke('open-link', url)
   ,
+  openLinkWithId: (id, url) => ipcRenderer.invoke('open-link', id, url)
+  ,
   // App-level settings
   getAppOpacity: () => ipcRenderer.invoke('get-app-opacity'),
   setAppOpacity: (value) => ipcRenderer.invoke('set-app-opacity', value),

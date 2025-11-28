@@ -312,12 +312,12 @@ function renderLinks(links) {
 
   emptyState.style.display = 'none';
 
-  links.forEach(link => {
+    links.forEach(link => {
     const linkElement = document.createElement('div');
     linkElement.className = 'link-item';
     linkElement.innerHTML = `
       <div class="link-select"><input type="checkbox" class="select-checkbox" data-id="${link.id}"></div>
-      <div class="link-content" onclick="window.electron.openLink('${link.url}')">
+      <div class="link-content">
         <div class="link-title">${link.title} ${link.favorite ? '<span class="fav">★</span>' : ''}</div>
         <div class="link-url">${link.url}</div>
       </div>
@@ -327,6 +327,12 @@ function renderLinks(links) {
       </div>
     `;
     linksList.appendChild(linkElement);
+
+    // open link on click, pass id so main can restore bounds
+    const contentEl = linkElement.querySelector('.link-content');
+    if (contentEl) contentEl.addEventListener('click', () => {
+      try { window.electron.openLinkWithId(Number(link.id), link.url); } catch (e) { window.electron.openLink(link.url); }
+    });
   });
 
   // Wire up action buttons

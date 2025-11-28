@@ -379,8 +379,30 @@ ipcMain.handle('close-window', () => {
   mainWindow.close();
 });
 
-ipcMain.handle('open-link', (event, url) => {
-  let linkWindow = new BrowserWindow({
+ipcMain.handle('open-link', (event, idOrUrl, maybeUrl) => {
+  // Handler supports two calling conventions for backward compatibility:
+  // - open-link(id, url) where id is numeric
+  // - open-link(url) older callers
+  let id = null;
+  let url = null;
+  if (typeof maybeUrl === 'string' && (typeof idOrUrl === 'number' || typeof idOrUrl === 'string')) {
+    id = Number(idOrUrl);
+    url = maybeUrl;
+  } else {
+    url = idOrUrl;
+  }
+
+  // Find saved bounds for this link id if available
+  let savedBounds = null;
+  try {
+    if (id) {
+      const links = loadLinks();
+      const found = links.find(l => Number(l.id) === Number(id));
+      if (found && found.lastBounds) savedBounds = found.lastBounds;
+    }
+  } catch (err) {}
+
+  let winOpts = {
     width: 1000,
     height: 800,
     transparent: true,
@@ -395,7 +417,17 @@ ipcMain.handle('open-link', (event, url) => {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload-link.js')
     }
-  });
+  };
+
+  if (savedBounds) {
+    // apply saved bounds
+    winOpts.x = savedBounds.x;
+    winOpts.y = savedBounds.y;
+    winOpts.width = savedBounds.width || winOpts.width;
+    winOpts.height = savedBounds.height || winOpts.height;
+  }
+
+  let linkWindow = new BrowserWindow(winOpts);
 
   // Load the URL directly
   linkWindow.loadURL(url);
@@ -408,6 +440,40 @@ ipcMain.handle('open-link', (event, url) => {
 
   // Keep track of open link windows so we can update opacity later
   linkWindows.add(linkWindow);
+
+  // Save and persist window bounds for this link id when moved/resized (debounced)
+  if (id) {
+    let saveTimer = null;
+    const saveBounds = () => {
+      try {
+        if (!linkWindow || linkWindow.isDestroyed()) return;
+        const b = linkWindow.getBounds();
+        const links = loadLinks();
+        const idx = links.findIndex(l => Number(l.id) === Number(id));
+        if (idx !== -1) {
+          links[idx].lastBounds = { x: b.x, y: b.y, width: b.width, height: b.height };
+          links[idx].updatedAt = new Date().toISOString();
+          saveLinks(links);
+        }
+      } catch (err) {}
+    };
+
+    const scheduleSave = () => {
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(saveBounds, 500);
+    };
+
+    linkWindow.on('move', scheduleSave);
+    linkWindow.on('resize', scheduleSave);
+    linkWindow.on('close', () => {
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+      }
+      // save final bounds synchronously
+      try { saveBounds(); } catch (e) {}
+    });
+  }
 
   // Apply transparent styling via CSS injection
   linkWindow.webContents.on('did-finish-load', () => {
