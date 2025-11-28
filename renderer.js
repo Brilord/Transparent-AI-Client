@@ -5,6 +5,10 @@ const linksList = document.getElementById('linksList');
 const emptyState = document.getElementById('emptyState');
 const minimizeBtn = document.getElementById('minimizeBtn');
 const closeBtn = document.getElementById('closeBtn');
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsPanel = document.getElementById('settingsPanel');
+const opacityRange = document.getElementById('opacityRange');
+const opacityVal = document.getElementById('opacityVal');
 
 // Load links on startup
 loadLinks();
@@ -30,6 +34,60 @@ minimizeBtn.addEventListener('click', () => {
 closeBtn.addEventListener('click', () => {
   window.electron.closeWindow();
 });
+
+// Settings button toggles the options panel
+settingsBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (settingsPanel.classList.contains('hidden')) settingsPanel.classList.remove('hidden');
+  else settingsPanel.classList.add('hidden');
+});
+
+// Close settings panel if user clicks outside
+document.addEventListener('click', (e) => {
+  if (!settingsPanel.classList.contains('hidden') && !settingsPanel.contains(e.target) && e.target !== settingsBtn) {
+    settingsPanel.classList.add('hidden');
+  }
+});
+
+// Initialize opacity control
+async function initOpacityControl() {
+  try {
+    if (!opacityRange) return;
+    let current = 1.0;
+    if (window.electron && typeof window.electron.getAppOpacity === 'function') {
+      const val = await window.electron.getAppOpacity();
+      if (typeof val === 'number') current = val;
+    }
+    opacityRange.value = current;
+    opacityVal.innerText = Math.round(current * 100) + '%';
+
+    opacityRange.addEventListener('input', (e) => {
+      const v = parseFloat(e.target.value);
+      opacityVal.innerText = Math.round(v * 100) + '%';
+    });
+
+    opacityRange.addEventListener('change', async (e) => {
+      const v = parseFloat(e.target.value);
+      if (window.electron && typeof window.electron.setAppOpacity === 'function') {
+        await window.electron.setAppOpacity(v);
+      }
+    });
+
+    // Listen for changes broadcast from the main process
+    if (window.electron && typeof window.electron.onAppOpacityChanged === 'function') {
+      window.electron.onAppOpacityChanged((val) => {
+        try {
+          opacityRange.value = val;
+          opacityVal.innerText = Math.round(val * 100) + '%';
+        } catch (err) {}
+      });
+    }
+  } catch (err) {
+    // ignore if APIs not present
+  }
+}
+
+initOpacityControl();
 
 // Resizers
 const resizers = document.querySelectorAll('.resizer');

@@ -45,6 +45,15 @@ body {
     -webkit-app-region: no-drag;
 }
 
+.settings-btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+}
+
 .control-btn {
     width: 32px;
     height: 32px;
@@ -136,6 +145,41 @@ body {
     display: flex;
     flex-direction: column;
 }
+
+/* Settings panel styles */
+.settings-panel {
+    position: absolute;
+    right: 16px;
+    top: 64px;
+    width: 320px;
+    max-width: calc(100% - 32px);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    backdrop-filter: blur(8px);
+    padding: 12px;
+    border-radius: 8px;
+    z-index: 100000;
+    -webkit-app-region: no-drag;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+}
+
+.settings-panel.hidden { display: none; }
+
+.settings-panel h3 {
+    color: white;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.setting-row { display: flex; flex-direction: column; gap: 6px; }
+.range-row { display: flex; align-items: center; gap: 8px; }
+.range-val { color: rgba(255,255,255,0.85); min-width: 44px; text-align: right; font-size: 13px; }
+.hint { color: rgba(255,255,255,0.45); font-size: 11px; }
+
+/* Slider styling */
+input[type="range"] { -webkit-appearance: none; width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 6px; }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: rgba(255,255,255,0.95); box-shadow: 0 0 0 6px rgba(255,255,255,0.05); cursor: pointer; }
+input[type="range"]:focus { outline: none; }
 
 /* Resizer handles (frameless window resizing) */
 .resizer {
