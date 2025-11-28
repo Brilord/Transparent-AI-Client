@@ -70,6 +70,15 @@
                     </div>
 
                     <div class="setting-row">
+                        <label><input id="useFolderSyncChk" type="checkbox"> Enable folder sync (save links to a synced folder)</label>
+                        <small class="hint">Store links.json in a folder synced by OneDrive/Google Drive. Choose a folder below.</small>
+                        <div class="folder-row">
+                            <div id="syncFolderPath" class="sync-path">Not set</div>
+                            <button id="chooseSyncFolderBtn" class="choose-folder-btn">Choose folder</button>
+                        </div>
+                    </div>
+
+                    <div class="setting-row">
                         <label><input id="leftQuarterChk" type="checkbox"> Enable keyboard shortcut for Left 1/4 (Ctrl+Alt+6)</label>
                         <small class="hint">Snap the focused window to the left quarter of the screen using Ctrl+Alt+6</small>
                     </div>

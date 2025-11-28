@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, screen, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -14,11 +14,18 @@ const DEFAULT_SETTINGS = {
   alwaysOnTop: false,
   injectResizers: true,
   persistSettings: true,
+  // Folder sync settings
+  useFolderSync: false,
+  syncFolder: null,
   leftQuarterShortcut: false,
   leftThirdShortcut: false
 };
 
 let appSettings = Object.assign({}, DEFAULT_SETTINGS);
+
+// Folder sync watcher state
+let syncWatcher = null;
+let lastSyncUpdatedAt = 0;
 
 // Initialize links storage
 function initializeLinksStorage() {
@@ -41,10 +48,28 @@ function loadLinks() {
   }
 }
 
-// Save links to storage
+// Helper: compute sync file path when folder sync is enabled
+function getSyncFilePath() {
+  try {
+    if (appSettings && appSettings.useFolderSync && appSettings.syncFolder) {
+      return path.join(appSettings.syncFolder, 'links.json');
+    }
+  } catch (err) {}
+  return null;
+}
+
+// Save links to storage (both local and optionally sync folder)
 function saveLinks(links) {
   try {
+    // Always keep local copy for app usage
     fs.writeFileSync(dataFile, JSON.stringify(links, null, 2));
+
+    // If folder sync enabled, write a wrapper with updatedAt so other devices can detect changes
+    const syncPath = getSyncFilePath();
+    if (syncPath) {
+      const wrapper = { updatedAt: Date.now(), links };
+      try { fs.writeFileSync(syncPath, JSON.stringify(wrapper, null, 2)); lastSyncUpdatedAt = wrapper.updatedAt; } catch (err) { console.error('Error writing sync file:', err); }
+    }
   } catch (error) {
     console.error('Error saving links:', error);
   }
@@ -490,6 +515,20 @@ ipcMain.handle('set-setting', (event, key, value) => {
     }
   } catch (err) { /* ignore */ }
 
+  // If folder sync settings changed, start/stop watcher accordingly
+  try {
+    if (key === 'useFolderSync' || key === 'syncFolder') {
+      if (appSettings.useFolderSync && appSettings.syncFolder) startSyncWatcher();
+      else stopSyncWatcher();
+    }
+  } catch (err) {}
+  try {
+    if (key === 'useFolderSync' && appSettings.useFolderSync && appSettings.syncFolder) {
+      // push current local links into sync file so the chosen folder has the latest state
+      try { saveLinks(loadLinks()); } catch (e) {}
+    }
+  } catch (err) {}
+
   // Broadcast change to all windows
   BrowserWindow.getAllWindows().forEach(w => {
     try { w.webContents.send('setting-changed', key, appSettings[key]); } catch (e) {}
@@ -517,4 +556,84 @@ ipcMain.handle('reset-settings', () => {
   });
 
   return appSettings;
+});
+
+// Start the sync watcher for syncFolder if enabled
+function startSyncWatcher() {
+  try {
+    stopSyncWatcher();
+    const syncPath = getSyncFilePath();
+    if (!syncPath) return;
+    // initialize lastSyncUpdatedAt from existing file
+    try {
+      if (fs.existsSync(syncPath)) {
+        const data = fs.readFileSync(syncPath, 'utf8');
+        const parsed = JSON.parse(data);
+        lastSyncUpdatedAt = parsed && parsed.updatedAt ? parsed.updatedAt : 0;
+      }
+    } catch (err) { lastSyncUpdatedAt = 0; }
+
+    // Use fs.watchFile for robust cross-platform polling
+    fs.watchFile(syncPath, { interval: 1500 }, (curr, prev) => {
+      try {
+        if (!fs.existsSync(syncPath)) return;
+        const raw = fs.readFileSync(syncPath, 'utf8');
+        const parsed = JSON.parse(raw);
+        const updatedAt = parsed && parsed.updatedAt ? parsed.updatedAt : 0;
+        const remoteLinks = (parsed && Array.isArray(parsed.links)) ? parsed.links : [];
+        if (updatedAt && updatedAt > lastSyncUpdatedAt) {
+          // Update local copy and notify renderers
+          try { fs.writeFileSync(dataFile, JSON.stringify(remoteLinks, null, 2)); } catch (err) {}
+          lastSyncUpdatedAt = updatedAt;
+          BrowserWindow.getAllWindows().forEach(w => {
+            try { w.webContents.send('links-changed'); } catch (e) {}
+          });
+        }
+      } catch (err) {
+        // ignore parse errors
+      }
+    });
+    syncWatcher = true;
+  } catch (err) {
+    console.error('Error starting sync watcher:', err);
+  }
+}
+
+function stopSyncWatcher() {
+  try {
+    const syncPath = getSyncFilePath();
+    if (syncPath && fs.existsSync(syncPath)) {
+      try { fs.unwatchFile(syncPath); } catch (e) {}
+    }
+    syncWatcher = null;
+    lastSyncUpdatedAt = 0;
+  } catch (err) {}
+}
+
+// IPC: open folder picker for user to choose a sync folder
+ipcMain.handle('choose-sync-folder', async () => {
+  try {
+    const res = await dialog.showOpenDialog({ properties: ['openDirectory'] });
+    if (res && !res.canceled && res.filePaths && res.filePaths[0]) {
+      const chosen = res.filePaths[0];
+      appSettings.syncFolder = chosen;
+      if (appSettings.persistSettings) saveSettings();
+      // start watcher if enabled
+      if (appSettings.useFolderSync) startSyncWatcher();
+      return chosen;
+    }
+    return null;
+  } catch (err) {
+    console.error('Error choosing sync folder:', err);
+    return null;
+  }
+});
+
+ipcMain.handle('get-sync-folder', () => {
+  return appSettings.syncFolder || null;
+});
+
+// Ensure watcher starts on app ready if enabled
+app.on('ready', () => {
+  try { if (appSettings.useFolderSync && appSettings.syncFolder) startSyncWatcher(); } catch (e) {}
 });

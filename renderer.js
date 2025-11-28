@@ -137,6 +137,33 @@ async function initSettingsUI() {
       await window.electron.setSetting('leftThirdShortcut', !!e.target.checked);
     });
 
+    // Folder sync UI
+    const useFolderSyncChk = document.getElementById('useFolderSyncChk');
+    const syncFolderPath = document.getElementById('syncFolderPath');
+    const chooseSyncFolderBtn = document.getElementById('chooseSyncFolderBtn');
+
+    try {
+      const useSync = await window.electron.getSetting('useFolderSync');
+      const folder = await window.electron.getSyncFolder();
+      if (typeof useSync === 'boolean') useFolderSyncChk.checked = useSync;
+      syncFolderPath.innerText = folder || 'Not set';
+    } catch (err) { /* ignore */ }
+
+    useFolderSyncChk.addEventListener('change', async (e) => {
+      const enabled = !!e.target.checked;
+      await window.electron.setSetting('useFolderSync', enabled);
+    });
+
+    chooseSyncFolderBtn.addEventListener('click', async () => {
+      const chosen = await window.electron.chooseSyncFolder();
+      if (chosen) {
+        syncFolderPath.innerText = chosen;
+        // persist folder path in settings so main can find it
+        await window.electron.setSetting('syncFolder', chosen);
+        // if folder sync is enabled, ask main to start watching (main handles this when setting syncFolder)
+      }
+    });
+
     resetSettingsBtn.addEventListener('click', async () => {
       if (!confirm('Reset settings to defaults?')) return;
       const newSettings = await window.electron.resetSettings();
@@ -293,5 +320,12 @@ function renderLinks(links) {
       <button class="delete-btn" onclick="deleteLink(${link.id})">Delete</button>
     `;
     linksList.appendChild(linkElement);
+  });
+}
+
+// Listen for external sync updates
+if (window.electron && typeof window.electron.onLinksChanged === 'function') {
+  window.electron.onLinksChanged(() => {
+    try { loadLinks(); } catch (e) {}
   });
 }

@@ -15,6 +15,12 @@ contextBridge.exposeInMainWorld('electron', {
     ipcRenderer.on('app-opacity-changed', (evt, val) => cb(val));
   }
   ,
+  // Folder sync helpers
+  chooseSyncFolder: () => ipcRenderer.invoke('choose-sync-folder'),
+  getSyncFolder: () => ipcRenderer.invoke('get-sync-folder'),
+  onLinksChanged: (cb) => {
+    ipcRenderer.on('links-changed', () => cb());
+  },
   // Generic settings API
   getSetting: (key) => ipcRenderer.invoke('get-setting', key),
   getAllSettings: () => ipcRenderer.invoke('get-all-settings'),
