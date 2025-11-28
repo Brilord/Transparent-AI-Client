@@ -50,6 +50,47 @@ npm run build:win
 
 Build artifacts are written to the `dist/` folder (installer and portable executable).
 
+## macOS build
+
+You can build macOS artifacts (dmg and zip) using electron-builder. Note: building macOS packages must run on macOS (locally or in CI). For macOS builds you can either build locally on a Mac or use the supplied GitHub Actions workflow.
+
+To build locally on macOS:
+
+```bash
+# Install deps
+npm ci
+
+# Build DMG and ZIP
+npm run build:mac
+```
+
+If you do not have code signing set up, electron-builder can still create unsigned ZIP artifacts; DMG creation may attempt signing and can fail without a developer certificate. Use a CI mac runner or add signing credentials to create signed installers.
+
+Or use the included GitHub Actions workflow which runs on macOS and uploads build artifacts automatically:
+
+- .github/workflows/build-mac.yml (runs on push to main or manually via workflow_dispatch)
+ - .github/workflows/build-windows.yml (runs on push to main or manually via workflow_dispatch)
+
+### Linux build
+
+You can build Linux artifacts (AppImage and deb) using electron-builder. Builds should run on a Linux machine or CI runner. The included GitHub Actions workflow will run on ubuntu-latest and upload the `dist/` folder when the workflow completes.
+
+To build locally on Linux:
+
+```bash
+# Install deps
+npm ci
+
+# Build AppImage and deb
+npm run build:linux
+```
+
+Or use the included CI workflow:
+
+- .github/workflows/build-linux.yml (runs on push to main or manually via workflow_dispatch)
+ - .github/workflows/build-windows.yml (runs on push to main or manually via workflow_dispatch)
+
+
 ## Project Structure
 
 - `main.js` - Electron main process with IPC handlers

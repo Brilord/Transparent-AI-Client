@@ -8,7 +8,9 @@
     "dev": "electron . --remote-debugging-port=9222",
     "build": "electron-builder",
     "build:win": "electron-builder --win",
-    "build:portable": "electron-builder --win portable"
+    "build:mac": "electron-builder --mac",
+    "build:portable": "electron-builder --win portable",
+    "build:linux": "electron-builder --linux"
   },
   "keywords": ["electron", "transparent", "link-storage"],
   "author": "",
@@ -47,10 +49,12 @@
       ]
     },
     "mac": {
-      "icon": "assets/icons/mac/icon.icns"
+      "icon": "assets/icons/mac/icon.icns",
+      "target": ["dmg", "zip"]
     },
     "linux": {
-      "icon": "assets/icons/png/512x512.png"
+      "icon": "assets/icons/png/512x512.png",
+      "target": ["AppImage", "deb"]
     },
     "nsis": {
       "oneClick": false,

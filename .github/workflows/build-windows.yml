@@ -1,0 +1,44 @@
+name: Build Windows (NSIS / portable)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Cache node modules
+      uses: actions/cache@v4
+      with:
+        path: node_modules
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build Windows artifacts
+      env:
+        # avoid automatic code signing discovery in CI if no secrets provided
+        CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      run: |
+        # build both installer (nsis) and portable exe
+        npm run build:win -- --x64 --ia32 --publish never
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-build-artifacts
+        path: dist
