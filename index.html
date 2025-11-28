@@ -35,6 +35,15 @@
             </div>
 
             <div class="links-section">
+                <div class="links-toolbar">
+                    <input id="searchInput" type="search" placeholder="Search links..." class="search-input">
+                    <div class="bulk-actions">
+                        <button id="exportBtn" class="small-btn">Export</button>
+                        <button id="importBtn" class="small-btn">Import</button>
+                        <button id="backupBtn" class="small-btn">Backup</button>
+                        <button id="deleteSelectedBtn" class="small-btn danger">Delete selected</button>
+                    </div>
+                </div>
                 <div id="linksList" class="links-list"></div>
                 <div id="emptyState" class="empty-state">
                     <p>No links stored yet</p>
@@ -90,6 +99,11 @@
 
                     <div class="setting-row">
                         <button id="resetSettingsBtn" class="reset-btn">Reset to defaults</button>
+                    </div>
+
+                    <div class="setting-row">
+                        <label><input id="telemetryChk" type="checkbox"> Enable crash reporting (anonymous, opt-in)</label>
+                        <small class="hint">Help improve the app by sending anonymous crash reports. Data is opt-in and can be revoked anytime.</small>
                     </div>
             </div>
         </div>

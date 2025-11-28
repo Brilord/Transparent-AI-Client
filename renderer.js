@@ -19,6 +19,8 @@ const resetSettingsBtn = document.getElementById('resetSettingsBtn');
 // Load links on startup
 loadLinks();
 
+let currentLinks = [];
+
 // Event listeners
 addBtn.addEventListener('click', addLink);
 urlInput.addEventListener('keypress', (e) => {
@@ -260,7 +262,8 @@ resizers.forEach(resizer => {
 
 async function loadLinks() {
   const links = await window.electron.getLinks();
-  renderLinks(links);
+  currentLinks = links || [];
+  renderLinks(currentLinks);
 }
 
 async function addLink() {
@@ -302,7 +305,7 @@ async function deleteLink(id) {
 function renderLinks(links) {
   linksList.innerHTML = '';
 
-  if (links.length === 0) {
+  if (!links || links.length === 0) {
     emptyState.style.display = 'flex';
     return;
   }
@@ -313,13 +316,97 @@ function renderLinks(links) {
     const linkElement = document.createElement('div');
     linkElement.className = 'link-item';
     linkElement.innerHTML = `
+      <div class="link-select"><input type="checkbox" class="select-checkbox" data-id="${link.id}"></div>
       <div class="link-content" onclick="window.electron.openLink('${link.url}')">
-        <div class="link-title">${link.title}</div>
+        <div class="link-title">${link.title} ${link.favorite ? '<span class="fav">★</span>' : ''}</div>
         <div class="link-url">${link.url}</div>
       </div>
-      <button class="delete-btn" onclick="deleteLink(${link.id})">Delete</button>
+      <div class="link-actions">
+        <button class="fav-btn" data-id="${link.id}">${link.favorite ? 'Unfav' : 'Fav'}</button>
+        <button class="delete-btn" data-id="${link.id}">Delete</button>
+      </div>
     `;
     linksList.appendChild(linkElement);
+  });
+
+  // Wire up action buttons
+  document.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const id = Number(e.currentTarget.getAttribute('data-id'));
+      if (confirm('Delete this link?')) {
+        await window.electron.deleteLink(id);
+        loadLinks();
+      }
+    });
+  });
+
+  document.querySelectorAll('.fav-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const id = Number(e.currentTarget.getAttribute('data-id'));
+      await window.electron.toggleFavorite(id);
+      loadLinks();
+    });
+  });
+}
+
+// Listen for external sync updates
+if (window.electron && typeof window.electron.onLinksChanged === 'function') {
+  window.electron.onLinksChanged(() => {
+    try { loadLinks(); } catch (e) {}
+  });
+}
+
+// Search
+const searchInput = document.getElementById('searchInput');
+if (searchInput) {
+  searchInput.addEventListener('input', (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    if (!q) return renderLinks(currentLinks);
+    const filtered = currentLinks.filter(l => (l.title && l.title.toLowerCase().includes(q)) || (l.url && l.url.toLowerCase().includes(q)) || (l.tags && l.tags.join(' ').toLowerCase().includes(q)));
+    renderLinks(filtered);
+  });
+}
+
+// Bulk action buttons
+const exportBtn = document.getElementById('exportBtn');
+const importBtn = document.getElementById('importBtn');
+const backupBtn = document.getElementById('backupBtn');
+const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+
+if (exportBtn) exportBtn.addEventListener('click', async () => {
+  const path = await window.electron.exportLinks();
+  if (path) alert('Exported to: ' + path);
+});
+
+if (importBtn) importBtn.addEventListener('click', async () => {
+  const ok = await window.electron.importLinks();
+  if (ok) { alert('Import complete'); loadLinks(); }
+});
+
+if (backupBtn) backupBtn.addEventListener('click', async () => {
+  const fp = await window.electron.manualBackup(5);
+  if (fp) alert('Backup saved: ' + fp);
+});
+
+if (deleteSelectedBtn) deleteSelectedBtn.addEventListener('click', async () => {
+  const checked = Array.from(document.querySelectorAll('.select-checkbox:checked')).map(cb => Number(cb.getAttribute('data-id')));
+  if (checked.length === 0) { alert('No items selected'); return; }
+  if (!confirm(`Delete ${checked.length} selected links?`)) return;
+  await window.electron.bulkDelete(checked);
+  loadLinks();
+});
+
+// Telemetry opt-in
+const telemetryChk = document.getElementById('telemetryChk');
+if (telemetryChk) {
+  (async () => {
+    try {
+      const val = await window.electron.getSetting('telemetryEnabled');
+      telemetryChk.checked = !!val;
+    } catch (err) {}
+  })();
+  telemetryChk.addEventListener('change', async (e) => {
+    await window.electron.setSetting('telemetryEnabled', !!e.target.checked);
   });
 }
 

@@ -144,6 +144,67 @@ body {
     transform: scale(0.98);
 }
 
+/* Futuristic button styling (applies to action buttons like .add-btn, .small-btn, .reset-btn) */
+.add-btn, .small-btn, .reset-btn, .choose-folder-btn, .fav-btn {
+    position: relative;
+    overflow: hidden;
+    border-radius: 10px;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, rgba(100,255,255,0.06), rgba(180,140,255,0.06));
+    border: 1px solid rgba(200,200,255,0.08);
+    color: #eaf6ff;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    box-shadow: 0 6px 18px rgba(32, 40, 60, 0.5), inset 0 -2px 8px rgba(0,0,0,0.25);
+    transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+    backdrop-filter: blur(6px) saturate(120%);
+}
+
+.add-btn::before, .small-btn::before, .reset-btn::before, .choose-folder-btn::before, .fav-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(120,200,255,0.08), rgba(200,120,255,0.06), rgba(120,200,255,0.08));
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    transform: translateX(-60%);
+    transition: transform 650ms cubic-bezier(.2,.9,.2,1);
+}
+
+.add-btn:hover::before, .small-btn:hover::before, .reset-btn:hover::before, .choose-folder-btn:hover::before, .fav-btn:hover::before {
+    transform: translateX(10%);
+}
+
+.add-btn:hover, .small-btn:hover, .reset-btn:hover, .choose-folder-btn:hover, .fav-btn:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 14px 36px rgba(50,70,120,0.45), 0 0 18px rgba(120,160,255,0.08);
+    filter: saturate(120%);
+}
+
+.add-btn:active, .small-btn:active, .reset-btn:active, .choose-folder-btn:active, .fav-btn:active {
+    transform: translateY(-1px) scale(0.995);
+}
+
+/* Neon outline on focus for accessibility */
+.add-btn:focus, .small-btn:focus, .reset-btn:focus, .choose-folder-btn:focus, .fav-btn:focus {
+    outline: none;
+    box-shadow: 0 6px 22px rgba(30,120,255,0.18), 0 0 8px rgba(120,180,255,0.18), inset 0 0 0 1px rgba(120,180,255,0.08);
+}
+
+/* Small button variant */
+.small-btn {
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+}
+
+/* Danger style for destructive small buttons */
+.small-btn.danger {
+    color: #ffdfe0;
+    background: linear-gradient(135deg, rgba(255,40,60,0.06), rgba(255,40,60,0.03));
+    border: 1px solid rgba(255,40,60,0.12);
+}
+
 .links-section {
     flex: 1;
     overflow-y: auto;

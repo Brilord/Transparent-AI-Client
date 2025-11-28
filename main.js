@@ -17,6 +17,8 @@ const DEFAULT_SETTINGS = {
   // Folder sync settings
   useFolderSync: false,
   syncFolder: null,
+  // Telemetry opt-in
+  telemetryEnabled: false,
   leftQuarterShortcut: false,
   leftThirdShortcut: false
 };
@@ -274,11 +276,92 @@ ipcMain.handle('add-link', (event, link) => {
     id: Date.now(),
     url: link.url,
     title: link.title || new URL(link.url).hostname,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    favorite: false,
+    tags: []
   };
   links.push(newLink);
   saveLinks(links);
   return newLink;
+});
+
+ipcMain.handle('toggle-favorite', (event, id) => {
+  try {
+    const links = loadLinks();
+    const idx = links.findIndex(l => l.id === id);
+    if (idx === -1) return false;
+    links[idx].favorite = !links[idx].favorite;
+    links[idx].updatedAt = new Date().toISOString();
+    saveLinks(links);
+    return true;
+  } catch (err) { return false; }
+});
+
+ipcMain.handle('bulk-delete', (event, ids) => {
+  try {
+    let links = loadLinks();
+    links = links.filter(l => !ids.includes(l.id));
+    saveLinks(links);
+    return true;
+  } catch (err) { return false; }
+});
+
+// Export links: show save dialog and write JSON
+ipcMain.handle('export-links', async (event) => {
+  try {
+    const links = loadLinks();
+    const res = await dialog.showSaveDialog({
+      title: 'Export links',
+      defaultPath: path.join(app.getPath('documents'), 'plana-links.json'),
+      filters: [{ name: 'JSON', extensions: ['json'] }]
+    });
+    if (res.canceled || !res.filePath) return null;
+    fs.writeFileSync(res.filePath, JSON.stringify(links, null, 2), 'utf8');
+    return res.filePath;
+  } catch (err) { console.error(err); return null; }
+});
+
+// Import links: show open dialog, read file and merge by id (add new)
+ipcMain.handle('import-links', async (event) => {
+  try {
+    const res = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: 'JSON', extensions: ['json'] }] });
+    if (res.canceled || !res.filePaths || !res.filePaths[0]) return null;
+    const raw = fs.readFileSync(res.filePaths[0], 'utf8');
+  let imported = JSON.parse(raw);
+  // accept either an array of links or a wrapper { updatedAt, links }
+  if (imported && typeof imported === 'object' && Array.isArray(imported.links)) imported = imported.links;
+  if (!Array.isArray(imported)) return null;
+  const links = loadLinks();
+    const existingIds = new Set(links.map(l => l.id));
+    for (const item of imported) {
+      if (!item.id || existingIds.has(item.id)) continue;
+      // normalize
+      const newItem = Object.assign({ createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), favorite: false, tags: [] }, item);
+      links.push(newItem);
+    }
+    saveLinks(links);
+    return true;
+  } catch (err) { console.error(err); return null; }
+});
+
+// Manual backup: keep last N revisions in appData/backups
+ipcMain.handle('manual-backup', (event, keepN = 5) => {
+  try {
+    const links = loadLinks();
+    const backupsDir = path.join(app.getPath('userData'), 'backups');
+    if (!fs.existsSync(backupsDir)) fs.mkdirSync(backupsDir, { recursive: true });
+    const filename = `links-${Date.now()}.json`;
+    const filepath = path.join(backupsDir, filename);
+    fs.writeFileSync(filepath, JSON.stringify(links, null, 2), 'utf8');
+    // prune
+    const files = fs.readdirSync(backupsDir).filter(f => f.startsWith('links-')).map(f => ({ f, t: fs.statSync(path.join(backupsDir, f)).mtimeMs }));
+    files.sort((a, b) => b.t - a.t);
+    for (let i = keepN; i < files.length; i++) {
+      try { fs.unlinkSync(path.join(backupsDir, files[i].f)); } catch (e) {}
+    }
+    return filepath;
+  } catch (err) { console.error(err); return null; }
 });
 
 ipcMain.handle('delete-link', (event, id) => {

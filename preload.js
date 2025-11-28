@@ -21,6 +21,13 @@ contextBridge.exposeInMainWorld('electron', {
   onLinksChanged: (cb) => {
     ipcRenderer.on('links-changed', () => cb());
   },
+  // Export / Import / Backup
+  exportLinks: () => ipcRenderer.invoke('export-links'),
+  importLinks: () => ipcRenderer.invoke('import-links'),
+  manualBackup: (keepN) => ipcRenderer.invoke('manual-backup', keepN),
+  // Link actions
+  toggleFavorite: (id) => ipcRenderer.invoke('toggle-favorite', id),
+  bulkDelete: (ids) => ipcRenderer.invoke('bulk-delete', ids),
   // Generic settings API
   getSetting: (key) => ipcRenderer.invoke('get-setting', key),
   getAllSettings: () => ipcRenderer.invoke('get-all-settings'),
