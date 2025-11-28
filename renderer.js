@@ -12,6 +12,8 @@ const opacityVal = document.getElementById('opacityVal');
 const alwaysOnTopChk = document.getElementById('alwaysOnTopChk');
 const injectResizersChk = document.getElementById('injectResizersChk');
 const persistSettingsChk = document.getElementById('persistSettingsChk');
+const leftQuarterChk = document.getElementById('leftQuarterChk');
+const leftThirdChk = document.getElementById('leftThirdChk');
 const resetSettingsBtn = document.getElementById('resetSettingsBtn');
 
 // Load links on startup
@@ -111,6 +113,8 @@ async function initSettingsUI() {
     if (typeof s.alwaysOnTop === 'boolean') alwaysOnTopChk.checked = s.alwaysOnTop;
     if (typeof s.injectResizers === 'boolean') injectResizersChk.checked = s.injectResizers;
     if (typeof s.persistSettings === 'boolean') persistSettingsChk.checked = s.persistSettings;
+    if (typeof s.leftQuarterShortcut === 'boolean') leftQuarterChk.checked = s.leftQuarterShortcut;
+    if (typeof s.leftThirdShortcut === 'boolean') leftThirdChk.checked = s.leftThirdShortcut;
 
     // Wire up change listeners
     alwaysOnTopChk.addEventListener('change', async (e) => {
@@ -125,6 +129,14 @@ async function initSettingsUI() {
       await window.electron.setSetting('persistSettings', !!e.target.checked);
     });
 
+    leftQuarterChk.addEventListener('change', async (e) => {
+      await window.electron.setSetting('leftQuarterShortcut', !!e.target.checked);
+    });
+
+    leftThirdChk.addEventListener('change', async (e) => {
+      await window.electron.setSetting('leftThirdShortcut', !!e.target.checked);
+    });
+
     resetSettingsBtn.addEventListener('click', async () => {
       if (!confirm('Reset settings to defaults?')) return;
       const newSettings = await window.electron.resetSettings();
@@ -136,6 +148,9 @@ async function initSettingsUI() {
         alwaysOnTopChk.checked = newSettings.alwaysOnTop;
         injectResizersChk.checked = newSettings.injectResizers;
         persistSettingsChk.checked = newSettings.persistSettings;
+        // reflect new boolean settings into UI
+        leftQuarterChk.checked = !!newSettings.leftQuarterShortcut;
+        leftThirdChk.checked = !!newSettings.leftThirdShortcut;
       }
     });
 
@@ -148,6 +163,8 @@ async function initSettingsUI() {
             opacityVal.innerText = Math.round(value * 100) + '%';
             try { document.documentElement.style.setProperty('--bg-opacity', (value * 0.06).toString()); } catch (e) {}
           }
+          if (key === 'leftQuarterShortcut') leftQuarterChk.checked = !!value;
+          if (key === 'leftThirdShortcut') leftThirdChk.checked = !!value;
           if (key === 'alwaysOnTop') alwaysOnTopChk.checked = !!value;
           if (key === 'injectResizers') injectResizersChk.checked = !!value;
           if (key === 'persistSettings') persistSettingsChk.checked = !!value;

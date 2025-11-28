@@ -19,6 +19,10 @@ Additional options in the same panel:
 - 🔁 Persist settings — save option changes (opacity / always-on-top / resizer injection) across app restarts.
 - 🔧 Inject resizers — toggle whether the app attempts to insert invisible resizer handles into link windows (some websites block injection; if disabled use keyboard shortcuts for resizing instead).
 - ♻️ Reset to defaults — quickly reset all options to the app defaults.
+- ⌨️ New keyboard snap shortcuts — in Options you can enable two additional snapping shortcuts for quickly resizing windows on the left side of the screen:
+  - Ctrl+Alt+6 → snap focused window to left 1/4
+  - Ctrl+Alt+7 → snap focused window to left 1/3
+  You can toggle each shortcut on/off from the Options panel.
 
 ## Installation
 

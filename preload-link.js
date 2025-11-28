@@ -217,6 +217,16 @@ document.addEventListener('keydown', async (e) => {
         case '3': await ipcRenderer.invoke('snap-window', 'top'); e.preventDefault(); return;
         case '4': await ipcRenderer.invoke('snap-window', 'bottom'); e.preventDefault(); return;
         case '5': await ipcRenderer.invoke('snap-window', 'center'); e.preventDefault(); return;
+        case '6': {
+          // left 1/4
+          try { const enabled = await ipcRenderer.invoke('get-setting', 'leftQuarterShortcut'); if (enabled) { await ipcRenderer.invoke('snap-window', 'left-quarter'); e.preventDefault(); } } catch (err) {}
+          return;
+        }
+        case '7': {
+          // left 1/3
+          try { const enabled = await ipcRenderer.invoke('get-setting', 'leftThirdShortcut'); if (enabled) { await ipcRenderer.invoke('snap-window', 'left-third'); e.preventDefault(); } } catch (err) {}
+          return;
+        }
       }
     }
   } catch (err) {

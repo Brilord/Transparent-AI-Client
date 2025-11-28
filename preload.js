@@ -91,5 +91,23 @@ window.addEventListener('DOMContentLoaded', () => {
         case '5': await ipcRenderer.invoke('snap-window', 'center'); e.preventDefault(); return;
       }
     }
+
+      // Additional snap shortcuts (left 1/4 and left 1/3) using number keys 6 & 7
+      if (e.ctrlKey && e.altKey && !e.shiftKey) {
+        try {
+          switch (e.key) {
+            case '6': {
+              const enabled = await ipcRenderer.invoke('get-setting', 'leftQuarterShortcut');
+              if (enabled) { await ipcRenderer.invoke('snap-window', 'left-quarter'); e.preventDefault(); }
+              return;
+            }
+            case '7': {
+              const enabled = await ipcRenderer.invoke('get-setting', 'leftThirdShortcut');
+              if (enabled) { await ipcRenderer.invoke('snap-window', 'left-third'); e.preventDefault(); }
+              return;
+            }
+          }
+        } catch (err) { /* ignore */ }
+      }
   });
 });

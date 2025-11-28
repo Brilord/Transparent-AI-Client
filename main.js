@@ -13,7 +13,9 @@ const DEFAULT_SETTINGS = {
   appOpacity: 1.0,
   alwaysOnTop: false,
   injectResizers: true,
-  persistSettings: true
+  persistSettings: true,
+  leftQuarterShortcut: false,
+  leftThirdShortcut: false
 };
 
 let appSettings = Object.assign({}, DEFAULT_SETTINGS);
@@ -191,6 +193,10 @@ ipcMain.handle('snap-window', (event, direction) => {
     switch (direction) {
       case 'left':
         nb.x = d.x; nb.y = d.y; nb.width = Math.floor(d.width / 2); nb.height = d.height; break;
+      case 'left-quarter':
+        nb.x = d.x; nb.y = d.y; nb.width = Math.floor(d.width / 4); nb.height = d.height; break;
+      case 'left-third':
+        nb.x = d.x; nb.y = d.y; nb.width = Math.floor(d.width / 3); nb.height = d.height; break;
       case 'right':
         nb.x = d.x + Math.floor(d.width / 2); nb.y = d.y; nb.width = Math.floor(d.width / 2); nb.height = d.height; break;
       case 'top':
