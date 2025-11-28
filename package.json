@@ -23,6 +23,7 @@
     "directories": {
       "buildResources": "assets"
     },
+    "icon": "assets/icons/png/1024x1024.png",
     "files": [
       "main.js",
       "preload.js",
@@ -33,6 +34,7 @@
       "node_modules/**/*"
     ],
     "win": {
+      "icon": "assets/icons/win/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -43,6 +45,12 @@
           "arch": ["x64"]
         }
       ]
+    },
+    "mac": {
+      "icon": "assets/icons/mac/icon.icns"
+    },
+    "linux": {
+      "icon": "assets/icons/png/512x512.png"
     },
     "nsis": {
       "oneClick": false,

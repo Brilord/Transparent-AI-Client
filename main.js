@@ -46,6 +46,7 @@ function createWindow() {
     movable: true,
     minWidth: 420,
     minHeight: 300,
+    icon: path.join(__dirname, 'assets', 'icons', 'png', '512x512.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
