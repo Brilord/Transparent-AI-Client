@@ -31,15 +31,78 @@ document.addEventListener('mouseleave', () => {
 });
 
 // Insert resizers into external pages so users can resize link windows
+// Cache latest app opacity messages and update overlay when possible
+let __latestAppOpacity = null;
+ipcRenderer.on('app-opacity-changed', (event, value) => {
+  __latestAppOpacity = value;
+  try {
+    const overlay = document.getElementById('__pl_bg_overlay');
+    if (overlay) {
+      const alpha = Math.max(0, Math.min(1, value * 0.06));
+      overlay.style.background = `rgba(255,255,255, ${alpha})`;
+    }
+  } catch (e) {}
+});
+
 window.addEventListener('DOMContentLoaded', async () => {
   try {
+    // Create a background overlay element (so we can make background translucent without affecting page content)
+    const ensureOverlay = async () => {
+      try {
+        let val = 1.0;
+        try { const v = await ipcRenderer.invoke('get-app-opacity'); if (typeof v === 'number') val = v; } catch (e) {}
+        // Use a subtle multiplier so full slider (1.0) maps to a light background alpha
+        const alpha = Math.max(0, Math.min(1, val * 0.06));
+        let overlay = document.getElementById('__pl_bg_overlay');
+        if (!overlay) {
+          overlay = document.createElement('div');
+          overlay.id = '__pl_bg_overlay';
+          overlay.style.position = 'fixed';
+          overlay.style.top = '0'; overlay.style.left = '0'; overlay.style.right = '0'; overlay.style.bottom = '0';
+          overlay.style.pointerEvents = 'none';
+          overlay.style.zIndex = '-9999';
+          // insert at start so it's typically behind page content
+          document.documentElement.insertBefore(overlay, document.documentElement.firstChild);
+        }
+        // Use a slightly tinted frosted overlay and backdrop blur to simulate acrylic
+        overlay.style.background = `linear-gradient(180deg, rgba(255,255,255, ${Math.max(0.02, alpha)}), rgba(255,255,255, ${Math.max(0.01, alpha * 0.7)}))`;
+        // Backdrop blur of the page behind overlay creates a frosted effect
+        overlay.style.backdropFilter = `blur(${Math.max(4, Math.round(alpha * 40))}px) saturate(120%)`;
+        overlay.style.webkitBackdropFilter = overlay.style.backdropFilter;
+      } catch (err) { /* ignore overlay failures */ }
+    };
+
+    // Apply initial overlay (use last message if received)
+    if (__latestAppOpacity !== null) {
+      try { const overlay = document.getElementById('__pl_bg_overlay'); if (!overlay) { await ensureOverlay(); } else { const alpha = Math.max(0, Math.min(1, __latestAppOpacity * 0.06)); overlay.style.background = `rgba(255,255,255, ${alpha})`; } } catch (e) {}
+    } else {
+      await ensureOverlay();
+    }
+
+    // Listen for future background-only opacity updates
+    ipcRenderer.on('app-opacity-changed', (event, value) => {
+      try {
+        const alpha = Math.max(0, Math.min(1, value * 0.06));
+        const overlay = document.getElementById('__pl_bg_overlay');
+        if (overlay) {
+          overlay.style.background = `linear-gradient(180deg, rgba(255,255,255, ${Math.max(0.02, alpha)}), rgba(255,255,255, ${Math.max(0.01, alpha * 0.7)}))`;
+          const blurPx = Math.max(4, Math.round(alpha * 40));
+          overlay.style.backdropFilter = `blur(${blurPx}px) saturate(120%)`;
+          overlay.style.webkitBackdropFilter = overlay.style.backdropFilter;
+        }
+      } catch (e) {}
+    });
+
     // Check whether the app settings allow injecting resizers into remote pages
     let inject = true;
     try {
       const val = await ipcRenderer.invoke('get-setting', 'injectResizers');
       if (typeof val === 'boolean') inject = val;
     } catch (err) { /* ignore and default to true */ }
-    if (!inject) return; // do not inject resizers when disabled
+    // only skip resizer injection — overlay is applied regardless
+    if (!inject) {
+      return;
+    }
 
     const edges = ['n','e','s','w','ne','nw','se','sw'];
     edges.forEach(edge => {

@@ -64,10 +64,15 @@ async function initOpacityControl() {
     }
     opacityRange.value = current;
     opacityVal.innerText = Math.round(current * 100) + '%';
+    // apply background-only opacity on main window; map slider value to a subtle alpha
+    try { document.documentElement.style.setProperty('--bg-opacity', (current * 0.06).toString()); } catch (e) {}
+    try { document.documentElement.style.setProperty('--bg-blur', Math.max(8, Math.round(current * 22)) + 'px'); } catch (e) {}
 
     opacityRange.addEventListener('input', (e) => {
       const v = parseFloat(e.target.value);
       opacityVal.innerText = Math.round(v * 100) + '%';
+      try { document.documentElement.style.setProperty('--bg-opacity', (v * 0.06).toString()); } catch (e) {}
+      try { document.documentElement.style.setProperty('--bg-blur', Math.max(8, Math.round(v * 22)) + 'px'); } catch (e) {}
     });
 
     opacityRange.addEventListener('change', async (e) => {
@@ -83,6 +88,8 @@ async function initOpacityControl() {
         try {
           opacityRange.value = val;
           opacityVal.innerText = Math.round(val * 100) + '%';
+          try { document.documentElement.style.setProperty('--bg-opacity', (val * 0.06).toString()); } catch (e) {}
+          try { document.documentElement.style.setProperty('--bg-blur', Math.max(8, Math.round(val * 22)) + 'px'); } catch (e) {}
         } catch (err) {}
       });
     }
@@ -121,10 +128,11 @@ async function initSettingsUI() {
     resetSettingsBtn.addEventListener('click', async () => {
       if (!confirm('Reset settings to defaults?')) return;
       const newSettings = await window.electron.resetSettings();
-      if (newSettings) {
+        if (newSettings) {
         // update UI to reflect defaults
         opacityRange.value = newSettings.appOpacity;
         opacityVal.innerText = Math.round(newSettings.appOpacity * 100) + '%';
+          try { document.documentElement.style.setProperty('--bg-opacity', (newSettings.appOpacity * 0.06).toString()); } catch (e) {}
         alwaysOnTopChk.checked = newSettings.alwaysOnTop;
         injectResizersChk.checked = newSettings.injectResizers;
         persistSettingsChk.checked = newSettings.persistSettings;
@@ -138,6 +146,7 @@ async function initSettingsUI() {
           if (key === 'appOpacity') {
             opacityRange.value = value;
             opacityVal.innerText = Math.round(value * 100) + '%';
+            try { document.documentElement.style.setProperty('--bg-opacity', (value * 0.06).toString()); } catch (e) {}
           }
           if (key === 'alwaysOnTop') alwaysOnTopChk.checked = !!value;
           if (key === 'injectResizers') injectResizersChk.checked = !!value;

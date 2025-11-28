@@ -69,7 +69,10 @@ function createWindow() {
   });
 
   // Ensure main window honors global opacity
-  if (typeof appOpacity === 'number') mainWindow.setOpacity(appOpacity);
+    // Notify main renderer of current app opacity so it can apply background-only transparency
+    mainWindow.webContents.on('did-finish-load', () => {
+      try { mainWindow.webContents.send('app-opacity-changed', appOpacity); } catch (e) {}
+    });
 
   mainWindow.loadFile('index.html');
 
@@ -285,7 +288,8 @@ ipcMain.handle('open-link', (event, url) => {
 
   // Apply current app opacity immediately
   try {
-    if (typeof appOpacity === 'number') linkWindow.setOpacity(appOpacity);
+     // Let the link window's preload script apply background-only opacity (it listens to app-opacity-changed)
+     linkWindow.webContents.send('app-opacity-changed', appOpacity);
   } catch (err) { /* ignore if unsupported */ }
 
   // Keep track of open link windows so we can update opacity later
@@ -395,21 +399,12 @@ ipcMain.handle('set-app-opacity', (event, value) => {
     if (appSettings.persistSettings) saveSettings();
 
     // Update main window
-    if (mainWindow && !mainWindow.isDestroyed() && typeof mainWindow.setOpacity === 'function') {
-      try { mainWindow.setOpacity(appOpacity); } catch (e) {}
-    }
+      // Tell renderers to update their background-only opacity
+      BrowserWindow.getAllWindows().forEach(w => {
+        try { w.webContents.send('app-opacity-changed', appOpacity); } catch (e) {}
+      });
 
-    // Update any link windows we have open
-    for (const win of linkWindows) {
-      if (win && !win.isDestroyed() && typeof win.setOpacity === 'function') {
-        try { win.setOpacity(appOpacity); } catch (e) {}
-      }
-    }
-
-    // Broadcast to all renderer processes that opacity changed (in case they need to update UI)
-    BrowserWindow.getAllWindows().forEach(w => {
-      try { w.webContents.send('app-opacity-changed', appOpacity); } catch (e) {}
-    });
+    // (renderers are notified above) — link windows will update via 'app-opacity-changed' message
 
     return true;
   } catch (err) {
@@ -482,8 +477,9 @@ ipcMain.handle('set-setting', (event, key, value) => {
       const v = typeof value === 'number' ? value : parseFloat(value);
       if (!isNaN(v)) {
         appOpacity = Math.max(0.05, Math.min(1, v));
-        if (mainWindow && !mainWindow.isDestroyed() && typeof mainWindow.setOpacity === 'function') mainWindow.setOpacity(appOpacity);
-        for (const win of linkWindows) if (win && !win.isDestroyed() && typeof win.setOpacity === 'function') win.setOpacity(appOpacity);
+        // Notify renderers to update their background opacity (main renderer and link preloads will react)
+        if (mainWindow && !mainWindow.isDestroyed()) try { mainWindow.webContents.send('app-opacity-changed', appOpacity); } catch (e) {}
+        for (const win of linkWindows) if (win && !win.isDestroyed()) try { win.webContents.send('app-opacity-changed', appOpacity); } catch (e) {}
       }
     }
   } catch (err) { /* ignore */ }
@@ -503,11 +499,11 @@ ipcMain.handle('reset-settings', () => {
 
   // apply to windows
   try { appOpacity = appSettings.appOpacity; } catch (e) {}
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    try { mainWindow.setAlwaysOnTop(appSettings.alwaysOnTop); mainWindow.setOpacity(appOpacity); } catch (e) {}
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      try { mainWindow.setAlwaysOnTop(appSettings.alwaysOnTop); mainWindow.webContents.send('app-opacity-changed', appOpacity); } catch (e) {}
   }
   for (const win of linkWindows) if (win && !win.isDestroyed()) {
-    try { win.setAlwaysOnTop(appSettings.alwaysOnTop); win.setOpacity(appOpacity); } catch (e) {}
+     try { win.setAlwaysOnTop(appSettings.alwaysOnTop); win.webContents.send('app-opacity-changed', appOpacity); } catch (e) {}
   }
 
   BrowserWindow.getAllWindows().forEach(w => {
