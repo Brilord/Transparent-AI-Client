@@ -7,6 +7,13 @@ contextBridge.exposeInMainWorld('electron', {
   minimizeWindow: () => ipcRenderer.invoke('minimize-window'),
   closeWindow: () => ipcRenderer.invoke('close-window'),
   openLink: (url) => ipcRenderer.invoke('open-link', url)
+  ,
+  // App-level settings
+  getAppOpacity: () => ipcRenderer.invoke('get-app-opacity'),
+  setAppOpacity: (value) => ipcRenderer.invoke('set-app-opacity', value),
+  onAppOpacityChanged: (cb) => {
+    ipcRenderer.on('app-opacity-changed', (evt, val) => cb(val));
+  }
 });
 
 // Window management helpers

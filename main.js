@@ -3,6 +3,8 @@ const path = require('path');
 const fs = require('fs');
 
 let mainWindow;
+let appOpacity = 1.0; // global app opacity applied to all windows
+const linkWindows = new Set();
 const dataFile = path.join(app.getPath('userData'), 'links.json');
 
 // Initialize links storage
@@ -53,6 +55,9 @@ function createWindow() {
       enableRemoteModule: false
     }
   });
+
+  // Ensure main window honors global opacity
+  if (typeof appOpacity === 'number') mainWindow.setOpacity(appOpacity);
 
   mainWindow.loadFile('index.html');
 
@@ -262,6 +267,14 @@ ipcMain.handle('open-link', (event, url) => {
   // Load the URL directly
   linkWindow.loadURL(url);
 
+  // Apply current app opacity immediately
+  try {
+    if (typeof appOpacity === 'number') linkWindow.setOpacity(appOpacity);
+  } catch (err) { /* ignore if unsupported */ }
+
+  // Keep track of open link windows so we can update opacity later
+  linkWindows.add(linkWindow);
+
   // Apply transparent styling via CSS injection
   linkWindow.webContents.on('did-finish-load', () => {
     linkWindow.webContents.insertCSS(`
@@ -347,8 +360,45 @@ ipcMain.handle('open-link', (event, url) => {
   })(linkWindow);
 
   linkWindow.on('closed', function () {
+    linkWindows.delete(linkWindow);
     linkWindow = null;
   });
 
   return true;
+});
+
+// Set opacity for all existing windows
+ipcMain.handle('set-app-opacity', (event, value) => {
+  try {
+    if (typeof value !== 'number') value = parseFloat(value);
+    if (isNaN(value)) return false;
+    value = Math.max(0.05, Math.min(1, value));
+    appOpacity = value;
+
+    // Update main window
+    if (mainWindow && !mainWindow.isDestroyed() && typeof mainWindow.setOpacity === 'function') {
+      try { mainWindow.setOpacity(appOpacity); } catch (e) {}
+    }
+
+    // Update any link windows we have open
+    for (const win of linkWindows) {
+      if (win && !win.isDestroyed() && typeof win.setOpacity === 'function') {
+        try { win.setOpacity(appOpacity); } catch (e) {}
+      }
+    }
+
+    // Broadcast to all renderer processes that opacity changed (in case they need to update UI)
+    BrowserWindow.getAllWindows().forEach(w => {
+      try { w.webContents.send('app-opacity-changed', appOpacity); } catch (e) {}
+    });
+
+    return true;
+  } catch (err) {
+    console.error('Error setting app opacity:', err);
+    return false;
+  }
+});
+
+ipcMain.handle('get-app-opacity', () => {
+  return appOpacity;
 });

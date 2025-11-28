@@ -10,6 +10,10 @@ A minimal Electron application with a transparent, glass-style UI for storing an
 - 🖱️ Click links to open them inside transparent app windows
 - ⌨️ Keyboard and mouse controls for precise window movement and resizing
 
+### Options / Transparency
+
+- ⚙️ New Options tab: open the settings (gear) in the titlebar to reveal a "Window transparency" slider. This adjusts the opacity of the main window and any currently open link windows in real time.
+
 ## Installation
 
 1. Install dependencies:
