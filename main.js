@@ -10,6 +10,7 @@ const settingsFile = path.join(app.getPath('userData'), 'settings.json');
 
 // Default app settings
 const DEFAULT_SETTINGS = {
+  mainWindowBounds: null,
   appOpacity: 1.0,
   alwaysOnTop: false,
   injectResizers: true,
@@ -78,9 +79,12 @@ function saveLinks(links) {
 }
 
 function createWindow() {
+  const restoredBounds = normalizeMainBounds(appSettings.mainWindowBounds);
+
   mainWindow = new BrowserWindow({
-    width: 600,
-    height: 800,
+    width: restoredBounds ? restoredBounds.width : 600,
+    height: restoredBounds ? restoredBounds.height : 800,
+    ...(restoredBounds ? { x: restoredBounds.x, y: restoredBounds.y } : {}),
     transparent: true,
     frame: false,
     alwaysOnTop: !!appSettings.alwaysOnTop,
@@ -111,6 +115,39 @@ function createWindow() {
   mainWindow.on('closed', function () {
     mainWindow = null;
   });
+
+  // Persist main window bounds (debounced) whenever it moves or resizes
+  (function attachMainBoundsPersistence() {
+    let boundsSaveTimer = null;
+    const persistBounds = () => {
+      try {
+        if (!mainWindow || mainWindow.isDestroyed()) return;
+        const b = mainWindow.getBounds();
+        appSettings.mainWindowBounds = {
+          x: b.x,
+          y: b.y,
+          width: b.width,
+          height: b.height
+        };
+        if (appSettings.persistSettings) saveSettings();
+      } catch (err) {
+        // ignore
+      }
+    };
+    const scheduleSave = () => {
+      if (boundsSaveTimer) clearTimeout(boundsSaveTimer);
+      boundsSaveTimer = setTimeout(persistBounds, 400);
+    };
+    mainWindow.on('move', scheduleSave);
+    mainWindow.on('resize', scheduleSave);
+    mainWindow.on('close', () => {
+      if (boundsSaveTimer) {
+        clearTimeout(boundsSaveTimer);
+        boundsSaveTimer = null;
+      }
+      try { persistBounds(); } catch (e) {}
+    });
+  })();
 
   // Snap main window to screen edges when moved
   (function attachMainSnap() {
@@ -786,3 +823,29 @@ ipcMain.handle('get-sync-folder', () => {
 app.on('ready', () => {
   try { if (appSettings.useFolderSync && appSettings.syncFolder) startSyncWatcher(); } catch (e) {}
 });
+
+// Validate and constrain saved bounds so the window doesn't reopen off-screen
+function normalizeMainBounds(bounds) {
+  try {
+    if (!bounds || typeof bounds !== 'object') return null;
+    let { x, y, width, height } = bounds;
+    if (![x, y, width, height].every(v => typeof v === 'number' && !isNaN(v))) return null;
+    const minWidth = 420;
+    const minHeight = 300;
+    width = Math.max(minWidth, Math.floor(width));
+    height = Math.max(minHeight, Math.floor(height));
+    x = Math.floor(x);
+    y = Math.floor(y);
+    const display = screen.getDisplayMatching({ x, y, width, height }) || screen.getPrimaryDisplay();
+    const work = display.workArea;
+    width = Math.min(width, work.width);
+    height = Math.min(height, work.height);
+    if (x < work.x) x = work.x;
+    if (y < work.y) y = work.y;
+    if (x + width > work.x + work.width) x = work.x + work.width - width;
+    if (y + height > work.y + work.height) y = work.y + work.height - height;
+    return { x, y, width, height };
+  } catch (err) {
+    return null;
+  }
+}
