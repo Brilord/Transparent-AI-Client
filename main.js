@@ -5,6 +5,7 @@ const fs = require('fs');
 let mainWindow;
 let appOpacity = 1.0; // global app opacity applied to all windows
 const linkWindows = new Set();
+const linkWindowMeta = new Map(); // track metadata for open link windows
 const dataFile = path.join(app.getPath('userData'), 'links.json');
 const settingsFile = path.join(app.getPath('userData'), 'settings.json');
 
@@ -24,8 +25,8 @@ const DEFAULT_SETTINGS = {
   leftThirdShortcut: false,
   // Launch behavior
   launchOnStartup: false,
-  // Last opened link (to restore on next launch)
-  lastOpenedLink: null
+  // Last opened links (to restore on next launch)
+  lastOpenedLinks: []
 };
 
 let appSettings = Object.assign({}, DEFAULT_SETTINGS);
@@ -86,6 +87,31 @@ function saveLinks(links) {
 function closeAllLinkWindows() {
   for (const win of Array.from(linkWindows)) {
     try { win.close(); } catch (err) {}
+  }
+}
+
+// Persist the set of currently open link windows so we can restore them on next launch
+function persistOpenLinksState() {
+  try {
+    const openLinks = [];
+    for (const [win, meta] of linkWindowMeta.entries()) {
+      if (!win || win.isDestroyed()) continue;
+      if (!meta || !meta.url) continue;
+      openLinks.push({ id: meta.id || null, url: meta.url });
+    }
+    // Remove duplicates (by id or url)
+    const deduped = [];
+    const seen = new Set();
+    for (const l of openLinks) {
+      const key = l.id ? `id:${l.id}` : `url:${l.url}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(l);
+    }
+    appSettings.lastOpenedLinks = deduped;
+    if (appSettings.persistSettings) saveSettings();
+  } catch (err) {
+    console.error('Error persisting open links state:', err);
   }
 }
 
@@ -300,7 +326,7 @@ app.on('ready', () => {
   if (typeof appSettings.appOpacity === 'number') appOpacity = appSettings.appOpacity;
   createWindow();
   // Restore the last opened link (if any) after the main window is ready
-  try { reopenLastLinkIfAvailable(); } catch (err) {}
+  try { reopenLastLinksIfAvailable(); } catch (err) {}
 });
 
 app.on('window-all-closed', function () {
@@ -316,6 +342,7 @@ app.on('activate', function () {
 });
 
 app.on('before-quit', () => {
+  persistOpenLinksState();
   closeAllLinkWindows();
 });
 
@@ -430,6 +457,7 @@ ipcMain.handle('minimize-window', () => {
 });
 
 ipcMain.handle('close-window', () => {
+  persistOpenLinksState();
   closeAllLinkWindows();
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
 });
@@ -498,7 +526,10 @@ function openLinkWindow(idOrUrl, maybeUrl) {
 
   // Remember the last opened link so we can restore it on next launch
   try {
-    appSettings.lastOpenedLink = { id: id || null, url };
+    linkWindowMeta.set(linkWindow, { id: id || null, url });
+    appSettings.lastOpenedLinks = Array.from(linkWindowMeta.values())
+      .filter(v => v && v.url)
+      .map(v => ({ id: v.id || null, url: v.url }));
     if (appSettings.persistSettings) saveSettings();
   } catch (err) {}
 
@@ -622,6 +653,7 @@ function openLinkWindow(idOrUrl, maybeUrl) {
 
   linkWindow.on('closed', function () {
     linkWindows.delete(linkWindow);
+    linkWindowMeta.delete(linkWindow);
     linkWindow = null;
   });
 
@@ -632,21 +664,24 @@ ipcMain.handle('open-link', (event, idOrUrl, maybeUrl) => {
   return openLinkWindow(idOrUrl, maybeUrl);
 });
 
-// Try to restore the last opened link when the app launches
-function reopenLastLinkIfAvailable() {
+// Try to restore the last opened links when the app launches
+function reopenLastLinksIfAvailable() {
   try {
-    const last = appSettings && appSettings.lastOpenedLink;
-    if (!last || !last.url) return;
-    let targetId = last.id || null;
-    let targetUrl = last.url;
-    if (targetId) {
-      try {
-        const links = loadLinks();
-        const found = links.find(l => Number(l.id) === Number(targetId));
+    const lastList = Array.isArray(appSettings.lastOpenedLinks) ? appSettings.lastOpenedLinks : [];
+    if (!lastList.length) return;
+    const links = loadLinks();
+    const byId = new Map();
+    for (const l of links) byId.set(Number(l.id), l);
+
+    lastList.forEach(entry => {
+      if (!entry || !entry.url) return;
+      let targetUrl = entry.url;
+      if (entry.id) {
+        const found = byId.get(Number(entry.id));
         if (found && found.url) targetUrl = found.url;
-      } catch (err) {}
-    }
-    openLinkWindow(targetId, targetUrl);
+      }
+      openLinkWindow(entry.id || null, targetUrl);
+    });
   } catch (err) { /* ignore */ }
 }
 
@@ -693,6 +728,12 @@ function loadSettings() {
     appSettings = Object.assign({}, DEFAULT_SETTINGS, parsed);
     // reflect appOpacity from settings
     if (typeof appSettings.appOpacity === 'number') appOpacity = appSettings.appOpacity;
+    // Normalize last opened links (support legacy single object)
+    if (appSettings.lastOpenedLink && !Array.isArray(appSettings.lastOpenedLinks)) {
+      const legacy = appSettings.lastOpenedLink;
+      if (legacy && legacy.url) appSettings.lastOpenedLinks = [{ id: legacy.id || null, url: legacy.url }];
+    }
+    if (!Array.isArray(appSettings.lastOpenedLinks)) appSettings.lastOpenedLinks = [];
     // Keep launch-on-startup in sync with OS login item
     if (typeof appSettings.launchOnStartup !== 'boolean') {
       appSettings.launchOnStartup = getLaunchOnStartupState();
@@ -811,6 +852,8 @@ ipcMain.handle('reset-settings', () => {
   saveSettings();
   // Also reset OS login item toggle
   try { setLaunchOnStartup(!!appSettings.launchOnStartup); } catch (e) {}
+  // Clear any remembered last-opened links
+  try { appSettings.lastOpenedLinks = []; } catch (e) {}
 
   // apply to windows
   try { appOpacity = appSettings.appOpacity; } catch (e) {}
