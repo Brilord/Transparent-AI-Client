@@ -516,6 +516,20 @@ function openLinkWindow(idOrUrl, maybeUrl) {
 
   let linkWindow = new BrowserWindow(winOpts);
 
+  // Force target=_blank / window.open navigations to stay in the same window (e.g., Google account switchers)
+  try {
+    linkWindow.webContents.setWindowOpenHandler(({ url: targetUrl }) => {
+      try { if (targetUrl) linkWindow.loadURL(targetUrl); } catch (err) {}
+      return { action: 'deny' };
+    });
+  } catch (err) {
+    // Fallback for older Electron versions
+    linkWindow.webContents.on('new-window', (event, targetUrl) => {
+      event.preventDefault();
+      try { if (targetUrl) linkWindow.loadURL(targetUrl); } catch (e) {}
+    });
+  }
+
   // Load the URL directly
   linkWindow.loadURL(url);
 
