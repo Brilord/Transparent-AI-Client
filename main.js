@@ -468,12 +468,16 @@ function openLinkWindow(idOrUrl, maybeUrl) {
   // - open-link(url) older callers
   let id = null;
   let url = null;
-  if (typeof maybeUrl === 'string' && (typeof idOrUrl === 'number' || typeof idOrUrl === 'string')) {
-    id = Number(idOrUrl);
+  // If a url is provided as the second argument, always treat it as the URL (even if id is null)
+  if (typeof maybeUrl === 'string') {
+    if (typeof idOrUrl === 'number' || typeof idOrUrl === 'string') id = Number(idOrUrl);
     url = maybeUrl;
   } else {
     url = idOrUrl;
   }
+
+  // Guard against missing/invalid urls
+  if (!url || typeof url !== 'string') return false;
 
   // Find saved bounds for this link id if available
   let savedBounds = null;
