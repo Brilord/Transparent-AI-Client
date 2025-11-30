@@ -21,7 +21,11 @@ const DEFAULT_SETTINGS = {
   // Telemetry opt-in
   telemetryEnabled: false,
   leftQuarterShortcut: false,
-  leftThirdShortcut: false
+  leftThirdShortcut: false,
+  // Launch behavior
+  launchOnStartup: false,
+  // Last opened link (to restore on next launch)
+  lastOpenedLink: null
 };
 
 let appSettings = Object.assign({}, DEFAULT_SETTINGS);
@@ -75,6 +79,13 @@ function saveLinks(links) {
     }
   } catch (error) {
     console.error('Error saving links:', error);
+  }
+}
+
+// Close and clean up all open link windows
+function closeAllLinkWindows() {
+  for (const win of Array.from(linkWindows)) {
+    try { win.close(); } catch (err) {}
   }
 }
 
@@ -288,6 +299,8 @@ app.on('ready', () => {
   try { loadSettings(); } catch (err) { /* ignore */ }
   if (typeof appSettings.appOpacity === 'number') appOpacity = appSettings.appOpacity;
   createWindow();
+  // Restore the last opened link (if any) after the main window is ready
+  try { reopenLastLinkIfAvailable(); } catch (err) {}
 });
 
 app.on('window-all-closed', function () {
@@ -300,6 +313,10 @@ app.on('activate', function () {
   if (mainWindow === null) {
     createWindow();
   }
+});
+
+app.on('before-quit', () => {
+  closeAllLinkWindows();
 });
 
 // IPC handlers
@@ -413,10 +430,11 @@ ipcMain.handle('minimize-window', () => {
 });
 
 ipcMain.handle('close-window', () => {
-  mainWindow.close();
+  closeAllLinkWindows();
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
 });
 
-ipcMain.handle('open-link', (event, idOrUrl, maybeUrl) => {
+function openLinkWindow(idOrUrl, maybeUrl) {
   // Handler supports two calling conventions for backward compatibility:
   // - open-link(id, url) where id is numeric
   // - open-link(url) older callers
@@ -477,6 +495,12 @@ ipcMain.handle('open-link', (event, idOrUrl, maybeUrl) => {
 
   // Keep track of open link windows so we can update opacity later
   linkWindows.add(linkWindow);
+
+  // Remember the last opened link so we can restore it on next launch
+  try {
+    appSettings.lastOpenedLink = { id: id || null, url };
+    if (appSettings.persistSettings) saveSettings();
+  } catch (err) {}
 
   // Save and persist window bounds for this link id when moved/resized (debounced)
   if (id) {
@@ -602,7 +626,29 @@ ipcMain.handle('open-link', (event, idOrUrl, maybeUrl) => {
   });
 
   return true;
+}
+
+ipcMain.handle('open-link', (event, idOrUrl, maybeUrl) => {
+  return openLinkWindow(idOrUrl, maybeUrl);
 });
+
+// Try to restore the last opened link when the app launches
+function reopenLastLinkIfAvailable() {
+  try {
+    const last = appSettings && appSettings.lastOpenedLink;
+    if (!last || !last.url) return;
+    let targetId = last.id || null;
+    let targetUrl = last.url;
+    if (targetId) {
+      try {
+        const links = loadLinks();
+        const found = links.find(l => Number(l.id) === Number(targetId));
+        if (found && found.url) targetUrl = found.url;
+      } catch (err) {}
+    }
+    openLinkWindow(targetId, targetUrl);
+  } catch (err) { /* ignore */ }
+}
 
 // Set opacity for all existing windows
 ipcMain.handle('set-app-opacity', (event, value) => {
@@ -647,6 +693,13 @@ function loadSettings() {
     appSettings = Object.assign({}, DEFAULT_SETTINGS, parsed);
     // reflect appOpacity from settings
     if (typeof appSettings.appOpacity === 'number') appOpacity = appSettings.appOpacity;
+    // Keep launch-on-startup in sync with OS login item
+    if (typeof appSettings.launchOnStartup !== 'boolean') {
+      appSettings.launchOnStartup = getLaunchOnStartupState();
+      if (appSettings.persistSettings) saveSettings();
+    } else {
+      setLaunchOnStartup(appSettings.launchOnStartup);
+    }
     return appSettings;
   } catch (err) {
     console.error('Error loading settings:', err);
@@ -660,6 +713,31 @@ function saveSettings() {
     fs.writeFileSync(settingsFile, JSON.stringify(appSettings, null, 2));
   } catch (err) {
     console.error('Error saving settings:', err);
+  }
+}
+
+// Manage OS-level login item so the app can start with the computer
+function setLaunchOnStartup(enabled) {
+  try {
+    if (typeof app.setLoginItemSettings !== 'function') return false;
+    const opts = { openAtLogin: !!enabled, path: process.execPath };
+    // Avoid duplicate launches with portable builds by passing no args
+    if (process.platform === 'win32') opts.args = [];
+    app.setLoginItemSettings(opts);
+    return true;
+  } catch (err) {
+    console.error('Error updating launch on startup:', err);
+    return false;
+  }
+}
+
+function getLaunchOnStartupState() {
+  try {
+    if (typeof app.getLoginItemSettings !== 'function') return !!appSettings.launchOnStartup;
+    const info = app.getLoginItemSettings();
+    return !!(info && info.openAtLogin);
+  } catch (err) {
+    return !!appSettings.launchOnStartup;
   }
 }
 
@@ -699,6 +777,10 @@ ipcMain.handle('set-setting', (event, key, value) => {
         for (const win of linkWindows) if (win && !win.isDestroyed()) try { win.webContents.send('app-opacity-changed', appOpacity); } catch (e) {}
       }
     }
+
+    if (key === 'launchOnStartup') {
+      setLaunchOnStartup(!!value);
+    }
   } catch (err) { /* ignore */ }
 
   // If folder sync settings changed, start/stop watcher accordingly
@@ -727,6 +809,8 @@ ipcMain.handle('set-setting', (event, key, value) => {
 ipcMain.handle('reset-settings', () => {
   appSettings = Object.assign({}, DEFAULT_SETTINGS);
   saveSettings();
+  // Also reset OS login item toggle
+  try { setLaunchOnStartup(!!appSettings.launchOnStartup); } catch (e) {}
 
   // apply to windows
   try { appOpacity = appSettings.appOpacity; } catch (e) {}

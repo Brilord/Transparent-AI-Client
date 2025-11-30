@@ -12,6 +12,7 @@ const opacityVal = document.getElementById('opacityVal');
 const alwaysOnTopChk = document.getElementById('alwaysOnTopChk');
 const injectResizersChk = document.getElementById('injectResizersChk');
 const persistSettingsChk = document.getElementById('persistSettingsChk');
+const launchOnStartupChk = document.getElementById('launchOnStartupChk');
 const leftQuarterChk = document.getElementById('leftQuarterChk');
 const leftThirdChk = document.getElementById('leftThirdChk');
 const resetSettingsBtn = document.getElementById('resetSettingsBtn');
@@ -115,6 +116,7 @@ async function initSettingsUI() {
     if (typeof s.alwaysOnTop === 'boolean') alwaysOnTopChk.checked = s.alwaysOnTop;
     if (typeof s.injectResizers === 'boolean') injectResizersChk.checked = s.injectResizers;
     if (typeof s.persistSettings === 'boolean') persistSettingsChk.checked = s.persistSettings;
+    if (typeof s.launchOnStartup === 'boolean') launchOnStartupChk.checked = s.launchOnStartup;
     if (typeof s.leftQuarterShortcut === 'boolean') leftQuarterChk.checked = s.leftQuarterShortcut;
     if (typeof s.leftThirdShortcut === 'boolean') leftThirdChk.checked = s.leftThirdShortcut;
 
@@ -129,6 +131,10 @@ async function initSettingsUI() {
 
     persistSettingsChk.addEventListener('change', async (e) => {
       await window.electron.setSetting('persistSettings', !!e.target.checked);
+    });
+
+    launchOnStartupChk.addEventListener('change', async (e) => {
+      await window.electron.setSetting('launchOnStartup', !!e.target.checked);
     });
 
     leftQuarterChk.addEventListener('change', async (e) => {
@@ -180,6 +186,7 @@ async function initSettingsUI() {
         // reflect new boolean settings into UI
         leftQuarterChk.checked = !!newSettings.leftQuarterShortcut;
         leftThirdChk.checked = !!newSettings.leftThirdShortcut;
+        launchOnStartupChk.checked = !!newSettings.launchOnStartup;
       }
     });
 
@@ -197,6 +204,7 @@ async function initSettingsUI() {
           if (key === 'alwaysOnTop') alwaysOnTopChk.checked = !!value;
           if (key === 'injectResizers') injectResizersChk.checked = !!value;
           if (key === 'persistSettings') persistSettingsChk.checked = !!value;
+          if (key === 'launchOnStartup') launchOnStartupChk.checked = !!value;
         } catch (err) {}
       });
     }
