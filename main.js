@@ -618,17 +618,6 @@ function openLinkWindow(idOrUrl, maybeUrl) {
       input::placeholder, textarea::placeholder {
         color: rgba(255, 255, 255, 0.6) !important;
       }
-      html::before {
-        content: '';
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 40px;
-        -webkit-app-region: drag;
-        z-index: 10000;
-        pointer-events: auto;
-      }
       ::-webkit-scrollbar {
         width: 6px;
       }
