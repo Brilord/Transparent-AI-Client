@@ -234,17 +234,17 @@ resizers.forEach(resizer => {
 
     // Adjust bounds based on which edge/corner is being dragged
     if (edge.includes('e')) {
-      bounds.width = Math.max(200, startBounds.width + dx);
+      bounds.width = Math.max(1, startBounds.width + dx);
     }
     if (edge.includes('s')) {
-      bounds.height = Math.max(120, startBounds.height + dy);
+      bounds.height = Math.max(1, startBounds.height + dy);
     }
     if (edge.includes('w')) {
-      bounds.width = Math.max(200, startBounds.width - dx);
+      bounds.width = Math.max(1, startBounds.width - dx);
       bounds.x = startBounds.x + dx;
     }
     if (edge.includes('n')) {
-      bounds.height = Math.max(120, startBounds.height - dy);
+      bounds.height = Math.max(1, startBounds.height - dy);
       bounds.y = startBounds.y + dy;
     }
 

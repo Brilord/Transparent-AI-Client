@@ -138,10 +138,10 @@ window.addEventListener('DOMContentLoaded', async () => {
           if (!resizing || !startBounds) return;
           const dx = me.clientX - sx; const dy = me.clientY - sy;
           const bounds = Object.assign({}, startBounds);
-          if (edge.includes('e')) bounds.width = Math.max(200, startBounds.width + dx);
-          if (edge.includes('s')) bounds.height = Math.max(120, startBounds.height + dy);
-          if (edge.includes('w')) { bounds.width = Math.max(200, startBounds.width - dx); bounds.x = startBounds.x + dx; }
-          if (edge.includes('n')) { bounds.height = Math.max(120, startBounds.height - dy); bounds.y = startBounds.y + dy; }
+          if (edge.includes('e')) bounds.width = Math.max(1, startBounds.width + dx);
+          if (edge.includes('s')) bounds.height = Math.max(1, startBounds.height + dy);
+          if (edge.includes('w')) { bounds.width = Math.max(1, startBounds.width - dx); bounds.x = startBounds.x + dx; }
+          if (edge.includes('n')) { bounds.height = Math.max(1, startBounds.height - dy); bounds.y = startBounds.y + dy; }
           await ipcRenderer.invoke('set-window-bounds', bounds);
         };
 
@@ -162,13 +162,13 @@ document.addEventListener('keydown', async (e) => {
     if (!bounds) return;
     switch (e.key) {
       case 'ArrowLeft':
-        bounds.width = Math.max(200, bounds.width - step);
+        bounds.width = Math.max(1, bounds.width - step);
         break;
       case 'ArrowRight':
         bounds.width = bounds.width + step;
         break;
       case 'ArrowUp':
-        bounds.height = Math.max(120, bounds.height - step);
+        bounds.height = Math.max(1, bounds.height - step);
         break;
       case 'ArrowDown':
         bounds.height = bounds.height + step;

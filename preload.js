@@ -62,9 +62,9 @@ window.addEventListener('DOMContentLoaded', () => {
       const bounds = await ipcRenderer.invoke('get-window-bounds');
       if (!bounds) return;
       switch (e.key) {
-        case 'ArrowLeft': bounds.width = Math.max(200, bounds.width - step); break;
+        case 'ArrowLeft': bounds.width = Math.max(1, bounds.width - step); break;
         case 'ArrowRight': bounds.width = bounds.width + step; break;
-        case 'ArrowUp': bounds.height = Math.max(120, bounds.height - step); break;
+        case 'ArrowUp': bounds.height = Math.max(1, bounds.height - step); break;
         case 'ArrowDown': bounds.height = bounds.height + step; break;
         default: return;
       }

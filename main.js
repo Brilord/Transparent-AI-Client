@@ -127,8 +127,6 @@ function createWindow() {
     alwaysOnTop: !!appSettings.alwaysOnTop,
     resizable: true,
     movable: true,
-    minWidth: 420,
-    minHeight: 300,
     icon: path.join(__dirname, 'assets', 'icons', 'png', '512x512.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -496,8 +494,6 @@ function openLinkWindow(idOrUrl, maybeUrl) {
     frame: false,
     resizable: true,
     movable: true,
-    minWidth: 600,
-    minHeight: 400,
     alwaysOnTop: !!appSettings.alwaysOnTop,
     webPreferences: {
       nodeIntegration: false,
@@ -964,10 +960,8 @@ function normalizeMainBounds(bounds) {
     if (!bounds || typeof bounds !== 'object') return null;
     let { x, y, width, height } = bounds;
     if (![x, y, width, height].every(v => typeof v === 'number' && !isNaN(v))) return null;
-    const minWidth = 420;
-    const minHeight = 300;
-    width = Math.max(minWidth, Math.floor(width));
-    height = Math.max(minHeight, Math.floor(height));
+    width = Math.max(1, Math.floor(width));
+    height = Math.max(1, Math.floor(height));
     x = Math.floor(x);
     y = Math.floor(y);
     const display = screen.getDisplayMatching({ x, y, width, height }) || screen.getPrimaryDisplay();
