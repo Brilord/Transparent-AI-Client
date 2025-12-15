@@ -116,7 +116,7 @@ function persistOpenLinksState() {
 }
 
 function createWindow() {
-  const restoredBounds = normalizeMainBounds(appSettings.mainWindowBounds);
+  const restoredBounds = appSettings.mainWindowBounds;
 
   mainWindow = new BrowserWindow({
     width: restoredBounds ? restoredBounds.width : 600,
@@ -184,55 +184,7 @@ function createWindow() {
     });
   })();
 
-  // Snap main window to screen edges when moved
-  (function attachMainSnap() {
-    const SNAP = 20; // pixels
-    let snapTimeout = null;
-    mainWindow.on('move', () => {
-      if (snapTimeout) clearTimeout(snapTimeout);
-      snapTimeout = setTimeout(() => {
-        try {
-          const [x, y] = mainWindow.getPosition();
-          const bounds = mainWindow.getBounds();
-          const display = screen.getDisplayMatching(bounds) || screen.getPrimaryDisplay();
-          const d = display.workArea; // use workArea to avoid taskbar overlap
-          let nx = x;
-          let ny = y;
-          if (Math.abs(x - d.x) <= SNAP) nx = d.x;
-          if (Math.abs((x + bounds.width) - (d.x + d.width)) <= SNAP) nx = d.x + d.width - bounds.width;
-          if (Math.abs(y - d.y) <= SNAP) ny = d.y;
-          if (Math.abs((y + bounds.height) - (d.y + d.height)) <= SNAP) ny = d.y + d.height - bounds.height;
-          if (nx !== x || ny !== y) mainWindow.setPosition(nx, ny);
-        } catch (err) {
-          // ignore
-        }
-      }, 80);
-    });
-  })();
 }
-
-ipcMain.on('drag-window', (event, { deltaX, deltaY }) => {
-  const window = BrowserWindow.fromWebContents(event.sender);
-  if (window) {
-    let [x, y] = window.getPosition();
-    x = x + deltaX;
-    y = y + deltaY;
-    // Snap to edges if close
-    try {
-      const bounds = window.getBounds();
-      const display = screen.getDisplayMatching(bounds) || screen.getPrimaryDisplay();
-      const d = display.workArea;
-      const SNAP = 20;
-      if (Math.abs(x - d.x) <= SNAP) x = d.x;
-      if (Math.abs((x + bounds.width) - (d.x + d.width)) <= SNAP) x = d.x + d.width - bounds.width;
-      if (Math.abs(y - d.y) <= SNAP) y = d.y;
-      if (Math.abs((y + bounds.height) - (d.y + d.height)) <= SNAP) y = d.y + d.height - bounds.height;
-    } catch (err) {
-      // ignore
-    }
-    window.setPosition(x, y);
-  }
-});
 
 // Window bounds helpers for renderer processes
 ipcMain.handle('get-window-bounds', (event) => {
@@ -490,10 +442,12 @@ function openLinkWindow(idOrUrl, maybeUrl) {
   let winOpts = {
     width: 1000,
     height: 800,
-    transparent: true,
-    frame: false,
+    transparent: false,
+    frame: true,
     resizable: true,
     movable: true,
+    backgroundColor: '#111111',
+    autoHideMenuBar: true,
     alwaysOnTop: !!appSettings.alwaysOnTop,
     webPreferences: {
       nodeIntegration: false,
@@ -511,6 +465,25 @@ function openLinkWindow(idOrUrl, maybeUrl) {
   }
 
   let linkWindow = new BrowserWindow(winOpts);
+
+  try {
+    if (typeof linkWindow.setOpacity === 'function') {
+      linkWindow.setOpacity(appOpacity);
+    }
+  } catch (err) {
+    // ignore opacity failures on unsupported platforms
+  }
+
+  if (savedBounds) {
+    try {
+      const rawBounds = {};
+      if (typeof savedBounds.x === 'number' && !isNaN(savedBounds.x)) rawBounds.x = Math.floor(savedBounds.x);
+      if (typeof savedBounds.y === 'number' && !isNaN(savedBounds.y)) rawBounds.y = Math.floor(savedBounds.y);
+      if (typeof savedBounds.width === 'number' && !isNaN(savedBounds.width)) rawBounds.width = Math.max(1, Math.floor(savedBounds.width));
+      if (typeof savedBounds.height === 'number' && !isNaN(savedBounds.height)) rawBounds.height = Math.max(1, Math.floor(savedBounds.height));
+      if (Object.keys(rawBounds).length) linkWindow.setBounds(rawBounds);
+    } catch (err) { /* ignore invalid saved bounds */ }
+  }
 
   // Force target=_blank / window.open navigations to stay in the same window (e.g., Google account switchers)
   try {
@@ -581,79 +554,6 @@ function openLinkWindow(idOrUrl, maybeUrl) {
     });
   }
 
-  // Apply transparent styling via CSS injection
-  linkWindow.webContents.on('did-finish-load', () => {
-    linkWindow.webContents.insertCSS(`
-      * {
-        background-color: transparent !important;
-        color: white !important;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-      }
-      html, body {
-        background: transparent !important;
-      }
-      a {
-        color: #87ceeb !important;
-      }
-      a:visited {
-        color: #da70d6 !important;
-      }
-      button, input[type="button"], input[type="submit"] {
-        color: white !important;
-        background: rgba(255, 255, 255, 0.2) !important;
-        border: 1px solid rgba(255, 255, 255, 0.3) !important;
-      }
-      button:hover, input[type="button"]:hover, input[type="submit"]:hover {
-        background: rgba(255, 255, 255, 0.3) !important;
-      }
-      input, textarea, select {
-        background: rgba(255, 255, 255, 0.1) !important;
-        color: white !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-      }
-      input::placeholder, textarea::placeholder {
-        color: rgba(255, 255, 255, 0.6) !important;
-      }
-      ::-webkit-scrollbar {
-        width: 6px;
-      }
-      ::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.3);
-        border-radius: 3px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 255, 255, 0.5);
-      }
-    `);
-  });
-
-  // Snap behavior for link windows as well
-  (function attachLinkSnap(win) {
-    const SNAP = 20;
-    let snapTimeout = null;
-    win.on('move', () => {
-      if (snapTimeout) clearTimeout(snapTimeout);
-      snapTimeout = setTimeout(() => {
-        try {
-          const [x, y] = win.getPosition();
-          const bounds = win.getBounds();
-          const display = screen.getDisplayMatching(bounds) || screen.getPrimaryDisplay();
-          const d = display.workArea;
-          let nx = x;
-          let ny = y;
-          if (Math.abs(x - d.x) <= SNAP) nx = d.x;
-          if (Math.abs((x + bounds.width) - (d.x + d.width)) <= SNAP) nx = d.x + d.width - bounds.width;
-          if (Math.abs(y - d.y) <= SNAP) ny = d.y;
-          if (Math.abs((y + bounds.height) - (d.y + d.height)) <= SNAP) ny = d.y + d.height - bounds.height;
-          if (nx !== x || ny !== y) win.setPosition(nx, ny);
-        } catch (err) {}
-      }, 80);
-    });
-  })(linkWindow);
-
   linkWindow.on('closed', function () {
     linkWindows.delete(linkWindow);
     linkWindowMeta.delete(linkWindow);
@@ -705,7 +605,14 @@ ipcMain.handle('set-app-opacity', (event, value) => {
         try { w.webContents.send('app-opacity-changed', appOpacity); } catch (e) {}
       });
 
-    // (renderers are notified above) — link windows will update via 'app-opacity-changed' message
+    // Ensure link windows honor the new opacity at the native window level
+    for (const win of linkWindows) {
+      try {
+        if (win && !win.isDestroyed() && typeof win.setOpacity === 'function') {
+          win.setOpacity(appOpacity);
+        }
+      } catch (err) { /* ignore */ }
+    }
 
     return true;
   } catch (err) {
@@ -817,8 +724,16 @@ ipcMain.handle('set-setting', (event, key, value) => {
       if (!isNaN(v)) {
         appOpacity = Math.max(0.05, Math.min(1, v));
         // Notify renderers to update their background opacity (main renderer and link preloads will react)
-        if (mainWindow && !mainWindow.isDestroyed()) try { mainWindow.webContents.send('app-opacity-changed', appOpacity); } catch (e) {}
-        for (const win of linkWindows) if (win && !win.isDestroyed()) try { win.webContents.send('app-opacity-changed', appOpacity); } catch (e) {}
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          try { mainWindow.webContents.send('app-opacity-changed', appOpacity); } catch (e) {}
+        }
+        for (const win of linkWindows) {
+          if (!win || win.isDestroyed()) continue;
+          try {
+            win.webContents.send('app-opacity-changed', appOpacity);
+            if (typeof win.setOpacity === 'function') win.setOpacity(appOpacity);
+          } catch (e) {}
+        }
       }
     }
 
@@ -860,11 +775,19 @@ ipcMain.handle('reset-settings', () => {
 
   // apply to windows
   try { appOpacity = appSettings.appOpacity; } catch (e) {}
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      try { mainWindow.setAlwaysOnTop(appSettings.alwaysOnTop); mainWindow.webContents.send('app-opacity-changed', appOpacity); } catch (e) {}
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      mainWindow.setAlwaysOnTop(appSettings.alwaysOnTop);
+      mainWindow.webContents.send('app-opacity-changed', appOpacity);
+    } catch (e) {}
   }
-  for (const win of linkWindows) if (win && !win.isDestroyed()) {
-     try { win.setAlwaysOnTop(appSettings.alwaysOnTop); win.webContents.send('app-opacity-changed', appOpacity); } catch (e) {}
+  for (const win of linkWindows) {
+    if (!win || win.isDestroyed()) continue;
+    try {
+      win.setAlwaysOnTop(appSettings.alwaysOnTop);
+      win.webContents.send('app-opacity-changed', appOpacity);
+      if (typeof win.setOpacity === 'function') win.setOpacity(appOpacity);
+    } catch (e) {}
   }
 
   BrowserWindow.getAllWindows().forEach(w => {
@@ -953,27 +876,3 @@ ipcMain.handle('get-sync-folder', () => {
 app.on('ready', () => {
   try { if (appSettings.useFolderSync && appSettings.syncFolder) startSyncWatcher(); } catch (e) {}
 });
-
-// Validate and constrain saved bounds so the window doesn't reopen off-screen
-function normalizeMainBounds(bounds) {
-  try {
-    if (!bounds || typeof bounds !== 'object') return null;
-    let { x, y, width, height } = bounds;
-    if (![x, y, width, height].every(v => typeof v === 'number' && !isNaN(v))) return null;
-    width = Math.max(1, Math.floor(width));
-    height = Math.max(1, Math.floor(height));
-    x = Math.floor(x);
-    y = Math.floor(y);
-    const display = screen.getDisplayMatching({ x, y, width, height }) || screen.getPrimaryDisplay();
-    const work = display.workArea;
-    width = Math.min(width, work.width);
-    height = Math.min(height, work.height);
-    if (x < work.x) x = work.x;
-    if (y < work.y) y = work.y;
-    if (x + width > work.x + work.width) x = work.x + work.width - width;
-    if (y + height > work.y + work.height) y = work.y + work.height - height;
-    return { x, y, width, height };
-  } catch (err) {
-    return null;
-  }
-}
