@@ -1,4 +1,15 @@
-:root { --bg-opacity: 0.06; --bg-blur: 20px; --bg-tint: rgba(255,255,255,0.06); }
+:root {
+    --bg-opacity: 0.06;
+    --bg-blur: 20px;
+    --bg-tint: rgba(255,255,255,0.06);
+    --surface-alpha: 0.95;
+    --panel-border-alpha: 0.1;
+    --card-alpha: 0.1;
+    --card-border-alpha: 0.2;
+    --input-alpha: 0.1;
+    --input-border-alpha: 0.3;
+    --chrome-alpha: 0.2;
+}
 
 * {
     margin: 0;
@@ -22,7 +33,7 @@ body {
     backdrop-filter: blur(var(--bg-blur)) saturate(140%);
     /* micro-border/highlight to make the glass feel dimensional */
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 6px 18px rgba(0,0,0,0.35);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, var(--panel-border-alpha));
 }
 
 .titlebar {
@@ -63,7 +74,7 @@ body {
     width: 32px;
     height: 32px;
     border: none;
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, var(--chrome-alpha));
     color: white;
     font-size: 18px;
     cursor: pointer;
@@ -104,9 +115,9 @@ body {
 .url-input,
 .title-input {
     padding: 10px 12px;
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, var(--input-border-alpha));
     border-radius: 6px;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, var(--input-alpha));
     color: white;
     font-size: 13px;
     transition: all 0.2s ease;
@@ -210,10 +221,10 @@ body {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    background: rgba(20, 20, 30, 0.95);
+    background: rgba(20, 20, 30, var(--surface-alpha));
     border-radius: 8px;
     padding: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, var(--panel-border-alpha));
 }
 
 /* Settings panel styles */
@@ -223,8 +234,8 @@ body {
     top: 64px;
     width: 320px;
     max-width: calc(100% - 32px);
-    background: rgba(30, 30, 40, 0.95);
-    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(30, 30, 40, var(--surface-alpha));
+    border: 1px solid rgba(255,255,255,var(--panel-border-alpha));
     padding: 12px;
     border-radius: 8px;
     z-index: 100000;
@@ -307,8 +318,8 @@ input[type="range"]:focus { outline: none; }
 
 .link-item {
     padding: 12px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, var(--card-alpha));
+    border: 1px solid rgba(255, 255, 255, var(--card-border-alpha));
     border-radius: 6px;
     display: flex;
     justify-content: space-between;
@@ -317,8 +328,8 @@ input[type="range"]:focus { outline: none; }
 }
 
 .link-item:hover {
-    background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, calc(var(--card-alpha) + 0.05));
+    border-color: rgba(255, 255, 255, calc(var(--card-border-alpha) + 0.1));
 }
 
 .link-content {
@@ -399,4 +410,42 @@ input[type="range"]:focus { outline: none; }
 
 .links-section::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.3);
+}
+
+/* Ultra transparent mode (slider at 0%) */
+body.transparent-mode .container {
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 18px 40px rgba(0,0,0,0.55);
+}
+
+body.transparent-mode .links-section,
+body.transparent-mode .settings-panel {
+    background: rgba(5, 5, 15, 0.05);
+    border-color: rgba(255,255,255,0.25);
+    backdrop-filter: blur(32px) saturate(160%);
+}
+
+body.transparent-mode .link-item,
+body.transparent-mode .url-input,
+body.transparent-mode .title-input,
+body.transparent-mode .add-btn,
+body.transparent-mode .small-btn,
+body.transparent-mode .reset-btn,
+body.transparent-mode .choose-folder-btn,
+body.transparent-mode .fav-btn,
+body.transparent-mode .control-btn {
+    background: rgba(5, 5, 10, 0.08);
+    border-color: rgba(255,255,255,0.25);
+    box-shadow: inset 0 0 18px rgba(0,0,0,0.35);
+}
+
+body.transparent-mode .titlebar,
+body.transparent-mode .links-toolbar,
+body.transparent-mode .input-section {
+    background: transparent;
+    backdrop-filter: blur(32px) saturate(160%);
+}
+
+body.transparent-mode * {
+    text-shadow: 0 0 12px rgba(0,0,0,0.75);
 }

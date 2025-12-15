@@ -21,10 +21,28 @@ function applyBackgroundVisuals(rawValue) {
   try {
     const parsed = typeof rawValue === 'number' ? rawValue : parseFloat(rawValue);
     const clamped = isNaN(parsed) ? 1 : Math.max(0, Math.min(1, parsed));
-    const bgAlpha = 0.02 + (clamped * 0.08);
-    const blurSize = Math.round(10 + (clamped * 24));
+    const nearZero = clamped <= 0.01;
+    const bgAlpha = nearZero ? 0 : 0.02 + (clamped * 0.08);
+    const blurSize = nearZero ? 38 : Math.round(12 + (clamped * 26));
     document.documentElement.style.setProperty('--bg-opacity', bgAlpha.toFixed(3));
-    document.documentElement.style.setProperty('--bg-blur', Math.max(6, blurSize) + 'px');
+    document.documentElement.style.setProperty('--bg-blur', Math.max(8, blurSize) + 'px');
+    const surfaceAlpha = nearZero ? 0 : Math.min(0.95, 0.35 + clamped * 0.6);
+    const cardAlpha = nearZero ? 0 : Math.min(0.35, 0.08 + clamped * 0.18);
+    const inputAlpha = nearZero ? 0 : Math.min(0.4, 0.06 + clamped * 0.2);
+    const chromeAlpha = nearZero ? 0.08 : Math.min(0.5, 0.2 + clamped * 0.3);
+    const borderAlpha = nearZero ? 0.28 : Math.min(0.2, 0.1 + clamped * 0.1);
+    const cardBorderAlpha = nearZero ? 0.24 : Math.min(0.35, 0.2 + clamped * 0.08);
+    const inputBorderAlpha = nearZero ? 0.3 : Math.min(0.4, 0.3 + clamped * 0.08);
+    document.documentElement.style.setProperty('--surface-alpha', surfaceAlpha.toFixed(3));
+    document.documentElement.style.setProperty('--card-alpha', cardAlpha.toFixed(3));
+    document.documentElement.style.setProperty('--input-alpha', inputAlpha.toFixed(3));
+    document.documentElement.style.setProperty('--chrome-alpha', chromeAlpha.toFixed(3));
+    document.documentElement.style.setProperty('--panel-border-alpha', borderAlpha.toFixed(3));
+    document.documentElement.style.setProperty('--card-border-alpha', cardBorderAlpha.toFixed(3));
+    document.documentElement.style.setProperty('--input-border-alpha', inputBorderAlpha.toFixed(3));
+    if (document.body) {
+      document.body.classList.toggle('transparent-mode', nearZero);
+    }
   } catch (err) {}
 }
 
