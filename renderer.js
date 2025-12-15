@@ -17,6 +17,17 @@ const leftQuarterChk = document.getElementById('leftQuarterChk');
 const leftThirdChk = document.getElementById('leftThirdChk');
 const resetSettingsBtn = document.getElementById('resetSettingsBtn');
 
+function applyBackgroundVisuals(rawValue) {
+  try {
+    const parsed = typeof rawValue === 'number' ? rawValue : parseFloat(rawValue);
+    const clamped = isNaN(parsed) ? 1 : Math.max(0, Math.min(1, parsed));
+    const bgAlpha = 0.02 + (clamped * 0.08);
+    const blurSize = Math.round(10 + (clamped * 24));
+    document.documentElement.style.setProperty('--bg-opacity', bgAlpha.toFixed(3));
+    document.documentElement.style.setProperty('--bg-blur', Math.max(6, blurSize) + 'px');
+  } catch (err) {}
+}
+
 // Load links on startup
 loadLinks();
 
@@ -69,15 +80,12 @@ async function initOpacityControl() {
     }
     opacityRange.value = current;
     opacityVal.innerText = Math.round(current * 100) + '%';
-    // apply background-only opacity on main window; map slider value to a subtle alpha
-    try { document.documentElement.style.setProperty('--bg-opacity', (current * 0.06).toString()); } catch (e) {}
-    try { document.documentElement.style.setProperty('--bg-blur', Math.max(8, Math.round(current * 22)) + 'px'); } catch (e) {}
+    applyBackgroundVisuals(current);
 
     opacityRange.addEventListener('input', (e) => {
       const v = parseFloat(e.target.value);
       opacityVal.innerText = Math.round(v * 100) + '%';
-      try { document.documentElement.style.setProperty('--bg-opacity', (v * 0.06).toString()); } catch (e) {}
-      try { document.documentElement.style.setProperty('--bg-blur', Math.max(8, Math.round(v * 22)) + 'px'); } catch (e) {}
+      applyBackgroundVisuals(v);
     });
 
     opacityRange.addEventListener('change', async (e) => {
@@ -93,8 +101,7 @@ async function initOpacityControl() {
         try {
           opacityRange.value = val;
           opacityVal.innerText = Math.round(val * 100) + '%';
-          try { document.documentElement.style.setProperty('--bg-opacity', (val * 0.06).toString()); } catch (e) {}
-          try { document.documentElement.style.setProperty('--bg-blur', Math.max(8, Math.round(val * 22)) + 'px'); } catch (e) {}
+          applyBackgroundVisuals(val);
         } catch (err) {}
       });
     }
@@ -179,7 +186,7 @@ async function initSettingsUI() {
         // update UI to reflect defaults
         opacityRange.value = newSettings.appOpacity;
         opacityVal.innerText = Math.round(newSettings.appOpacity * 100) + '%';
-          try { document.documentElement.style.setProperty('--bg-opacity', (newSettings.appOpacity * 0.06).toString()); } catch (e) {}
+          applyBackgroundVisuals(newSettings.appOpacity);
         alwaysOnTopChk.checked = newSettings.alwaysOnTop;
         injectResizersChk.checked = newSettings.injectResizers;
         persistSettingsChk.checked = newSettings.persistSettings;
@@ -197,7 +204,7 @@ async function initSettingsUI() {
           if (key === 'appOpacity') {
             opacityRange.value = value;
             opacityVal.innerText = Math.round(value * 100) + '%';
-            try { document.documentElement.style.setProperty('--bg-opacity', (value * 0.06).toString()); } catch (e) {}
+            applyBackgroundVisuals(value);
           }
           if (key === 'leftQuarterShortcut') leftQuarterChk.checked = !!value;
           if (key === 'leftThirdShortcut') leftThirdChk.checked = !!value;

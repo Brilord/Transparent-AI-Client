@@ -8,6 +8,28 @@ const linkWindows = new Set();
 const linkWindowMeta = new Map(); // track metadata for open link windows
 const dataFile = path.join(app.getPath('userData'), 'links.json');
 const settingsFile = path.join(app.getPath('userData'), 'settings.json');
+const MIN_LINK_WINDOW_OPACITY = 0.68; // keep remote link text readable even when slider hits 0%
+
+function getLinkWindowOpacity(baseOpacity) {
+  let normalized = typeof baseOpacity === 'number' ? baseOpacity : parseFloat(baseOpacity);
+  if (isNaN(normalized)) normalized = 1;
+  normalized = Math.max(0, Math.min(1, normalized));
+  const eased = MIN_LINK_WINDOW_OPACITY + (1 - MIN_LINK_WINDOW_OPACITY) * Math.pow(normalized, 0.85);
+  return Math.max(MIN_LINK_WINDOW_OPACITY, Math.min(1, Number(eased.toFixed(3))));
+}
+
+function applyOpacityToLinkWindows() {
+  const effective = getLinkWindowOpacity(appOpacity);
+  for (const win of linkWindows) {
+    try {
+      if (win && !win.isDestroyed() && typeof win.setOpacity === 'function') {
+        win.setOpacity(effective);
+      }
+    } catch (err) {
+      // ignore per-window failures
+    }
+  }
+}
 
 // Default app settings
 const DEFAULT_SETTINGS = {
@@ -468,7 +490,7 @@ function openLinkWindow(idOrUrl, maybeUrl) {
 
   try {
     if (typeof linkWindow.setOpacity === 'function') {
-      linkWindow.setOpacity(appOpacity);
+      linkWindow.setOpacity(getLinkWindowOpacity(appOpacity));
     }
   } catch (err) {
     // ignore opacity failures on unsupported platforms
@@ -593,7 +615,7 @@ ipcMain.handle('set-app-opacity', (event, value) => {
   try {
     if (typeof value !== 'number') value = parseFloat(value);
     if (isNaN(value)) return false;
-    value = Math.max(0.05, Math.min(1, value));
+    value = Math.max(0, Math.min(1, value));
     appOpacity = value;
     // Mirror to settings and persist if enabled
     appSettings.appOpacity = appOpacity;
@@ -606,13 +628,7 @@ ipcMain.handle('set-app-opacity', (event, value) => {
       });
 
     // Ensure link windows honor the new opacity at the native window level
-    for (const win of linkWindows) {
-      try {
-        if (win && !win.isDestroyed() && typeof win.setOpacity === 'function') {
-          win.setOpacity(appOpacity);
-        }
-      } catch (err) { /* ignore */ }
-    }
+    applyOpacityToLinkWindows();
 
     return true;
   } catch (err) {
@@ -722,7 +738,7 @@ ipcMain.handle('set-setting', (event, key, value) => {
       // keep appOpacity in sync
       const v = typeof value === 'number' ? value : parseFloat(value);
       if (!isNaN(v)) {
-        appOpacity = Math.max(0.05, Math.min(1, v));
+        appOpacity = Math.max(0, Math.min(1, v));
         // Notify renderers to update their background opacity (main renderer and link preloads will react)
         if (mainWindow && !mainWindow.isDestroyed()) {
           try { mainWindow.webContents.send('app-opacity-changed', appOpacity); } catch (e) {}
@@ -731,9 +747,9 @@ ipcMain.handle('set-setting', (event, key, value) => {
           if (!win || win.isDestroyed()) continue;
           try {
             win.webContents.send('app-opacity-changed', appOpacity);
-            if (typeof win.setOpacity === 'function') win.setOpacity(appOpacity);
           } catch (e) {}
         }
+        try { applyOpacityToLinkWindows(); } catch (e) {}
       }
     }
 
@@ -786,9 +802,9 @@ ipcMain.handle('reset-settings', () => {
     try {
       win.setAlwaysOnTop(appSettings.alwaysOnTop);
       win.webContents.send('app-opacity-changed', appOpacity);
-      if (typeof win.setOpacity === 'function') win.setOpacity(appOpacity);
     } catch (e) {}
   }
+  try { applyOpacityToLinkWindows(); } catch (e) {}
 
   BrowserWindow.getAllWindows().forEach(w => {
     try { w.webContents.send('settings-reset', appSettings); } catch (e) {}
