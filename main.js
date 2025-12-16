@@ -9,6 +9,8 @@ const linkWindowMeta = new Map(); // track metadata for open link windows
 const dataFile = path.join(app.getPath('userData'), 'links.json');
 const settingsFile = path.join(app.getPath('userData'), 'settings.json');
 const MIN_LINK_WINDOW_OPACITY = 0.68; // keep remote link text readable even when slider hits 0%
+const DEFAULT_MAIN_WINDOW_WIDTH = 600;
+const DEFAULT_MAIN_WINDOW_HEIGHT = 800;
 
 function getLinkWindowOpacity(baseOpacity) {
   let normalized = typeof baseOpacity === 'number' ? baseOpacity : parseFloat(baseOpacity);
@@ -33,7 +35,6 @@ function applyOpacityToLinkWindows() {
 
 // Default app settings
 const DEFAULT_SETTINGS = {
-  mainWindowBounds: null,
   appOpacity: 1.0,
   alwaysOnTop: false,
   injectResizers: true,
@@ -138,14 +139,14 @@ function persistOpenLinksState() {
 }
 
 function createWindow() {
-  const restoredBounds = appSettings.mainWindowBounds;
-
   mainWindow = new BrowserWindow({
-    width: restoredBounds ? restoredBounds.width : 600,
-    height: restoredBounds ? restoredBounds.height : 800,
-    ...(restoredBounds ? { x: restoredBounds.x, y: restoredBounds.y } : {}),
-    transparent: true,
-    frame: false,
+    width: DEFAULT_MAIN_WINDOW_WIDTH,
+    height: DEFAULT_MAIN_WINDOW_HEIGHT,
+    center: true,
+    transparent: false,
+    frame: true,
+    backgroundColor: '#111111',
+    autoHideMenuBar: true,
     alwaysOnTop: !!appSettings.alwaysOnTop,
     resizable: true,
     movable: true,
@@ -172,39 +173,6 @@ function createWindow() {
   mainWindow.on('closed', function () {
     mainWindow = null;
   });
-
-  // Persist main window bounds (debounced) whenever it moves or resizes
-  (function attachMainBoundsPersistence() {
-    let boundsSaveTimer = null;
-    const persistBounds = () => {
-      try {
-        if (!mainWindow || mainWindow.isDestroyed()) return;
-        const b = mainWindow.getBounds();
-        appSettings.mainWindowBounds = {
-          x: b.x,
-          y: b.y,
-          width: b.width,
-          height: b.height
-        };
-        if (appSettings.persistSettings) saveSettings();
-      } catch (err) {
-        // ignore
-      }
-    };
-    const scheduleSave = () => {
-      if (boundsSaveTimer) clearTimeout(boundsSaveTimer);
-      boundsSaveTimer = setTimeout(persistBounds, 400);
-    };
-    mainWindow.on('move', scheduleSave);
-    mainWindow.on('resize', scheduleSave);
-    mainWindow.on('close', () => {
-      if (boundsSaveTimer) {
-        clearTimeout(boundsSaveTimer);
-        boundsSaveTimer = null;
-      }
-      try { persistBounds(); } catch (e) {}
-    });
-  })();
 
 }
 
