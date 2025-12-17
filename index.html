@@ -37,16 +37,55 @@
                     placeholder="Tags (comma separated)"
                     class="tags-input"
                 >
+                <div class="capture-row">
+                    <input
+                        type="text"
+                        id="folderInput"
+                        placeholder="Folder (optional)"
+                        class="folder-input"
+                    >
+                    <select id="prioritySelect" class="priority-select">
+                        <option value="normal" selected>Priority: Normal</option>
+                        <option value="high">Priority: High</option>
+                        <option value="low">Priority: Low</option>
+                    </select>
+                </div>
+                <textarea
+                    id="notesInput"
+                    class="notes-input"
+                    placeholder="Notes / context (optional)"
+                    rows="2"
+                ></textarea>
                 <button id="addBtn" class="add-btn">Add Link</button>
                 <small class="hint inline-hint">Tags help organize and power quick filters (comma separated).</small>
+                <div id="clipboardBanner" class="clipboard-banner hidden">
+                    <div class="clipboard-text">
+                        <strong>Clipboard link detected</strong>
+                        <span id="clipboardBannerValue"></span>
+                    </div>
+                    <div class="clipboard-actions">
+                        <button id="useClipboardLinkBtn" class="small-btn">Use link</button>
+                        <button id="dismissClipboardBannerBtn" class="small-btn ghost">Dismiss</button>
+                    </div>
+                </div>
             </div>
 
             <div class="links-section">
                 <div class="links-toolbar">
-                    <input id="searchInput" type="search" placeholder="Search links..." class="search-input">
+                    <div class="search-group">
+                        <input id="searchInput" type="search" placeholder="Search links..." class="search-input">
+                        <button id="searchModeToggle" class="small-btn subtle">Fuzzy search</button>
+                        <select id="groupingSelect" class="grouping-select">
+                            <option value="none">No grouping</option>
+                            <option value="folder">Group by folder</option>
+                            <option value="tag">Group by tag</option>
+                        </select>
+                    </div>
                     <div class="bulk-actions">
-                        <button id="exportBtn" class="small-btn">Export</button>
-                        <button id="importBtn" class="small-btn">Import</button>
+                        <button id="exportBtn" class="small-btn">Export JSON</button>
+                        <button id="importBtn" class="small-btn">Import JSON</button>
+                        <button id="exportCsvBtn" class="small-btn">Export CSV</button>
+                        <button id="importCsvBtn" class="small-btn">Import CSV</button>
                         <button id="backupBtn" class="small-btn">Backup</button>
                         <button id="bulkTagBtn" class="small-btn">Tag selected</button>
                         <button id="deleteSelectedBtn" class="small-btn danger">Delete selected</button>
@@ -126,6 +165,13 @@
                         <small class="hint">Help improve the app by sending anonymous crash reports. Data is opt-in and can be revoked anytime.</small>
                     </div>
             </div>
+        </div>
+    </div>
+
+    <div id="dropOverlay" class="drop-overlay hidden">
+        <div class="drop-overlay-inner">
+            <p>Drop links to capture</p>
+            <p class="hint">We’ll auto-fetch metadata & health</p>
         </div>
     </div>
 

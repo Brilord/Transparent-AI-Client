@@ -43,6 +43,13 @@ Additional options in the same panel:
 - The Inject resizers option now controls both the glass overlays around the main window and the handles we inject into link windows.
 - Disable it if a specific site misbehaves (keyboard shortcuts and OS chrome remain available), or enable it to regain edge drag handles on embedded pages.
 
+### Smart search, metadata, and capture
+
+- Switch between fuzzy and exact search modes so typos or partial words still match. You can pin favorite tags (right-click on the chips) and even activate multiple tags at once for granular filtering.
+- Each saved URL now gathers metadata (title, description, favicon, theme color) and periodically runs HEAD checks to flag redirects or broken links. Badges on every card surface the latest status, and inline buttons let you requeue metadata or health refreshes instantly.
+- Capture more context with folder, priority, and notes fields. Group the catalog by folder or tag, and drag cards within a group or the pinned section to reorder them—order persists across app restarts.
+- Clipboard detection, drag-and-drop capture, and the mini form let you stash new links without manual typing. The app also supports JSON **and** CSV import/export so backups slot neatly into spreadsheets or other machines.
+
 ## Installation
 
 1. Install dependencies:

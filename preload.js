@@ -28,6 +28,8 @@ contextBridge.exposeInMainWorld('electron', {
   exportLinks: () => ipcRenderer.invoke('export-links'),
   importLinks: () => ipcRenderer.invoke('import-links'),
   manualBackup: (keepN) => ipcRenderer.invoke('manual-backup', keepN),
+  exportLinksCsv: () => ipcRenderer.invoke('export-links-csv'),
+  importLinksCsv: () => ipcRenderer.invoke('import-links-csv'),
   // Link actions
   toggleFavorite: (id) => ipcRenderer.invoke('toggle-favorite', id),
   bulkDelete: (ids) => ipcRenderer.invoke('bulk-delete', ids),
@@ -35,6 +37,10 @@ contextBridge.exposeInMainWorld('electron', {
   setLinkPinned: (id, pinned) => ipcRenderer.invoke('set-link-pinned', id, pinned),
   openInBrowser: (url) => ipcRenderer.invoke('open-link-external', url),
   copyLink: (url) => ipcRenderer.invoke('copy-link', url),
+  reorderLinks: (orderedIds) => ipcRenderer.invoke('reorder-links', orderedIds),
+  refreshLinkMetadata: (id) => ipcRenderer.invoke('refresh-link-metadata', id),
+  refreshLinkHealth: (id) => ipcRenderer.invoke('refresh-link-health', id),
+  peekClipboardLink: () => ipcRenderer.invoke('peek-clipboard-link'),
   // Generic settings API
   getSetting: (key) => ipcRenderer.invoke('get-setting', key),
   getAllSettings: () => ipcRenderer.invoke('get-all-settings'),
