@@ -97,6 +97,10 @@ body {
     background: rgba(255, 193, 7, 0.8);
 }
 
+.reset-btn:hover {
+    background: rgba(52, 152, 219, 0.8);
+}
+
 .content {
     flex: 1;
     display: flex;
@@ -105,11 +109,65 @@ body {
     overflow: hidden;
 }
 
+.collapsible .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.collapsible .section-title {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.section-toggle {
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.section-toggle:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.section-toggle:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(120, 180, 255, 0.2);
+}
+
+.collapsible .section-body {
+    display: block;
+}
+
+.collapsible.collapsed .section-body {
+    display: none;
+}
+
+.collapsible.collapsed .section-header {
+    margin-bottom: 0;
+}
+
 .input-section {
     display: flex;
     flex-direction: column;
     gap: 8px;
     margin-bottom: 16px;
+}
+
+.input-section .section-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .url-input,
@@ -291,6 +349,11 @@ body {
     border: 1px solid rgba(255, 255, 255, var(--panel-border-alpha));
 }
 
+.links-section.collapsed {
+    flex: 0 0 auto;
+    overflow: hidden;
+}
+
 .links-toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -402,7 +465,7 @@ body {
 .settings-panel h3 {
     color: white;
     font-size: 14px;
-    margin-bottom: 8px;
+    margin: 0;
 }
 
 .setting-row { display: flex; flex-direction: column; gap: 6px; }

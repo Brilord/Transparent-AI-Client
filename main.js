@@ -735,6 +735,22 @@ function persistOpenLinksState() {
   }
 }
 
+function getDefaultMainWindowBounds(win) {
+  const fallbackDisplay = screen.getPrimaryDisplay();
+  let display = fallbackDisplay;
+  try {
+    if (win) display = screen.getDisplayMatching(win.getBounds());
+  } catch (err) {}
+  const workArea = display && display.workArea
+    ? display.workArea
+    : { x: 0, y: 0, width: DEFAULT_MAIN_WINDOW_WIDTH, height: DEFAULT_MAIN_WINDOW_HEIGHT };
+  const width = DEFAULT_MAIN_WINDOW_WIDTH;
+  const height = DEFAULT_MAIN_WINDOW_HEIGHT;
+  const x = Math.round(workArea.x + Math.max(0, (workArea.width - width) / 2));
+  const y = Math.round(workArea.y + Math.max(0, (workArea.height - height) / 2));
+  return { x, y, width, height };
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: DEFAULT_MAIN_WINDOW_WIDTH,
@@ -815,6 +831,20 @@ ipcMain.handle('toggle-maximize', (event) => {
     return true;
   } catch (err) {
     console.error('Error toggling maximize:', err);
+    return false;
+  }
+});
+
+ipcMain.handle('reset-window-bounds', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return false;
+  try {
+    if (win.isMaximized && win.isMaximized()) win.unmaximize();
+    if (win.isFullScreen && win.isFullScreen()) win.setFullScreen(false);
+    win.setBounds(getDefaultMainWindowBounds(win));
+    return true;
+  } catch (err) {
+    console.error('Error resetting window bounds:', err);
     return false;
   }
 });

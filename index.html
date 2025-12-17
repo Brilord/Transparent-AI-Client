@@ -12,14 +12,20 @@
             <h1>PlanaClientV2.0</h1>
             <div class="window-controls">
                 <button id="settingsBtn" class="control-btn settings-btn">⚙</button>
+                <button id="resetBtn" class="control-btn reset-btn" title="Reset window">R</button>
                 <button id="minimizeBtn" class="control-btn minimize-btn">−</button>
                 <button id="closeBtn" class="control-btn close-btn">×</button>
             </div>
         </div>
 
         <div class="content">
-            <div class="input-section">
-                <input 
+            <div class="input-section collapsible" data-collapsible="capture">
+                <div class="section-header">
+                    <span class="section-title">Capture</span>
+                    <button type="button" class="section-toggle" aria-expanded="true" aria-controls="captureSectionBody">Collapse</button>
+                </div>
+                <div id="captureSectionBody" class="section-body">
+                    <input 
                     type="url" 
                     id="urlInput" 
                     placeholder="Enter website URL..." 
@@ -69,9 +75,15 @@
                     </div>
                 </div>
             </div>
+            </div>
 
-            <div class="links-section">
-                <div class="links-toolbar">
+            <div class="links-section collapsible" data-collapsible="links">
+                <div class="section-header">
+                    <span class="section-title">Links</span>
+                    <button type="button" class="section-toggle" aria-expanded="true" aria-controls="linksSectionBody">Collapse</button>
+                </div>
+                <div id="linksSectionBody" class="section-body">
+                    <div class="links-toolbar">
                     <div class="search-group">
                         <input id="searchInput" type="search" placeholder="Search links..." class="search-input">
                         <button id="searchModeToggle" class="small-btn subtle">Fuzzy search</button>
@@ -104,10 +116,15 @@
                     <p class="hint">Add a link above to get started</p>
                 </div>
             </div>
+            </div>
             
             <!-- Settings Panel (hidden by default) -->
-            <div id="settingsPanel" class="settings-panel hidden">
-                <h3>Options</h3>
+            <div id="settingsPanel" class="settings-panel hidden collapsible" data-collapsible="settings">
+                <div class="section-header">
+                    <h3>Options</h3>
+                    <button type="button" class="section-toggle" aria-expanded="true" aria-controls="settingsSectionBody">Collapse</button>
+                </div>
+                <div id="settingsSectionBody" class="section-body">
                     <div class="setting-row">
                         <label for="opacityRange">Window transparency</label>
                         <div class="range-row">
@@ -167,6 +184,7 @@
                         <label><input id="telemetryChk" type="checkbox"> Enable crash reporting (anonymous, opt-in)</label>
                         <small class="hint">Help improve the app by sending anonymous crash reports. Data is opt-in and can be revoked anytime.</small>
                     </div>
+                </div>
             </div>
         </div>
     </div>

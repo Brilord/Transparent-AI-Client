@@ -6,6 +6,7 @@ const emptyState = document.getElementById('emptyState');
 const minimizeBtn = document.getElementById('minimizeBtn');
 const closeBtn = document.getElementById('closeBtn');
 const settingsBtn = document.getElementById('settingsBtn');
+const resetBtn = document.getElementById('resetBtn');
 const settingsPanel = document.getElementById('settingsPanel');
 const opacityRange = document.getElementById('opacityRange');
 const opacityVal = document.getElementById('opacityVal');
@@ -32,6 +33,61 @@ const linksFilePathEl = document.getElementById('linksFilePath');
 const chooseLinksFileBtn = document.getElementById('chooseLinksFileBtn');
 const resetLinksFileBtn = document.getElementById('resetLinksFileBtn');
 const openLinksFileBtn = document.getElementById('openLinksFileBtn');
+const collapsibleSections = Array.from(document.querySelectorAll('[data-collapsible]'));
+const collapseStateKey = 'plana:collapsedSections';
+let collapseState = {};
+
+function loadCollapseState() {
+  try {
+    const raw = localStorage.getItem(collapseStateKey);
+    return raw ? JSON.parse(raw) : {};
+  } catch (err) {
+    return {};
+  }
+}
+
+function saveCollapseState() {
+  try {
+    localStorage.setItem(collapseStateKey, JSON.stringify(collapseState));
+  } catch (err) {}
+}
+
+function setSectionCollapsed(section, collapsed, persist = true) {
+  if (!section) return;
+  section.classList.toggle('collapsed', collapsed);
+  const toggle = section.querySelector('.section-toggle');
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+    toggle.textContent = collapsed ? 'Expand' : 'Collapse';
+  }
+  if (!persist) return;
+  const id = section.getAttribute('data-collapsible');
+  if (!id) return;
+  collapseState[id] = collapsed;
+  saveCollapseState();
+}
+
+function initCollapsibleSections() {
+  if (!collapsibleSections.length) return;
+  collapseState = loadCollapseState();
+  collapsibleSections.forEach((section) => {
+    const toggle = section.querySelector('.section-toggle');
+    if (toggle) {
+      toggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        setSectionCollapsed(section, !section.classList.contains('collapsed'), true);
+      });
+    }
+    const id = section.getAttribute('data-collapsible');
+    if (id && Object.prototype.hasOwnProperty.call(collapseState, id)) {
+      setSectionCollapsed(section, !!collapseState[id], false);
+    } else {
+      setSectionCollapsed(section, false, false);
+    }
+  });
+}
+
+initCollapsibleSections();
 
 function applyBackgroundVisuals(rawValue) {
   try {
@@ -305,6 +361,12 @@ minimizeBtn.addEventListener('click', () => {
 
 closeBtn.addEventListener('click', () => {
   window.electron.closeWindow();
+});
+
+resetBtn.addEventListener('click', () => {
+  if (window.electron && typeof window.electron.resetWindowBounds === 'function') {
+    window.electron.resetWindowBounds();
+  }
 });
 
 // Settings button toggles the options panel

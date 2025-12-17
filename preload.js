@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('electron', {
   updateLink: (payload) => ipcRenderer.invoke('update-link', payload),
   minimizeWindow: () => ipcRenderer.invoke('minimize-window'),
   closeWindow: () => ipcRenderer.invoke('close-window'),
+  resetWindowBounds: () => ipcRenderer.invoke('reset-window-bounds'),
   openLink: (url) => ipcRenderer.invoke('open-link', url)
   ,
   openLinkWithId: (id, url) => ipcRenderer.invoke('open-link', id, url)
