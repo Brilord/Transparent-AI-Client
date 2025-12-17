@@ -9,6 +9,7 @@ A minimal Electron application (PlanaClientV2.0) with a transparent, glass-style
 - 💾 Local persistent storage using JSON
 - 🖱️ Click links to open them inside transparent app windows
 - ⌨️ Keyboard and mouse controls for precise window movement and resizing
+- 🗂️ Custom storage picker so you can point Plana at any `links.json` file, edit it manually, or keep it inside a synced folder.
 - 🏷️ Tag links, filter by tag chips, and bulk-apply tags to keep large libraries organized.
 - 🧰 Manage every entry inline with edit, open-in-browser, copy, pin/unpin, and favorite toggles without leaving the catalog.
 
@@ -21,9 +22,6 @@ Additional options in the same panel:
 - 🔁 Persist settings — save option changes (opacity / always-on-top / resizer injection) across app restarts.
 - 🔧 Inject resizers — toggle whether the app attempts to insert invisible resizer handles into link windows (some websites block injection; if disabled use keyboard shortcuts for resizing instead).
 - ♻️ Reset to defaults — quickly reset all options to the app defaults.
-- ⌨️ New keyboard snap shortcuts — in Options you can enable two additional snapping shortcuts for quickly resizing windows on the left side of the screen:
-  - Ctrl+Alt+6 → snap focused window to left 1/4
-  - Ctrl+Alt+7 → snap focused window to left 1/3
   You can toggle each shortcut on/off from the Options panel.
 
 ### Tags & Quick Filters
@@ -145,6 +143,7 @@ Links are stored in the user's application data directory:
 - Windows: `%APPDATA%/electron-link-storage/links.json`
 - macOS: `~/Library/Application Support/electron-link-storage/links.json`
 - Linux: `~/.config/electron-link-storage/links.json`
+Prefer a different location? Use the Options → “Links storage JSON” controls to choose any other file (and open it quickly for manual editing) without leaving the app.
 
 ## Window Behavior & Shortcuts
 
@@ -155,14 +154,7 @@ This app provides both mouse and keyboard controls for frameless windows.
 - Keyboard resize: hold `Ctrl + Alt` and press arrow keys to resize by 20px.
 - Keyboard move: hold `Ctrl + Alt + Shift` and press arrow keys to move the window by 20px.
 - Toggle maximize: `Ctrl + Alt + M` toggles maximize/restore.
-- Snap shortcuts: `Ctrl + Alt + 1..5` snap the focused window to common layouts:
-  - `1` = snap left half
-  - `2` = snap right half
-  - `3` = snap top half
-  - `4` = snap bottom half
-  - `5` = center the window (80% size)
-
-Windows also auto-snap to screen edges when dragged within 20 pixels of an edge. Snapping respects the display work area (avoids taskbar overlap).
+- Dragging a window near a screen edge lets the operating system snap it, just like any other application—Plana no longer adds extra snap layouts.
 
 ## Link Windows (External Pages)
 
@@ -184,7 +176,6 @@ If the build fails, check `dist/builder-effective-config.yaml` for the resolved 
 
 - If `npm install` fails, try removing `node_modules` and `package-lock.json` then run `npm install` again.
 - If a link window does not show injected resizers due to CSP, use keyboard shortcuts or the top drag area.
-- If windows do not snap as expected, verify multiple displays and scaling settings; snapping uses the display workArea to avoid overlapping the taskbar.
 
 ## License
 

@@ -21,6 +21,9 @@ contextBridge.exposeInMainWorld('electron', {
   // Folder sync helpers
   chooseSyncFolder: () => ipcRenderer.invoke('choose-sync-folder'),
   getSyncFolder: () => ipcRenderer.invoke('get-sync-folder'),
+  chooseLinksFile: () => ipcRenderer.invoke('choose-links-file'),
+  getDefaultLinksPath: () => ipcRenderer.invoke('get-default-links-file'),
+  revealLinksFile: () => ipcRenderer.invoke('reveal-links-file'),
   onLinksChanged: (cb) => {
     ipcRenderer.on('links-changed', () => cb());
   },
@@ -60,8 +63,7 @@ contextBridge.exposeInMainWorld('windowManager', {
 // expose additional window controls
 contextBridge.exposeInMainWorld('windowActions', {
   move: (dx, dy) => ipcRenderer.invoke('move-window', { dx, dy }),
-  toggleMaximize: () => ipcRenderer.invoke('toggle-maximize'),
-  snap: (dir) => ipcRenderer.invoke('snap-window', dir)
+  toggleMaximize: () => ipcRenderer.invoke('toggle-maximize')
 });
 
 // Keybindings for main renderer window
@@ -107,33 +109,5 @@ window.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // Snapping: Ctrl+Alt + number keys 1..5
-    if (e.ctrlKey && e.altKey && !e.shiftKey) {
-      switch (e.key) {
-        case '1': await ipcRenderer.invoke('snap-window', 'left'); e.preventDefault(); return;
-        case '2': await ipcRenderer.invoke('snap-window', 'right'); e.preventDefault(); return;
-        case '3': await ipcRenderer.invoke('snap-window', 'top'); e.preventDefault(); return;
-        case '4': await ipcRenderer.invoke('snap-window', 'bottom'); e.preventDefault(); return;
-        case '5': await ipcRenderer.invoke('snap-window', 'center'); e.preventDefault(); return;
-      }
-    }
-
-      // Additional snap shortcuts (left 1/4 and left 1/3) using number keys 6 & 7
-      if (e.ctrlKey && e.altKey && !e.shiftKey) {
-        try {
-          switch (e.key) {
-            case '6': {
-              const enabled = await ipcRenderer.invoke('get-setting', 'leftQuarterShortcut');
-              if (enabled) { await ipcRenderer.invoke('snap-window', 'left-quarter'); e.preventDefault(); }
-              return;
-            }
-            case '7': {
-              const enabled = await ipcRenderer.invoke('get-setting', 'leftThirdShortcut');
-              if (enabled) { await ipcRenderer.invoke('snap-window', 'left-third'); e.preventDefault(); }
-              return;
-            }
-          }
-        } catch (err) { /* ignore */ }
-      }
   });
 });

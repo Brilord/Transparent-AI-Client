@@ -8,7 +8,7 @@ let mainWindow;
 let appOpacity = 1.0; // global app opacity applied to all windows
 const linkWindows = new Set();
 const linkWindowMeta = new Map(); // track metadata for open link windows
-const dataFile = path.join(app.getPath('userData'), 'links.json');
+const defaultDataFile = path.join(app.getPath('userData'), 'links.json');
 const settingsFile = path.join(app.getPath('userData'), 'settings.json');
 const MIN_LINK_WINDOW_OPACITY = 0.68; // keep remote link text readable even when slider hits 0%
 const DEFAULT_MAIN_WINDOW_WIDTH = 600;
@@ -105,13 +105,12 @@ const DEFAULT_SETTINGS = {
   alwaysOnTop: false,
   injectResizers: true,
   persistSettings: true,
+  customDataFile: null,
   // Folder sync settings
   useFolderSync: false,
   syncFolder: null,
   // Telemetry opt-in
   telemetryEnabled: false,
-  leftQuarterShortcut: false,
-  leftThirdShortcut: false,
   // Launch behavior
   launchOnStartup: false,
   // Last opened links (to restore on next launch)
@@ -122,6 +121,32 @@ const DEFAULT_SETTINGS = {
 };
 
 let appSettings = Object.assign({}, DEFAULT_SETTINGS);
+
+function getDataFilePath() {
+  try {
+    const customPath = appSettings && typeof appSettings.customDataFile === 'string'
+      ? appSettings.customDataFile.trim()
+      : '';
+    if (customPath) return customPath;
+  } catch (err) {}
+  return defaultDataFile;
+}
+
+function ensureLinksFileExists(targetPath = getDataFilePath()) {
+  try {
+    if (!targetPath) return;
+    const dir = path.dirname(targetPath);
+    if (dir && !fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    if (!fs.existsSync(targetPath)) {
+      fs.writeFileSync(targetPath, JSON.stringify([]));
+    }
+  } catch (err) {
+    console.error('Error ensuring links file exists:', err);
+    throw err;
+  }
+}
 
 // Folder sync watcher state
 let syncWatcher = null;
@@ -627,19 +652,20 @@ function csvRecords(content) {
 
 // Initialize links storage
 function initializeLinksStorage() {
-  if (!fs.existsSync(dataFile)) {
-    fs.writeFileSync(dataFile, JSON.stringify([]));
+  try {
+    ensureLinksFileExists();
+  } catch (err) {
+    // already logged
   }
 }
 
 // Load links from storage
 function loadLinks() {
   try {
-    if (fs.existsSync(dataFile)) {
-      const data = fs.readFileSync(dataFile, 'utf-8');
-      return JSON.parse(data);
-    }
-    return [];
+    const file = getDataFilePath();
+    ensureLinksFileExists(file);
+    const data = fs.readFileSync(file, 'utf-8');
+    return JSON.parse(data);
   } catch (error) {
     console.error('Error loading links:', error);
     return [];
@@ -660,7 +686,9 @@ function getSyncFilePath() {
 function saveLinks(links) {
   try {
     // Always keep local copy for app usage
-    fs.writeFileSync(dataFile, JSON.stringify(links, null, 2));
+    const file = getDataFilePath();
+    ensureLinksFileExists(file);
+    fs.writeFileSync(file, JSON.stringify(links, null, 2));
 
     // If folder sync enabled, write a wrapper with updatedAt so other devices can detect changes
     const syncPath = getSyncFilePath();
@@ -791,43 +819,6 @@ ipcMain.handle('toggle-maximize', (event) => {
   }
 });
  
-// Snap window to edges (left, right, top, bottom, center)
-ipcMain.handle('snap-window', (event, direction) => {
-  const win = BrowserWindow.fromWebContents(event.sender);
-  if (!win) return false;
-  try {
-    const bounds = win.getBounds();
-    const display = screen.getDisplayMatching(bounds) || screen.getPrimaryDisplay();
-    const d = display.workArea;
-    let nb = Object.assign({}, bounds);
-    switch (direction) {
-      case 'left':
-        nb.x = d.x; nb.y = d.y; nb.width = Math.floor(d.width / 2); nb.height = d.height; break;
-      case 'left-quarter':
-        nb.x = d.x; nb.y = d.y; nb.width = Math.floor(d.width / 4); nb.height = d.height; break;
-      case 'left-third':
-        nb.x = d.x; nb.y = d.y; nb.width = Math.floor(d.width / 3); nb.height = d.height; break;
-      case 'right':
-        nb.x = d.x + Math.floor(d.width / 2); nb.y = d.y; nb.width = Math.floor(d.width / 2); nb.height = d.height; break;
-      case 'top':
-        nb.x = d.x; nb.y = d.y; nb.width = d.width; nb.height = Math.floor(d.height / 2); break;
-      case 'bottom':
-        nb.x = d.x; nb.y = d.y + Math.floor(d.height / 2); nb.width = d.width; nb.height = Math.floor(d.height / 2); break;
-      case 'center':
-        nb.width = Math.min(bounds.width, Math.floor(d.width * 0.8)); nb.height = Math.min(bounds.height, Math.floor(d.height * 0.8)); nb.x = d.x + Math.floor((d.width - nb.width) / 2); nb.y = d.y + Math.floor((d.height - nb.height) / 2); break;
-      case 'fullscreen':
-        win.maximize(); return true;
-      default:
-        return false;
-    }
-    win.setBounds(nb);
-    return true;
-  } catch (err) {
-    console.error('Error snapping window:', err);
-    return false;
-  }
-});
-
 app.on('ready', () => {
   initializeLinksStorage();
   // load settings before creating windows
@@ -1492,10 +1483,12 @@ function loadSettings() {
     } else {
       setLaunchOnStartup(appSettings.launchOnStartup);
     }
+    try { ensureLinksFileExists(getDataFilePath()); } catch (err) {}
     return appSettings;
   } catch (err) {
     console.error('Error loading settings:', err);
     appSettings = Object.assign({}, DEFAULT_SETTINGS);
+    try { ensureLinksFileExists(defaultDataFile); } catch (e) {}
     return appSettings;
   }
 }
@@ -1544,7 +1537,17 @@ ipcMain.handle('get-all-settings', () => {
 
 ipcMain.handle('set-setting', (event, key, value) => {
   if (!key) return false;
-  appSettings[key] = value;
+  let nextValue = value;
+  if (key === 'customDataFile') {
+    const normalized = (typeof value === 'string') ? value.trim() : '';
+    nextValue = normalized || null;
+    try {
+      ensureLinksFileExists(nextValue || defaultDataFile);
+    } catch (err) {
+      return false;
+    }
+  }
+  appSettings[key] = nextValue;
   // Persist settings if enabled
   if (appSettings.persistSettings) saveSettings();
 
@@ -1557,6 +1560,11 @@ ipcMain.handle('set-setting', (event, key, value) => {
       for (const win of linkWindows) {
         if (win && !win.isDestroyed()) win.setAlwaysOnTop(!!value);
       }
+    }
+
+    if (key === 'customDataFile') {
+      initializeLinksStorage();
+      notifyLinksChanged();
     }
 
     if (key === 'appOpacity') {
@@ -1613,6 +1621,7 @@ ipcMain.handle('set-setting', (event, key, value) => {
 ipcMain.handle('reset-settings', () => {
   appSettings = Object.assign({}, DEFAULT_SETTINGS);
   saveSettings();
+  try { ensureLinksFileExists(defaultDataFile); } catch (e) {}
   // Also reset OS login item toggle
   try { setLaunchOnStartup(!!appSettings.launchOnStartup); } catch (e) {}
   // Clear any remembered last-opened links
@@ -1639,6 +1648,7 @@ ipcMain.handle('reset-settings', () => {
   BrowserWindow.getAllWindows().forEach(w => {
     try { w.webContents.send('settings-reset', appSettings); } catch (e) {}
   });
+  try { notifyLinksChanged(); } catch (e) {}
 
   return appSettings;
 });
@@ -1669,7 +1679,11 @@ function startSyncWatcher() {
         if (updatedAt && updatedAt > lastSyncUpdatedAt) {
           // Update local copy and notify renderers
           const normalized = normalizeLinkCollection(remoteLinks).normalized;
-          try { fs.writeFileSync(dataFile, JSON.stringify(normalized, null, 2)); } catch (err) {}
+          try {
+            const file = getDataFilePath();
+            ensureLinksFileExists(file);
+            fs.writeFileSync(file, JSON.stringify(normalized, null, 2));
+          } catch (err) {}
           lastSyncUpdatedAt = updatedAt;
           scheduleBackgroundJobsForLinks(normalized);
           notifyLinksChanged();
@@ -1716,6 +1730,38 @@ ipcMain.handle('choose-sync-folder', async () => {
 
 ipcMain.handle('get-sync-folder', () => {
   return appSettings.syncFolder || null;
+});
+
+ipcMain.handle('choose-links-file', async () => {
+  try {
+    const res = await dialog.showOpenDialog({
+      properties: ['openFile', 'promptToCreate'],
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+      defaultPath: getDataFilePath()
+    });
+    if (res && !res.canceled && res.filePaths && res.filePaths[0]) {
+      return res.filePaths[0];
+    }
+    return null;
+  } catch (err) {
+    console.error('Error choosing links file:', err);
+    return null;
+  }
+});
+
+ipcMain.handle('get-default-links-file', () => {
+  return defaultDataFile;
+});
+
+ipcMain.handle('reveal-links-file', () => {
+  try {
+    const target = getDataFilePath();
+    if (target) shell.showItemInFolder(target);
+    return target || null;
+  } catch (err) {
+    console.error('Error revealing links file:', err);
+    return null;
+  }
 });
 
 // Ensure watcher starts on app ready if enabled

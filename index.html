@@ -147,13 +147,16 @@
                     </div>
 
                     <div class="setting-row">
-                        <label><input id="leftQuarterChk" type="checkbox"> Enable keyboard shortcut for Left 1/4 (Ctrl+Alt+6)</label>
-                        <small class="hint">Snap the focused window to the left quarter of the screen using Ctrl+Alt+6</small>
-                    </div>
-
-                    <div class="setting-row">
-                        <label><input id="leftThirdChk" type="checkbox"> Enable keyboard shortcut for Left 1/3 (Ctrl+Alt+7)</label>
-                        <small class="hint">Snap the focused window to the left third of the screen using Ctrl+Alt+7</small>
+                        <label>Links storage JSON</label>
+                        <small class="hint">Point Plana at a different links.json file or open the current file to edit it manually.</small>
+                        <div class="folder-row">
+                            <div id="linksFilePath" class="sync-path">Default location</div>
+                            <button id="openLinksFileBtn" class="choose-folder-btn">Open file</button>
+                        </div>
+                        <div class="folder-row">
+                            <button id="chooseLinksFileBtn" class="choose-folder-btn">Choose file</button>
+                            <button id="resetLinksFileBtn" class="choose-folder-btn">Use default</button>
+                        </div>
                     </div>
 
                     <div class="setting-row">

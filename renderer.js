@@ -13,8 +13,6 @@ const alwaysOnTopChk = document.getElementById('alwaysOnTopChk');
 const injectResizersChk = document.getElementById('injectResizersChk');
 const persistSettingsChk = document.getElementById('persistSettingsChk');
 const launchOnStartupChk = document.getElementById('launchOnStartupChk');
-const leftQuarterChk = document.getElementById('leftQuarterChk');
-const leftThirdChk = document.getElementById('leftThirdChk');
 const resetSettingsBtn = document.getElementById('resetSettingsBtn');
 const tagsInput = document.getElementById('tagsInput');
 const folderInput = document.getElementById('folderInput');
@@ -30,6 +28,10 @@ const dismissClipboardBannerBtn = document.getElementById('dismissClipboardBanne
 const searchModeToggle = document.getElementById('searchModeToggle');
 const groupingSelect = document.getElementById('groupingSelect');
 const dropOverlay = document.getElementById('dropOverlay');
+const linksFilePathEl = document.getElementById('linksFilePath');
+const chooseLinksFileBtn = document.getElementById('chooseLinksFileBtn');
+const resetLinksFileBtn = document.getElementById('resetLinksFileBtn');
+const openLinksFileBtn = document.getElementById('openLinksFileBtn');
 
 function applyBackgroundVisuals(rawValue) {
   try {
@@ -71,6 +73,18 @@ let searchMode = 'fuzzy';
 let groupingMode = 'none';
 let clipboardCandidate = null;
 let clipboardDismissedToken = null;
+let defaultLinksPath = null;
+
+function updateLinksFileDisplay(customPath) {
+  if (!linksFilePathEl) return;
+  if (customPath && customPath.trim()) {
+    linksFilePathEl.textContent = customPath.trim();
+  } else if (defaultLinksPath) {
+    linksFilePathEl.textContent = `Default (${defaultLinksPath})`;
+  } else {
+    linksFilePathEl.textContent = 'Default location';
+  }
+}
 
 function normalizeTagsInput(raw) {
   if (!raw) return [];
@@ -358,6 +372,10 @@ async function initSettingsUI() {
     if (!s) return;
 
     if (Array.isArray(s.pinnedTags)) pinnedTags = s.pinnedTags.slice();
+    try {
+      defaultLinksPath = await window.electron.getDefaultLinksPath();
+    } catch (err) { defaultLinksPath = null; }
+    updateLinksFileDisplay(s.customDataFile || null);
     if (groupingSelect) {
       groupingMode = typeof s.groupingPreference === 'string' ? s.groupingPreference : 'none';
       groupingSelect.value = groupingMode;
@@ -372,8 +390,6 @@ async function initSettingsUI() {
     }
     if (typeof s.persistSettings === 'boolean') persistSettingsChk.checked = s.persistSettings;
     if (typeof s.launchOnStartup === 'boolean') launchOnStartupChk.checked = s.launchOnStartup;
-    if (typeof s.leftQuarterShortcut === 'boolean') leftQuarterChk.checked = s.leftQuarterShortcut;
-    if (typeof s.leftThirdShortcut === 'boolean') leftThirdChk.checked = s.leftThirdShortcut;
 
     // Wire up change listeners
     alwaysOnTopChk.addEventListener('change', async (e) => {
@@ -392,14 +408,6 @@ async function initSettingsUI() {
 
     launchOnStartupChk.addEventListener('change', async (e) => {
       await window.electron.setSetting('launchOnStartup', !!e.target.checked);
-    });
-
-    leftQuarterChk.addEventListener('change', async (e) => {
-      await window.electron.setSetting('leftQuarterShortcut', !!e.target.checked);
-    });
-
-    leftThirdChk.addEventListener('change', async (e) => {
-      await window.electron.setSetting('leftThirdShortcut', !!e.target.checked);
     });
 
     // Folder sync UI
@@ -429,6 +437,27 @@ async function initSettingsUI() {
       }
     });
 
+    if (chooseLinksFileBtn) {
+      chooseLinksFileBtn.addEventListener('click', async () => {
+        const chosen = await window.electron.chooseLinksFile();
+        if (chosen) {
+          await window.electron.setSetting('customDataFile', chosen);
+        }
+      });
+    }
+
+    if (resetLinksFileBtn) {
+      resetLinksFileBtn.addEventListener('click', async () => {
+        await window.electron.setSetting('customDataFile', null);
+      });
+    }
+
+    if (openLinksFileBtn) {
+      openLinksFileBtn.addEventListener('click', async () => {
+        await window.electron.revealLinksFile();
+      });
+    }
+
     resetSettingsBtn.addEventListener('click', async () => {
       if (!confirm('Reset settings to defaults?')) return;
       const newSettings = await window.electron.resetSettings();
@@ -442,9 +471,8 @@ async function initSettingsUI() {
         applyResizerVisibility(!!newSettings.injectResizers);
         persistSettingsChk.checked = newSettings.persistSettings;
         // reflect new boolean settings into UI
-        leftQuarterChk.checked = !!newSettings.leftQuarterShortcut;
-        leftThirdChk.checked = !!newSettings.leftThirdShortcut;
         launchOnStartupChk.checked = !!newSettings.launchOnStartup;
+        updateLinksFileDisplay(newSettings.customDataFile || null);
       }
     });
 
@@ -457,8 +485,6 @@ async function initSettingsUI() {
             opacityVal.innerText = Math.round(value * 100) + '%';
             applyBackgroundVisuals(value);
           }
-          if (key === 'leftQuarterShortcut') leftQuarterChk.checked = !!value;
-          if (key === 'leftThirdShortcut') leftThirdChk.checked = !!value;
           if (key === 'alwaysOnTop') alwaysOnTopChk.checked = !!value;
           if (key === 'injectResizers') {
             injectResizersChk.checked = !!value;
@@ -466,6 +492,10 @@ async function initSettingsUI() {
           }
           if (key === 'persistSettings') persistSettingsChk.checked = !!value;
           if (key === 'launchOnStartup') launchOnStartupChk.checked = !!value;
+          if (key === 'customDataFile') {
+            updateLinksFileDisplay(value || null);
+            loadLinks();
+          }
           if (key === 'pinnedTags') {
             pinnedTags = Array.isArray(value) ? value : [];
             renderTagFilters();

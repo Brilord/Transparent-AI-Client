@@ -8,10 +8,10 @@ An in-depth look at how this Electron link manager is structured, how data moves
 
 | Layer | Files | Responsibilities |
 | --- | --- | --- |
-| Main process | `main.js` | Bootstraps Electron, manages BrowserWindows, handles IPC, persists links/settings/backups, controls window behaviors (opacity, snapping, always-on-top), manages folder sync and OS login toggles. |
+| Main process | `main.js` | Bootstraps Electron, manages BrowserWindows, handles IPC, persists links/settings/backups, controls window behaviors (opacity, always-on-top), manages the customizable links file, folder sync, and OS login toggles. |
 | Main renderer | `index.html`, `renderer.js`, `styles.css` | Provides the UI for adding/searching links, viewing settings, rendering resizer handles, and applying the glassmorphic visuals. |
-| Preload (main window) | `preload.js` | Bridges IPC safely via `contextBridge`, exposes `window.electron/windowManager/windowActions`, and installs keyboard shortcuts for resizing, moving, and snapping the frameless window. |
-| Link-window preload | `preload-link.js` | Injected into every external link BrowserWindow to add keyboard shortcuts for resizing/moving/snapping without exposing Node APIs to remote content. |
+| Preload (main window) | `preload.js` | Bridges IPC safely via `contextBridge`, exposes `window.electron/windowManager/windowActions`, and installs keyboard shortcuts for resizing and moving the frameless window. |
+| Link-window preload | `preload-link.js` | Injected into every external link BrowserWindow to add keyboard shortcuts for resizing/moving without exposing Node APIs to remote content. |
 
 The entry point is `main.js` (`package.json.main`). Build packaging lives in `package.json#build` via electron-builder.
 
@@ -22,6 +22,7 @@ The entry point is `main.js` (`package.json.main`). Build packaging lives in `pa
 1. **Startup**
    - `initializeLinksStorage()` (`main.js:61-72`) ensures `links.json` exists in `app.getPath('userData')`.
    - `loadSettings()` (`main.js:645-709`) merges `DEFAULT_SETTINGS` (`main.js:35-54`) with `settings.json`, syncs the `launchOnStartup` flag with the OS, and restores `appOpacity`.
+   - `getDataFilePath()` / `ensureLinksFileExists()` (`main.js:55-74`) resolve the active links JSON file (default or user-selected) and create it if needed so manual file swaps are safe.
    - `createWindow()` (`main.js:140-209`) opens the transparent main BrowserWindow, injects `preload.js`, and debounces bounds persistence via `mainWindow.on('move'/'resize')`.
 
 2. **IPC wiring**: All IPC handlers are defined in `main.js:210-873` before `app.whenReady()` completes so renderer calls succeed immediately.
@@ -73,7 +74,7 @@ Imports merge by `id`; duplicates are skipped. Favorites toggle via `toggle-favo
 
 `DEFAULT_SETTINGS` contains:
 - Window state: `mainWindowBounds`, `appOpacity`, `alwaysOnTop`, `injectResizers`, `persistSettings`, `lastOpenedLinks`.
-- Features: `useFolderSync`, `syncFolder`, `leftQuarterShortcut`, `leftThirdShortcut`, `telemetryEnabled`.
+- Features: `useFolderSync`, `syncFolder`, `customDataFile`, `telemetryEnabled`.
 - System: `launchOnStartup`.
 
 `saveSettings()` (`main.js:678-692`) writes the JSON whenever `persistSettings` is true. Login item updates happen via `setLaunchOnStartup()` (`main.js:693-713`).
@@ -88,12 +89,13 @@ Imports merge by `id`; duplicates are skipped. Favorites toggle via `toggle-favo
 
 | Handler or Function | Purpose |
 | --- | --- |
-| `ipcMain.handle('get/set-window-bounds')`, `move-window`, `toggle-maximize`, `snap-window` (`main.js:210-292`) | Support mouse/keyboard resizing and moving for frameless windows. Snapping uses `screen.getDisplayMatching(bounds).workArea` and supports left/right/top/bottom/center plus left-quarter/left-third when enabled. |
+| `ipcMain.handle('get/set-window-bounds')`, `move-window`, `toggle-maximize` (`main.js:210-292`) | Support mouse/keyboard resizing and moving for frameless windows. Bounds snap to display work areas via the OS; Plana only adjusts width/height/position incrementally. |
 | `ipcMain.handle('get-links'...'manual-backup')` (`main.js:322-419`) | CRUD, export/import, and backup of the link catalog. |
 | `ipcMain.handle('open-link')` -> `openLinkWindow()` (`main.js:420-605`) | Opens an external BrowserWindow, applies opacity, saves bounds, and tracks metadata in `linkWindowMeta`. |
 | `ipcMain.handle('set-app-opacity')` with `applyOpacityToLinkWindows()` (`main.js:614-644`, `21-33`) | Global opacity pipeline with easing to keep link windows legible (minimum 0.68). |
 | `ipcMain.handle('get/set/reset-setting')` (`main.js:710-816`) | Generic settings API plus immediate reactions (always-on-top, opacity, launch-on-startup, folder sync). |
 | Sync helpers (`startSyncWatcher`, `stopSyncWatcher`, `choose-sync-folder`) (`main.js:817-873`) | Folder sync enable/disable and picker. |
+| Links file helpers (`choose-links-file`, `get-default-links-file`, `reveal-links-file`) (`main.js:1710-1785`) | Let the renderer show, change, or reveal the JSON database path so users can hand-edit or relocate their storage file. |
 | Lifecycle helpers (`closeAllLinkWindows`, `persistOpenLinksState`, `reopenLastLinksIfAvailable`) (`main.js:109-139`, `593-612`) | Remember which link windows were open and restore them on next launch. |
 
 ---
@@ -115,11 +117,12 @@ Imports merge by `id`; duplicates are skipped. Favorites toggle via `toggle-favo
 
 - `preload.js`
   - Exposes IPC helpers via `contextBridge` (`window.electron`, `windowManager`, `windowActions`).
+  - Provides helper bridges for folder sync selection plus the new "Links storage JSON" picker/reveal buttons in the settings panel.
   - Listens for `app-opacity-changed`, `links-changed`, and `setting-changed` broadcasts and forwards them to renderer callbacks.
   - Installs global keydown handlers so the main window always responds to Ctrl+Alt shortcuts even when inputs are focused (`preload.js:57-104`).
 
 - `preload-link.js`
-  - Adds the same keyboard shortcuts to link BrowserWindows plus optional shortcuts for left-quarter/left-third snapping when settings enable them (`preload-link.js:6-84`).
+  - Adds the same keyboard shortcuts to link BrowserWindows for resizing, moving, and toggling maximize (`preload-link.js:6-84`).
   - Injects invisible edge/corner resizers into remote pages when `injectResizers` is true so frameless link windows regain drag handles (`preload-link.js:85-170`), removing them when the toggle is off.
 
 ---
@@ -131,9 +134,6 @@ Imports merge by `id`; duplicates are skipped. Favorites toggle via `toggle-favo
 | Ctrl + Alt + Arrow | Main and link windows | Resize by plus or minus 20px in that direction (`preload.js`, `preload-link.js`). |
 | Ctrl + Alt + Shift + Arrow | Main and link windows | Move window by plus or minus 20px (`move-window`). |
 | Ctrl + Alt + M | Main and link windows | Toggle maximize/restore (`toggle-maximize`). |
-| Ctrl + Alt + 1..5 | Main and link windows | Snap to left/right/top/bottom/center (`snap-window`). |
-| Ctrl + Alt + 6 | Optional | Snap to left quarter when `leftQuarterShortcut` is true. |
-| Ctrl + Alt + 7 | Optional | Snap to left third when `leftThirdShortcut` is true. |
 | Mouse drag edges/corners | Main window (and link windows when injection is enabled) | Resize via `.resizer` divs or injected overlays that call `windowManager.setBounds()`. |
 
 ---
@@ -153,7 +153,7 @@ Imports merge by `id`; duplicates are skipped. Favorites toggle via `toggle-favo
 2. The crash reporter now flips `uploadToServer`, but it still points at a placeholder URL. Wiring it to a real backend (or disabling uploads entirely) will avoid noisy network errors.
 3. Tag filters are single-select and not persisted. Consider multi-select filters, saved views, or tag suggestions based on frequency.
 4. Most destructive operations rely on blocking `alert`/`confirm`. A non-blocking toast/notification system would improve UX, especially when many quick edits are performed.
-5. There are no automated tests. Consider unit tests around `saveLinks()` / `loadLinks()`, sync watcher behavior, and window snapping math.
+5. There are no automated tests. Consider unit tests around `saveLinks()` / `loadLinks()`, sync watcher behavior, and the window movement/resizer math.
 6. Many IPC handlers swallow errors; surfacing failures back to the renderer would improve UX when file dialogs fail or sync folders disappear.
 
 ---
