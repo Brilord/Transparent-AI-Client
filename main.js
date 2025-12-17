@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, screen, dialog } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, screen, dialog, shell, clipboard, crashReporter } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -11,6 +11,53 @@ const settingsFile = path.join(app.getPath('userData'), 'settings.json');
 const MIN_LINK_WINDOW_OPACITY = 0.68; // keep remote link text readable even when slider hits 0%
 const DEFAULT_MAIN_WINDOW_WIDTH = 600;
 const DEFAULT_MAIN_WINDOW_HEIGHT = 800;
+const TELEMETRY_SUBMIT_URL = 'https://telemetry.invalid/crash';
+
+let crashReporterInitialized = false;
+
+function applyTelemetryState(enabled) {
+  if (!crashReporter || typeof crashReporter.start !== 'function') return;
+  const uploadEnabled = !!enabled;
+  try {
+    if (!crashReporterInitialized) {
+      crashReporter.start({
+        productName: 'PlanaClientV2.0',
+        companyName: 'PlanaClient',
+        submitURL: TELEMETRY_SUBMIT_URL,
+        uploadToServer: uploadEnabled,
+        compress: true
+      });
+      crashReporterInitialized = true;
+    } else if (typeof crashReporter.setUploadToServer === 'function') {
+      crashReporter.setUploadToServer(uploadEnabled);
+    }
+  } catch (err) {
+    console.error('Crash reporter error:', err);
+  }
+}
+
+function normalizeTags(input) {
+  if (input === undefined || input === null) return [];
+  let source = [];
+  if (Array.isArray(input)) {
+    source = input;
+  } else if (typeof input === 'string') {
+    source = input.split(',');
+  } else {
+    return [];
+  }
+  const seen = new Set();
+  const cleaned = [];
+  for (const raw of source) {
+    const trimmed = String(raw || '').trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    cleaned.push(trimmed);
+  }
+  return cleaned;
+}
 
 function getLinkWindowOpacity(baseOpacity) {
   let normalized = typeof baseOpacity === 'number' ? baseOpacity : parseFloat(baseOpacity);
@@ -263,6 +310,7 @@ app.on('ready', () => {
   initializeLinksStorage();
   // load settings before creating windows
   try { loadSettings(); } catch (err) { /* ignore */ }
+  try { applyTelemetryState(!!appSettings.telemetryEnabled); } catch (err) {}
   if (typeof appSettings.appOpacity === 'number') appOpacity = appSettings.appOpacity;
   createWindow();
   // Restore the last opened link (if any) after the main window is ready
@@ -293,6 +341,7 @@ ipcMain.handle('get-links', () => {
 
 ipcMain.handle('add-link', (event, link) => {
   const links = loadLinks();
+  const normalizedTags = normalizeTags(link && link.tags);
   const newLink = {
     id: Date.now(),
     url: link.url,
@@ -300,7 +349,8 @@ ipcMain.handle('add-link', (event, link) => {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     favorite: false,
-    tags: []
+    tags: normalizedTags,
+    pinned: !!(link && link.pinned)
   };
   links.push(newLink);
   saveLinks(links);
@@ -319,6 +369,39 @@ ipcMain.handle('toggle-favorite', (event, id) => {
   } catch (err) { return false; }
 });
 
+ipcMain.handle('update-link', (event, payload = {}) => {
+  try {
+    const id = payload && payload.id ? Number(payload.id) : null;
+    if (!id) return false;
+    const links = loadLinks();
+    const idx = links.findIndex(l => Number(l.id) === Number(id));
+    if (idx === -1) return false;
+    if (payload.url !== undefined) {
+      if (!payload.url) return false;
+      // Validate URL before saving
+      new URL(payload.url);
+      links[idx].url = payload.url;
+    }
+    if (payload.title !== undefined) {
+      const title = String(payload.title || '').trim();
+      if (title) links[idx].title = title;
+      else links[idx].title = new URL(links[idx].url).hostname;
+    }
+    if (payload.tags !== undefined) {
+      links[idx].tags = normalizeTags(payload.tags);
+    }
+    if (payload.pinned !== undefined) {
+      links[idx].pinned = !!payload.pinned;
+    }
+    links[idx].updatedAt = new Date().toISOString();
+    saveLinks(links);
+    return true;
+  } catch (err) {
+    console.error('Error updating link:', err);
+    return false;
+  }
+});
+
 ipcMain.handle('bulk-delete', (event, ids) => {
   try {
     let links = loadLinks();
@@ -326,6 +409,49 @@ ipcMain.handle('bulk-delete', (event, ids) => {
     saveLinks(links);
     return true;
   } catch (err) { return false; }
+});
+
+ipcMain.handle('set-link-pinned', (event, id, pinned) => {
+  try {
+    const targetId = Number(id);
+    if (!targetId) return false;
+    const links = loadLinks();
+    const idx = links.findIndex(l => Number(l.id) === targetId);
+    if (idx === -1) return false;
+    links[idx].pinned = !!pinned;
+    links[idx].updatedAt = new Date().toISOString();
+    saveLinks(links);
+    return true;
+  } catch (err) {
+    console.error('Error pinning link:', err);
+    return false;
+  }
+});
+
+ipcMain.handle('bulk-update-tags', (event, ids = [], tags = [], mode = 'replace') => {
+  try {
+    if (!Array.isArray(ids) || ids.length === 0) return false;
+    const normalizedTags = normalizeTags(tags);
+    const idSet = new Set(ids.map(id => Number(id)));
+    const links = loadLinks();
+    let changed = false;
+    for (const link of links) {
+      if (!idSet.has(Number(link.id))) continue;
+      if (mode === 'append') {
+        const merged = normalizeTags([...(link.tags || []), ...normalizedTags]);
+        link.tags = merged;
+      } else {
+        link.tags = normalizedTags;
+      }
+      link.updatedAt = new Date().toISOString();
+      changed = true;
+    }
+    if (changed) saveLinks(links);
+    return changed;
+  } catch (err) {
+    console.error('Error bulk updating tags:', err);
+    return false;
+  }
 });
 
 // Export links: show save dialog and write JSON
@@ -357,8 +483,16 @@ ipcMain.handle('import-links', async (event) => {
     const existingIds = new Set(links.map(l => l.id));
     for (const item of imported) {
       if (!item.id || existingIds.has(item.id)) continue;
-      // normalize
-      const newItem = Object.assign({ createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), favorite: false, tags: [] }, item);
+      const normalizedTags = normalizeTags(item && item.tags);
+      const newItem = Object.assign({
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        favorite: false,
+        tags: [],
+        pinned: false
+      }, item);
+      newItem.tags = normalizedTags;
+      newItem.pinned = !!newItem.pinned;
       links.push(newItem);
     }
     saveLinks(links);
@@ -390,6 +524,29 @@ ipcMain.handle('delete-link', (event, id) => {
   links = links.filter(link => link.id !== id);
   saveLinks(links);
   return true;
+});
+
+ipcMain.handle('open-link-external', (event, url) => {
+  try {
+    if (!url) return false;
+    new URL(url);
+    shell.openExternal(url);
+    return true;
+  } catch (err) {
+    console.error('Error opening link externally:', err);
+    return false;
+  }
+});
+
+ipcMain.handle('copy-link', (event, url) => {
+  try {
+    if (!url) return false;
+    clipboard.writeText(String(url));
+    return true;
+  } catch (err) {
+    console.error('Error copying link:', err);
+    return false;
+  }
 });
 
 ipcMain.handle('minimize-window', () => {
@@ -724,6 +881,10 @@ ipcMain.handle('set-setting', (event, key, value) => {
     if (key === 'launchOnStartup') {
       setLaunchOnStartup(!!value);
     }
+
+    if (key === 'telemetryEnabled') {
+      applyTelemetryState(!!value);
+    }
   } catch (err) { /* ignore */ }
 
   // If folder sync settings changed, start/stop watcher accordingly
@@ -756,6 +917,7 @@ ipcMain.handle('reset-settings', () => {
   try { setLaunchOnStartup(!!appSettings.launchOnStartup); } catch (e) {}
   // Clear any remembered last-opened links
   try { appSettings.lastOpenedLinks = []; } catch (e) {}
+  try { applyTelemetryState(!!appSettings.telemetryEnabled); } catch (e) {}
 
   // apply to windows
   try { appOpacity = appSettings.appOpacity; } catch (e) {}

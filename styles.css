@@ -113,7 +113,8 @@ body {
 }
 
 .url-input,
-.title-input {
+.title-input,
+.tags-input {
     padding: 10px 12px;
     border: 1px solid rgba(255, 255, 255, var(--input-border-alpha));
     border-radius: 6px;
@@ -124,12 +125,14 @@ body {
 }
 
 .url-input::placeholder,
-.title-input::placeholder {
+.title-input::placeholder,
+.tags-input::placeholder {
     color: rgba(255, 255, 255, 0.6);
 }
 
 .url-input:focus,
-.title-input:focus {
+.title-input:focus,
+.tags-input:focus {
     outline: none;
     background: rgba(255, 255, 255, 0.2);
     border-color: rgba(255, 255, 255, 0.5);
@@ -227,6 +230,54 @@ body {
     border: 1px solid rgba(255, 255, 255, var(--panel-border-alpha));
 }
 
+.links-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.bulk-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.tag-filters-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.tag-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1;
+}
+
+.tag-filters-label {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.small-btn.subtle {
+    color: rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px dashed rgba(255, 255, 255, 0.2);
+}
+
+.small-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* Settings panel styles */
 .settings-panel {
     position: absolute;
@@ -255,6 +306,11 @@ body {
 .range-row { display: flex; align-items: center; gap: 8px; }
 .range-val { color: rgba(255,255,255,0.85); min-width: 44px; text-align: right; font-size: 13px; }
 .hint { color: rgba(255,255,255,0.45); font-size: 11px; }
+.inline-hint {
+    margin-top: -4px;
+    color: rgba(255,255,255,0.5);
+    font-size: 11px;
+}
 
 .settings-panel label { color: rgba(255,255,255,0.9); font-size: 13px; display: flex; align-items: center; gap: 8px; }
 .settings-panel input[type="checkbox"] { width: 14px; height: 14px; }
@@ -313,17 +369,25 @@ input[type="range"]:focus { outline: none; }
 .links-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
+}
+
+.link-section-heading {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.55);
+    margin: 4px 4px 0;
 }
 
 .link-item {
-    padding: 12px;
+    padding: 14px;
     background: rgba(255, 255, 255, var(--card-alpha));
     border: 1px solid rgba(255, 255, 255, var(--card-border-alpha));
-    border-radius: 6px;
+    border-radius: 8px;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    gap: 12px;
+    align-items: flex-start;
     transition: all 0.2s ease;
 }
 
@@ -332,19 +396,72 @@ input[type="range"]:focus { outline: none; }
     border-color: rgba(255, 255, 255, calc(var(--card-border-alpha) + 0.1));
 }
 
-.link-content {
+.link-item.editing {
+    border-color: rgba(255, 255, 255, 0.6);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.link-select {
+    padding-top: 6px;
+}
+
+.link-body {
     flex: 1;
-    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.link-display {
     cursor: pointer;
+}
+
+.link-item.editing .link-display {
+    opacity: 0.5;
+}
+
+.link-title-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    align-items: flex-start;
 }
 
 .link-title {
     color: white;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.link-badges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.badge {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.favorite-badge {
+    border-color: rgba(255, 212, 99, 0.7);
+    color: #ffd463;
+}
+
+.pinned-badge {
+    border-color: rgba(135, 180, 255, 0.6);
+    color: #9fc0ff;
 }
 
 .link-url {
@@ -356,22 +473,117 @@ input[type="range"]:focus { outline: none; }
     margin-top: 4px;
 }
 
-.delete-btn {
-    padding: 6px 12px;
-    background: rgba(255, 59, 48, 0.3);
-    border: 1px solid rgba(255, 59, 48, 0.5);
-    border-radius: 4px;
-    color: #ff3b30;
-    font-size: 12px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    white-space: nowrap;
-    margin-left: 8px;
+.link-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
 }
 
-.delete-btn:hover {
-    background: rgba(255, 59, 48, 0.5);
-    border-color: rgba(255, 59, 48, 0.7);
+.tag-chip {
+    font-size: 11px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: rgba(255, 255, 255, 0.85);
+    line-height: 1.6;
+}
+
+.tag-chip.muted {
+    color: rgba(255, 255, 255, 0.5);
+    border-style: dashed;
+}
+
+.tag-chip.selectable {
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.2s ease;
+}
+
+.tag-chip.selectable:hover {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.tag-chip.active {
+    background: rgba(120, 180, 255, 0.25);
+    border-color: rgba(120, 180, 255, 0.8);
+    color: #d2e4ff;
+}
+
+.link-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.action-btn {
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #f2f4ff;
+    font-size: 11px;
+    text-transform: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.action-btn.danger {
+    border-color: rgba(255, 99, 99, 0.6);
+    color: #ffb3b3;
+}
+
+.action-btn.ghost {
+    background: transparent;
+    border-color: rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.link-edit {
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.link-edit.hidden {
+    display: none !important;
+}
+
+.edit-grid {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.edit-grid label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.edit-grid input {
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.2);
+    color: white;
+}
+
+.edit-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
 }
 
 .empty-state {
@@ -428,12 +640,15 @@ body.transparent-mode .settings-panel {
 body.transparent-mode .link-item,
 body.transparent-mode .url-input,
 body.transparent-mode .title-input,
+body.transparent-mode .tags-input,
 body.transparent-mode .add-btn,
 body.transparent-mode .small-btn,
 body.transparent-mode .reset-btn,
 body.transparent-mode .choose-folder-btn,
 body.transparent-mode .fav-btn,
-body.transparent-mode .control-btn {
+body.transparent-mode .control-btn,
+body.transparent-mode .action-btn,
+body.transparent-mode .link-edit input {
     background: rgba(5, 5, 10, 0.08);
     border-color: rgba(255,255,255,0.25);
     box-shadow: inset 0 0 18px rgba(0,0,0,0.35);

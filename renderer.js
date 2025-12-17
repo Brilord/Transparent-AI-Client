@@ -16,6 +16,10 @@ const launchOnStartupChk = document.getElementById('launchOnStartupChk');
 const leftQuarterChk = document.getElementById('leftQuarterChk');
 const leftThirdChk = document.getElementById('leftThirdChk');
 const resetSettingsBtn = document.getElementById('resetSettingsBtn');
+const tagsInput = document.getElementById('tagsInput');
+const tagFiltersEl = document.getElementById('tagFilters');
+const clearTagFiltersBtn = document.getElementById('clearTagFiltersBtn');
+const bulkTagBtn = document.getElementById('bulkTagBtn');
 
 function applyBackgroundVisuals(rawValue) {
   try {
@@ -50,6 +54,108 @@ function applyBackgroundVisuals(rawValue) {
 loadLinks();
 
 let currentLinks = [];
+let searchQuery = '';
+let activeTagFilter = null;
+
+function normalizeTagsInput(raw) {
+  if (!raw) return [];
+  const seen = new Set();
+  const tags = [];
+  raw.split(',').forEach((part) => {
+    const trimmed = part.trim();
+    if (!trimmed) return;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    tags.push(trimmed);
+  });
+  return tags;
+}
+
+function escapeHtml(value) {
+  if (value === undefined || value === null) return '';
+  return String(value).replace(/[&<>"']/g, (char) => {
+    switch (char) {
+      case '&': return '&amp;';
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '"': return '&quot;';
+      case '\'': return '&#39;';
+      default: return char;
+    }
+  });
+}
+
+function formatTagsForInput(tags) {
+  if (!Array.isArray(tags)) return '';
+  return tags.join(', ');
+}
+
+function getSelectedLinkIds() {
+  return Array.from(document.querySelectorAll('.select-checkbox:checked'))
+    .map((cb) => Number(cb.getAttribute('data-id')))
+    .filter((id) => Number.isFinite(id));
+}
+
+function renderTagFilters() {
+  if (!tagFiltersEl) return;
+  tagFiltersEl.innerHTML = '';
+  const tagCounts = new Map();
+  currentLinks.forEach((link) => {
+    (link.tags || []).forEach((tag) => {
+      if (!tag) return;
+      const key = tag;
+      tagCounts.set(key, (tagCounts.get(key) || 0) + 1);
+    });
+  });
+
+  if (tagCounts.size === 0) {
+    activeTagFilter = null;
+    const emptyChip = document.createElement('span');
+    emptyChip.className = 'tag-chip muted';
+    emptyChip.textContent = 'No tags yet';
+    tagFiltersEl.appendChild(emptyChip);
+    if (clearTagFiltersBtn) clearTagFiltersBtn.disabled = true;
+    return;
+  }
+
+  if (activeTagFilter && !tagCounts.has(activeTagFilter)) {
+    activeTagFilter = null;
+  }
+
+  const sorted = Array.from(tagCounts.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  sorted.forEach(([tag]) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tag-chip selectable' + (activeTagFilter === tag ? ' active' : '');
+    btn.textContent = tag;
+    btn.addEventListener('click', () => {
+      activeTagFilter = activeTagFilter === tag ? null : tag;
+      renderTagFilters();
+      renderLinks();
+    });
+    tagFiltersEl.appendChild(btn);
+  });
+  if (clearTagFiltersBtn) clearTagFiltersBtn.disabled = !activeTagFilter;
+}
+
+function getFilteredLinks() {
+  let filtered = currentLinks.slice();
+  const query = searchQuery.trim().toLowerCase();
+  if (query) {
+    filtered = filtered.filter((l) => {
+      const matchesTitle = l.title && l.title.toLowerCase().includes(query);
+      const matchesUrl = l.url && l.url.toLowerCase().includes(query);
+      const matchesTags = Array.isArray(l.tags) && l.tags.join(' ').toLowerCase().includes(query);
+      return matchesTitle || matchesUrl || matchesTags;
+    });
+  }
+  if (activeTagFilter) {
+    const target = activeTagFilter.toLowerCase();
+    filtered = filtered.filter((l) => Array.isArray(l.tags) && l.tags.some((tag) => tag.toLowerCase() === target));
+  }
+  return filtered;
+}
 
 // Event listeners
 addBtn.addEventListener('click', addLink);
@@ -139,7 +245,10 @@ async function initSettingsUI() {
 
     // Set UI states
     if (typeof s.alwaysOnTop === 'boolean') alwaysOnTopChk.checked = s.alwaysOnTop;
-    if (typeof s.injectResizers === 'boolean') injectResizersChk.checked = s.injectResizers;
+    if (typeof s.injectResizers === 'boolean') {
+      injectResizersChk.checked = s.injectResizers;
+      applyResizerVisibility(!!s.injectResizers);
+    }
     if (typeof s.persistSettings === 'boolean') persistSettingsChk.checked = s.persistSettings;
     if (typeof s.launchOnStartup === 'boolean') launchOnStartupChk.checked = s.launchOnStartup;
     if (typeof s.leftQuarterShortcut === 'boolean') leftQuarterChk.checked = s.leftQuarterShortcut;
@@ -151,7 +260,9 @@ async function initSettingsUI() {
     });
 
     injectResizersChk.addEventListener('change', async (e) => {
-      await window.electron.setSetting('injectResizers', !!e.target.checked);
+      const enabled = !!e.target.checked;
+      await window.electron.setSetting('injectResizers', enabled);
+      applyResizerVisibility(enabled);
     });
 
     persistSettingsChk.addEventListener('change', async (e) => {
@@ -207,6 +318,7 @@ async function initSettingsUI() {
           applyBackgroundVisuals(newSettings.appOpacity);
         alwaysOnTopChk.checked = newSettings.alwaysOnTop;
         injectResizersChk.checked = newSettings.injectResizers;
+        applyResizerVisibility(!!newSettings.injectResizers);
         persistSettingsChk.checked = newSettings.persistSettings;
         // reflect new boolean settings into UI
         leftQuarterChk.checked = !!newSettings.leftQuarterShortcut;
@@ -227,7 +339,10 @@ async function initSettingsUI() {
           if (key === 'leftQuarterShortcut') leftQuarterChk.checked = !!value;
           if (key === 'leftThirdShortcut') leftThirdChk.checked = !!value;
           if (key === 'alwaysOnTop') alwaysOnTopChk.checked = !!value;
-          if (key === 'injectResizers') injectResizersChk.checked = !!value;
+          if (key === 'injectResizers') {
+            injectResizersChk.checked = !!value;
+            applyResizerVisibility(!!value);
+          }
           if (key === 'persistSettings') persistSettingsChk.checked = !!value;
           if (key === 'launchOnStartup') launchOnStartupChk.checked = !!value;
         } catch (err) {}
@@ -241,7 +356,18 @@ async function initSettingsUI() {
 initSettingsUI();
 
 // Resizers
-const resizers = document.querySelectorAll('.resizer');
+const resizers = Array.from(document.querySelectorAll('.resizer'));
+let resizersEnabled = true;
+
+function applyResizerVisibility(enabled) {
+  resizersEnabled = !!enabled;
+  resizers.forEach((resizer) => {
+    if (!resizer) return;
+    resizer.style.display = resizersEnabled ? '' : 'none';
+  });
+}
+
+applyResizerVisibility(true);
 
 // Mouse-based resizing for frameless window
 resizers.forEach(resizer => {
@@ -277,6 +403,7 @@ resizers.forEach(resizer => {
   };
 
   resizer.addEventListener('mousedown', async (ev) => {
+    if (!resizersEnabled) return;
     ev.preventDefault();
     isResizing = true;
     startX = ev.clientX;
@@ -295,13 +422,15 @@ resizers.forEach(resizer => {
 
 async function loadLinks() {
   const links = await window.electron.getLinks();
-  currentLinks = links || [];
-  renderLinks(currentLinks);
+  currentLinks = Array.isArray(links) ? links : [];
+  renderTagFilters();
+  renderLinks();
 }
 
 async function addLink() {
   const url = urlInput.value.trim();
   const title = titleInput.value.trim();
+  const tags = tagsInput ? normalizeTagsInput(tagsInput.value) : [];
 
   if (!url) {
     alert('Please enter a URL');
@@ -317,13 +446,15 @@ async function addLink() {
   }
 
   const link = {
-    url: url,
-    title: title
+    url,
+    title,
+    tags
   };
 
   await window.electron.addLink(link);
   urlInput.value = '';
   titleInput.value = '';
+  if (tagsInput) tagsInput.value = '';
   urlInput.focus();
   loadLinks();
 }
@@ -335,57 +466,224 @@ async function deleteLink(id) {
   }
 }
 
-function renderLinks(links) {
+function renderLinks() {
   linksList.innerHTML = '';
 
-  if (!links || links.length === 0) {
+  const filtered = getFilteredLinks();
+  if (!filtered || filtered.length === 0) {
     emptyState.style.display = 'flex';
     return;
   }
 
   emptyState.style.display = 'none';
 
-    links.forEach(link => {
-    const linkElement = document.createElement('div');
-    linkElement.className = 'link-item';
-    linkElement.innerHTML = `
-      <div class="link-select"><input type="checkbox" class="select-checkbox" data-id="${link.id}"></div>
-      <div class="link-content">
-        <div class="link-title">${link.title} ${link.favorite ? '<span class="fav">★</span>' : ''}</div>
-        <div class="link-url">${link.url}</div>
+  const pinned = filtered.filter((link) => link.pinned);
+  const others = filtered.filter((link) => !link.pinned);
+
+  if (pinned.length) {
+    const heading = document.createElement('div');
+    heading.className = 'link-section-heading';
+    heading.textContent = 'Pinned';
+    linksList.appendChild(heading);
+    pinned.forEach((link) => linksList.appendChild(buildLinkElement(link)));
+  }
+
+  if (others.length) {
+    if (pinned.length) {
+      const heading = document.createElement('div');
+      heading.className = 'link-section-heading';
+      heading.textContent = 'All links';
+      linksList.appendChild(heading);
+    }
+    others.forEach((link) => linksList.appendChild(buildLinkElement(link)));
+  }
+}
+
+function buildLinkElement(link) {
+  const linkElement = document.createElement('div');
+  linkElement.className = 'link-item';
+  linkElement.dataset.id = link.id;
+
+  const titleText = escapeHtml(link.title || link.url);
+  const urlText = escapeHtml(link.url);
+  const tags = (link.tags && link.tags.length)
+    ? link.tags.map((tag) => `<span class="tag-chip">${escapeHtml(tag)}</span>`).join('')
+    : '<span class="tag-chip muted">No tags</span>';
+  const badges = [
+    link.favorite ? '<span class="badge favorite-badge">Favorite</span>' : '',
+    link.pinned ? '<span class="badge pinned-badge">Pinned</span>' : ''
+  ].join('');
+
+  linkElement.innerHTML = `
+    <div class="link-select"><input type="checkbox" class="select-checkbox" data-id="${link.id}"></div>
+    <div class="link-body">
+      <div class="link-display">
+        <div class="link-title-row">
+          <div class="link-title">${titleText}</div>
+          <div class="link-badges">${badges}</div>
+        </div>
+        <div class="link-url">${urlText}</div>
+        <div class="link-tags">${tags}</div>
       </div>
       <div class="link-actions">
-        <button class="fav-btn" data-id="${link.id}">${link.favorite ? 'Unfav' : 'Fav'}</button>
-        <button class="delete-btn" data-id="${link.id}">Delete</button>
+        <button class="action-btn open-btn" data-id="${link.id}">Open window</button>
+        <button class="action-btn browser-btn" data-id="${link.id}">Open browser</button>
+        <button class="action-btn copy-btn" data-id="${link.id}">Copy</button>
+        <button class="action-btn edit-btn" data-id="${link.id}">Edit</button>
+        <button class="action-btn pin-btn" data-id="${link.id}">${link.pinned ? 'Unpin' : 'Pin'}</button>
+        <button class="action-btn fav-btn" data-id="${link.id}">${link.favorite ? 'Unfav' : 'Fav'}</button>
+        <button class="action-btn delete-btn danger" data-id="${link.id}">Delete</button>
       </div>
-    `;
-    linksList.appendChild(linkElement);
+      <div class="link-edit hidden">
+        <div class="edit-grid">
+          <label>Title<input type="text" class="edit-title"></label>
+          <label>URL<input type="text" class="edit-url"></label>
+          <label>Tags<input type="text" class="edit-tags" placeholder="Comma separated"></label>
+        </div>
+        <div class="edit-actions">
+          <button class="action-btn save-edit-btn">Save</button>
+          <button class="action-btn ghost cancel-edit-btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+  `;
 
-    // open link on click, pass id so main can restore bounds
-    const contentEl = linkElement.querySelector('.link-content');
-    if (contentEl) contentEl.addEventListener('click', () => {
-      try { window.electron.openLinkWithId(Number(link.id), link.url); } catch (e) { window.electron.openLink(link.url); }
+  const displayEl = linkElement.querySelector('.link-display');
+  if (displayEl) {
+    displayEl.addEventListener('click', () => {
+      try {
+        window.electron.openLinkWithId(Number(link.id), link.url);
+      } catch (err) {
+        window.electron.openLink(link.url);
+      }
     });
-  });
+  }
 
-  // Wire up action buttons
-  document.querySelectorAll('.delete-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const id = Number(e.currentTarget.getAttribute('data-id'));
-      if (confirm('Delete this link?')) {
-        await window.electron.deleteLink(id);
+  const openBtn = linkElement.querySelector('.open-btn');
+  if (openBtn) {
+    openBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      try {
+        window.electron.openLinkWithId(Number(link.id), link.url);
+      } catch (err) {
+        window.electron.openLink(link.url);
+      }
+    });
+  }
+
+  const browserBtn = linkElement.querySelector('.browser-btn');
+  if (browserBtn) {
+    browserBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await window.electron.openInBrowser(link.url);
+    });
+  }
+
+  const copyBtn = linkElement.querySelector('.copy-btn');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await window.electron.copyLink(link.url);
+      const original = copyBtn.textContent;
+      copyBtn.textContent = 'Copied';
+      setTimeout(() => { copyBtn.textContent = original; }, 1200);
+    });
+  }
+
+  const deleteBtn = linkElement.querySelector('.delete-btn');
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!confirm('Delete this link?')) return;
+      await window.electron.deleteLink(link.id);
+      loadLinks();
+    });
+  }
+
+  const favBtn = linkElement.querySelector('.fav-btn');
+  if (favBtn) {
+    favBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await window.electron.toggleFavorite(link.id);
+      loadLinks();
+    });
+  }
+
+  const pinBtn = linkElement.querySelector('.pin-btn');
+  if (pinBtn) {
+    pinBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await window.electron.setLinkPinned(link.id, !link.pinned);
+      loadLinks();
+    });
+  }
+
+  const editBtn = linkElement.querySelector('.edit-btn');
+  const editContainer = linkElement.querySelector('.link-edit');
+  const editTitleInput = linkElement.querySelector('.edit-title');
+  const editUrlInput = linkElement.querySelector('.edit-url');
+  const editTagsInput = linkElement.querySelector('.edit-tags');
+  const saveEditBtn = linkElement.querySelector('.save-edit-btn');
+  const cancelEditBtn = linkElement.querySelector('.cancel-edit-btn');
+
+  if (editTitleInput) editTitleInput.value = link.title || '';
+  if (editUrlInput) editUrlInput.value = link.url || '';
+  if (editTagsInput) editTagsInput.value = formatTagsForInput(link.tags);
+
+  const setEditing = (editing) => {
+    if (!editContainer) return;
+    if (editing) {
+      linkElement.classList.add('editing');
+      editContainer.classList.remove('hidden');
+      if (editTitleInput) editTitleInput.focus();
+    } else {
+      linkElement.classList.remove('editing');
+      editContainer.classList.add('hidden');
+      if (editTitleInput) editTitleInput.value = link.title || '';
+      if (editUrlInput) editUrlInput.value = link.url || '';
+      if (editTagsInput) editTagsInput.value = formatTagsForInput(link.tags);
+    }
+  };
+
+  if (editBtn) {
+    editBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const toggled = !linkElement.classList.contains('editing');
+      setEditing(toggled);
+    });
+  }
+
+  if (cancelEditBtn) {
+    cancelEditBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setEditing(false);
+    });
+  }
+
+  if (saveEditBtn) {
+    saveEditBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const updated = {
+        id: link.id,
+        title: editTitleInput ? editTitleInput.value.trim() : link.title,
+        url: editUrlInput ? editUrlInput.value.trim() : link.url,
+        tags: editTagsInput ? normalizeTagsInput(editTagsInput.value) : link.tags
+      };
+      if (!updated.url) {
+        alert('URL is required');
+        return;
+      }
+      const ok = await window.electron.updateLink(updated);
+      if (ok) {
+        setEditing(false);
         loadLinks();
       }
     });
-  });
+  }
 
-  document.querySelectorAll('.fav-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const id = Number(e.currentTarget.getAttribute('data-id'));
-      await window.electron.toggleFavorite(id);
-      loadLinks();
-    });
-  });
+  return linkElement;
 }
 
 // Listen for external sync updates
@@ -399,10 +697,31 @@ if (window.electron && typeof window.electron.onLinksChanged === 'function') {
 const searchInput = document.getElementById('searchInput');
 if (searchInput) {
   searchInput.addEventListener('input', (e) => {
-    const q = e.target.value.trim().toLowerCase();
-    if (!q) return renderLinks(currentLinks);
-    const filtered = currentLinks.filter(l => (l.title && l.title.toLowerCase().includes(q)) || (l.url && l.url.toLowerCase().includes(q)) || (l.tags && l.tags.join(' ').toLowerCase().includes(q)));
-    renderLinks(filtered);
+    searchQuery = e.target.value || '';
+    renderLinks();
+  });
+}
+
+if (clearTagFiltersBtn) {
+  clearTagFiltersBtn.addEventListener('click', () => {
+    activeTagFilter = null;
+    renderTagFilters();
+    renderLinks();
+  });
+}
+
+if (bulkTagBtn) {
+  bulkTagBtn.addEventListener('click', async () => {
+    const ids = getSelectedLinkIds();
+    if (ids.length === 0) {
+      alert('No items selected');
+      return;
+    }
+    const value = prompt('Enter comma-separated tags to apply to selected links. Leave blank to clear existing tags.');
+    if (value === null) return;
+    const tags = normalizeTagsInput(value);
+    await window.electron.bulkUpdateTags(ids, tags);
+    loadLinks();
   });
 }
 
@@ -428,7 +747,7 @@ if (backupBtn) backupBtn.addEventListener('click', async () => {
 });
 
 if (deleteSelectedBtn) deleteSelectedBtn.addEventListener('click', async () => {
-  const checked = Array.from(document.querySelectorAll('.select-checkbox:checked')).map(cb => Number(cb.getAttribute('data-id')));
+  const checked = getSelectedLinkIds();
   if (checked.length === 0) { alert('No items selected'); return; }
   if (!confirm(`Delete ${checked.length} selected links?`)) return;
   await window.electron.bulkDelete(checked);

@@ -62,6 +62,7 @@ Created in `add-link` (`main.js:326-343`) with:
   "updatedAt": "ISO string",
   "favorite": false,
   "tags": [],
+  "pinned": false,
   "lastBounds": { "x": 100, "y": 80, "width": 900, "height": 700 }
 }
 ```
@@ -100,13 +101,13 @@ Imports merge by `id`; duplicates are skipped. Favorites toggle via `toggle-favo
 ## 5. Renderer Logic (`renderer.js`)
 
 1. **Opacity visuals**: `applyBackgroundVisuals()` (`renderer.js:20-48`) maps the slider value to CSS custom properties for blur, alpha, and border intensity. The `<body>` gets `transparent-mode` when opacity is near zero.
-2. **Link UI**: `loadLinks()` fetches data, stores it in `currentLinks`, and calls `renderLinks()` (`renderer.js:338-386`). Each entry renders checkboxes, favorite/delete buttons, and clicking the content area calls `openLinkWithId(id, url)` so per-link bounds are used.
+2. **Link UI**: `loadLinks()` hydrates `currentLinks` and `renderLinks()` (`renderer.js:338-580`) now splits pinned vs. unpinned lists, renders tag chips, displays quick-tag headings, and adds inline action buttons (open window/browser, copy, edit, pin, favorite, delete). The “Edit” toggle expands in-place inputs for URL/title/tags.
 3. **Input validation**: `addLink()` (`renderer.js:302-337`) validates URLs with the `URL` constructor, then invokes `add-link` IPC.
 4. **Settings drawer**: `initSettingsUI()` (`renderer.js:203-242`) loads all settings, wires checkboxes to `setSetting`, handles folder sync selection, reset-to-defaults, and listens for `setting-changed` broadcasts.
 5. **Window controls**: Minimize/close buttons call `window.electron.minimizeWindow()` / `closeWindow()` (`renderer.js:93-110`). Keyboard shortcuts live in `preload.js:57-104`.
 6. **Resizers**: `.resizer` divs (defined in `index.html:118-125`, styled at `styles.css:278-311`) call `windowManager.getBounds()` and `setBounds()` as the mouse drags edges/corners (`renderer.js:244-301`).
-7. **Search and bulk actions**: Search filters `currentLinks` client-side (`renderer.js:399-405`). Buttons call export/import/backup/bulk-delete IPC endpoints (`renderer.js:410-439`).
-8. **Telemetry toggle**: `telemetryChk` reads/writes the `telemetryEnabled` setting, though no telemetry client exists yet (`renderer.js:441-452`).
+7. **Search, filters, and bulk actions**: The search box filters against title/URL/tags, quick-tag chips scope the list to a specific tag, and the bulk toolbar now includes “Tag selected” alongside export/import/backup/delete (`renderer.js:399-470`).
+8. **Telemetry toggle**: `telemetryChk` reads/writes `telemetryEnabled`; the main process now starts Electron’s `crashReporter` and flips `setUploadToServer()` in response so the UI actually controls crash uploads.
 
 ---
 
@@ -119,6 +120,7 @@ Imports merge by `id`; duplicates are skipped. Favorites toggle via `toggle-favo
 
 - `preload-link.js`
   - Adds the same keyboard shortcuts to link BrowserWindows plus optional shortcuts for left-quarter/left-third snapping when settings enable them (`preload-link.js:6-84`).
+  - Injects invisible edge/corner resizers into remote pages when `injectResizers` is true so frameless link windows regain drag handles (`preload-link.js:85-170`), removing them when the toggle is off.
 
 ---
 
@@ -132,7 +134,7 @@ Imports merge by `id`; duplicates are skipped. Favorites toggle via `toggle-favo
 | Ctrl + Alt + 1..5 | Main and link windows | Snap to left/right/top/bottom/center (`snap-window`). |
 | Ctrl + Alt + 6 | Optional | Snap to left quarter when `leftQuarterShortcut` is true. |
 | Ctrl + Alt + 7 | Optional | Snap to left third when `leftThirdShortcut` is true. |
-| Mouse drag edges/corners | Main window | Resize via `.resizer` divs hitting `windowManager.setBounds()`. |
+| Mouse drag edges/corners | Main window (and link windows when injection is enabled) | Resize via `.resizer` divs or injected overlays that call `windowManager.setBounds()`. |
 
 ---
 
@@ -147,10 +149,10 @@ Imports merge by `id`; duplicates are skipped. Favorites toggle via `toggle-favo
 
 ## 9. Extension Ideas and Observations
 
-1. `injectResizers` is persisted but unused. Future work could guard the `.resizer` overlay or add DOM injection to link windows based on this flag.
-2. `telemetryEnabled` is stored but never consumed. Wire it to an actual crash reporter if needed.
-3. `tags` arrays default to empty; the UI never edits them, but search matches tags if they exist (for example via imports).
-4. Several glyphs in `index.html` / `renderer.js` render as `??`; replace them with proper UTF-8 icons or inline SVGs.
+1. Drag-and-drop reordering still does not exist; pinning is the only way to curate order. Persisted manual ordering would make sorting long catalogs easier.
+2. The crash reporter now flips `uploadToServer`, but it still points at a placeholder URL. Wiring it to a real backend (or disabling uploads entirely) will avoid noisy network errors.
+3. Tag filters are single-select and not persisted. Consider multi-select filters, saved views, or tag suggestions based on frequency.
+4. Most destructive operations rely on blocking `alert`/`confirm`. A non-blocking toast/notification system would improve UX, especially when many quick edits are performed.
 5. There are no automated tests. Consider unit tests around `saveLinks()` / `loadLinks()`, sync watcher behavior, and window snapping math.
 6. Many IPC handlers swallow errors; surfacing failures back to the renderer would improve UX when file dialogs fail or sync folders disappear.
 

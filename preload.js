@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('electron', {
   getLinks: () => ipcRenderer.invoke('get-links'),
   addLink: (link) => ipcRenderer.invoke('add-link', link),
   deleteLink: (id) => ipcRenderer.invoke('delete-link', id),
+  updateLink: (payload) => ipcRenderer.invoke('update-link', payload),
   minimizeWindow: () => ipcRenderer.invoke('minimize-window'),
   closeWindow: () => ipcRenderer.invoke('close-window'),
   openLink: (url) => ipcRenderer.invoke('open-link', url)
@@ -30,6 +31,10 @@ contextBridge.exposeInMainWorld('electron', {
   // Link actions
   toggleFavorite: (id) => ipcRenderer.invoke('toggle-favorite', id),
   bulkDelete: (ids) => ipcRenderer.invoke('bulk-delete', ids),
+  bulkUpdateTags: (ids, tags, mode = 'replace') => ipcRenderer.invoke('bulk-update-tags', ids, tags, mode),
+  setLinkPinned: (id, pinned) => ipcRenderer.invoke('set-link-pinned', id, pinned),
+  openInBrowser: (url) => ipcRenderer.invoke('open-link-external', url),
+  copyLink: (url) => ipcRenderer.invoke('copy-link', url),
   // Generic settings API
   getSetting: (key) => ipcRenderer.invoke('get-setting', key),
   getAllSettings: () => ipcRenderer.invoke('get-all-settings'),

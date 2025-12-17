@@ -9,6 +9,8 @@ A minimal Electron application (PlanaClientV2.0) with a transparent, glass-style
 - 💾 Local persistent storage using JSON
 - 🖱️ Click links to open them inside transparent app windows
 - ⌨️ Keyboard and mouse controls for precise window movement and resizing
+- 🏷️ Tag links, filter by tag chips, and bulk-apply tags to keep large libraries organized.
+- 🧰 Manage every entry inline with edit, open-in-browser, copy, pin/unpin, and favorite toggles without leaving the catalog.
 
 ### Options / Transparency
 
@@ -23,6 +25,23 @@ Additional options in the same panel:
   - Ctrl+Alt+6 → snap focused window to left 1/4
   - Ctrl+Alt+7 → snap focused window to left 1/3
   You can toggle each shortcut on/off from the Options panel.
+
+### Tags & Quick Filters
+
+- Add comma-separated tags when creating or editing a link.
+- The toolbar shows quick tag chips so you can scope the list to a single workflow in one click.
+- Use the “Tag selected” bulk action to replace or clear the tags for any set of selected links.
+
+### Inline Link Actions
+
+- Each card exposes “Open window”, “Open browser”, “Copy”, “Edit”, “Pin/Unpin”, “Fav/Unfav”, and “Delete” buttons.
+- Editing expands an inline form so you can update the title, URL, and tags without closing the main window.
+- Pinned links live in their own section at the top of the list so important dashboards are always within reach.
+
+### Resizer Injection Toggle
+
+- The Inject resizers option now controls both the glass overlays around the main window and the handles we inject into link windows.
+- Disable it if a specific site misbehaves (keyboard shortcuts and OS chrome remain available), or enable it to regain edge drag handles on embedded pages.
 
 ## Installation
 

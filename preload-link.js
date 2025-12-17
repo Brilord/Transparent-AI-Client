@@ -89,6 +89,116 @@ document.addEventListener('keydown', async (e) => {
   }
 });
 
+// Remote resizer injection ---------------------------------------------------
+const REMOTE_RESIZER_CLASS = 'plana-remote-resizer';
+const remoteResizerConfig = {
+  n: { style: { top: '0', left: '0', right: '0', height: '10px', cursor: 'ns-resize' } },
+  s: { style: { bottom: '0', left: '0', right: '0', height: '10px', cursor: 'ns-resize' } },
+  e: { style: { top: '0', bottom: '0', right: '0', width: '10px', cursor: 'ew-resize' } },
+  w: { style: { top: '0', bottom: '0', left: '0', width: '10px', cursor: 'ew-resize' } },
+  ne: { style: { top: '0', right: '0', width: '16px', height: '16px', cursor: 'nesw-resize' } },
+  nw: { style: { top: '0', left: '0', width: '16px', height: '16px', cursor: 'nwse-resize' } },
+  se: { style: { bottom: '0', right: '0', width: '16px', height: '16px', cursor: 'nwse-resize' } },
+  sw: { style: { bottom: '0', left: '0', width: '16px', height: '16px', cursor: 'nesw-resize' } }
+};
+
+let remoteResizersEnabled = false;
+const remoteResizerHandles = [];
+
+const startRemoteResize = async (edge, startEvent) => {
+  startEvent.preventDefault();
+  const startBounds = await ipcRenderer.invoke('get-window-bounds');
+  if (!startBounds) return;
+  const startX = startEvent.clientX;
+  const startY = startEvent.clientY;
+
+  const onMouseMove = async (moveEvent) => {
+    const dx = moveEvent.clientX - startX;
+    const dy = moveEvent.clientY - startY;
+    const bounds = Object.assign({}, startBounds);
+    if (edge.includes('e')) bounds.width = Math.max(1, startBounds.width + dx);
+    if (edge.includes('s')) bounds.height = Math.max(1, startBounds.height + dy);
+    if (edge.includes('w')) {
+      bounds.width = Math.max(1, startBounds.width - dx);
+      bounds.x = startBounds.x + dx;
+    }
+    if (edge.includes('n')) {
+      bounds.height = Math.max(1, startBounds.height - dy);
+      bounds.y = startBounds.y + dy;
+    }
+    await ipcRenderer.invoke('set-window-bounds', bounds);
+  };
+
+  const onMouseUp = () => {
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', onMouseUp);
+  };
+
+  window.addEventListener('mousemove', onMouseMove);
+  window.addEventListener('mouseup', onMouseUp, { once: true });
+};
+
+function destroyRemoteResizers() {
+  remoteResizerHandles.splice(0).forEach(({ element, onMouseDown }) => {
+    if (element && onMouseDown) element.removeEventListener('mousedown', onMouseDown);
+    if (element && element.parentNode) element.parentNode.removeChild(element);
+  });
+}
+
+function mountRemoteResizers() {
+  if (!remoteResizersEnabled || remoteResizerHandles.length) return;
+  const target = document.body || document.documentElement;
+  if (!target) {
+    document.addEventListener('DOMContentLoaded', () => mountRemoteResizers(), { once: true });
+    return;
+  }
+  Object.keys(remoteResizerConfig).forEach((edge) => {
+    const config = remoteResizerConfig[edge];
+    const element = document.createElement('div');
+    element.dataset.edge = edge;
+    element.className = `${REMOTE_RESIZER_CLASS} ${REMOTE_RESIZER_CLASS}-${edge}`;
+    const style = Object.assign({
+      position: 'fixed',
+      zIndex: '2147483646',
+      background: 'transparent',
+      pointerEvents: 'auto',
+      userSelect: 'none',
+      touchAction: 'none'
+    }, config.style);
+    Object.keys(style).forEach((key) => {
+      element.style[key] = style[key];
+    });
+    const onMouseDown = (event) => startRemoteResize(edge, event);
+    element.addEventListener('mousedown', onMouseDown);
+    target.appendChild(element);
+    remoteResizerHandles.push({ element, onMouseDown });
+  });
+}
+
+function updateRemoteResizersState(enabled) {
+  remoteResizersEnabled = !!enabled;
+  if (!remoteResizersEnabled) {
+    destroyRemoteResizers();
+  } else {
+    mountRemoteResizers();
+  }
+}
+
+ipcRenderer.on('setting-changed', (_event, key, value) => {
+  if (key === 'injectResizers') {
+    updateRemoteResizersState(!!value);
+  }
+});
+
+(async () => {
+  try {
+    const enabled = await ipcRenderer.invoke('get-setting', 'injectResizers');
+    updateRemoteResizersState(enabled !== false);
+  } catch (err) {
+    // ignore
+  }
+})();
+
 // Adaptive readability helpers ------------------------------------------------
 const READABILITY_STYLE_ID = 'plana-link-readability-style';
 const READABILITY_STYLE_CONTENT = `
