@@ -34,6 +34,9 @@ const chooseLinksFileBtn = document.getElementById('chooseLinksFileBtn');
 const resetLinksFileBtn = document.getElementById('resetLinksFileBtn');
 const openLinksFileBtn = document.getElementById('openLinksFileBtn');
 const telemetryChk = document.getElementById('telemetryChk');
+const backgroundImagePathEl = document.getElementById('backgroundImagePath');
+const chooseBackgroundBtn = document.getElementById('chooseBackgroundBtn');
+const resetBackgroundBtn = document.getElementById('resetBackgroundBtn');
 const dataCollectionStatus = document.getElementById('dataCollectionStatus');
 const dataCollectionLog = document.getElementById('dataCollectionLog');
 const dataCollectionEmpty = document.getElementById('dataCollectionEmpty');
@@ -145,6 +148,35 @@ function updateLinksFileDisplay(customPath) {
   } else {
     linksFilePathEl.textContent = 'Default location';
   }
+}
+
+function normalizeBackgroundPath(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  return trimmed ? trimmed : null;
+}
+
+function filePathToUrl(pathValue) {
+  if (!pathValue) return '';
+  const raw = String(pathValue).replace(/\\/g, '/');
+  if (/^file:\/\//i.test(raw)) return raw;
+  if (/^[a-zA-Z]:\//.test(raw)) {
+    return `file:///${encodeURI(raw).replace(/#/g, '%23').replace(/\?/g, '%3F')}`;
+  }
+  return `file://${encodeURI(raw).replace(/#/g, '%23').replace(/\?/g, '%3F')}`;
+}
+
+function updateBackgroundDisplay(pathValue) {
+  if (!backgroundImagePathEl) return;
+  const normalized = normalizeBackgroundPath(pathValue);
+  backgroundImagePathEl.textContent = normalized ? normalized : 'Default background';
+}
+
+function applyCustomBackground(pathValue) {
+  const normalized = normalizeBackgroundPath(pathValue);
+  updateBackgroundDisplay(normalized);
+  const cssValue = normalized ? `url("${filePathToUrl(normalized)}")` : 'none';
+  document.documentElement.style.setProperty('--custom-bg-image', cssValue);
 }
 
 function normalizeTagsInput(raw) {
@@ -621,6 +653,7 @@ async function initSettingsUI() {
       defaultLinksPath = await window.electron.getDefaultLinksPath();
     } catch (err) { defaultLinksPath = null; }
     updateLinksFileDisplay(s.customDataFile || null);
+    applyCustomBackground(s.backgroundImagePath || null);
     if (groupingSelect) {
       groupingMode = typeof s.groupingPreference === 'string' ? s.groupingPreference : 'none';
       groupingSelect.value = groupingMode;
@@ -703,6 +736,21 @@ async function initSettingsUI() {
       });
     }
 
+    if (chooseBackgroundBtn) {
+      chooseBackgroundBtn.addEventListener('click', async () => {
+        const chosen = await window.electron.chooseBackgroundImage();
+        if (chosen) {
+          await window.electron.setSetting('backgroundImagePath', chosen);
+        }
+      });
+    }
+
+    if (resetBackgroundBtn) {
+      resetBackgroundBtn.addEventListener('click', async () => {
+        await window.electron.setSetting('backgroundImagePath', null);
+      });
+    }
+
     resetSettingsBtn.addEventListener('click', async () => {
       if (!confirm('Reset settings to defaults?')) return;
       const newSettings = await window.electron.resetSettings();
@@ -720,6 +768,7 @@ async function initSettingsUI() {
         updateLinksFileDisplay(newSettings.customDataFile || null);
         if (telemetryChk) telemetryChk.checked = !!newSettings.telemetryEnabled;
         updateDataCollectionStatus(!!newSettings.telemetryEnabled);
+        applyCustomBackground(newSettings.backgroundImagePath || null);
       }
     });
 
@@ -742,6 +791,9 @@ async function initSettingsUI() {
           if (key === 'customDataFile') {
             updateLinksFileDisplay(value || null);
             loadLinks();
+          }
+          if (key === 'backgroundImagePath') {
+            applyCustomBackground(value || null);
           }
           if (key === 'telemetryEnabled') {
             if (telemetryChk) telemetryChk.checked = !!value;

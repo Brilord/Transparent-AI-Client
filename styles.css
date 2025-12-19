@@ -9,6 +9,8 @@
     --input-alpha: 0.1;
     --input-border-alpha: 0.3;
     --chrome-alpha: 0.2;
+    --custom-bg-image: none;
+    --custom-bg-size: cover;
 }
 
 * {
@@ -29,7 +31,10 @@ body {
     display: flex;
     flex-direction: column;
     /* acrylic-style frosted glass: subtle tint + backdrop blur + saturation */
-    background: linear-gradient(135deg, rgba(255,255,255,var(--bg-opacity)), rgba(255,255,255, calc(var(--bg-opacity) * 0.8)));
+    background-image: var(--custom-bg-image), linear-gradient(135deg, rgba(255,255,255,var(--bg-opacity)), rgba(255,255,255, calc(var(--bg-opacity) * 0.8)));
+    background-size: var(--custom-bg-size), auto;
+    background-position: center, center;
+    background-repeat: no-repeat, no-repeat;
     backdrop-filter: blur(var(--bg-blur)) saturate(140%);
     /* micro-border/highlight to make the glass feel dimensional */
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 6px 18px rgba(0,0,0,0.35);
@@ -466,6 +471,25 @@ body {
     color: white;
     font-size: 14px;
     margin: 0;
+}
+
+.settings-panel .section-body {
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+    padding-right: 6px;
+}
+
+.settings-panel .section-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.settings-panel .section-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.settings-panel .section-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
 }
 
 .setting-row { display: flex; flex-direction: column; gap: 6px; }

@@ -159,6 +159,7 @@ const DEFAULT_SETTINGS = {
   injectResizers: true,
   persistSettings: true,
   customDataFile: null,
+  backgroundImagePath: null,
   // Folder sync settings
   useFolderSync: false,
   syncFolder: null,
@@ -1680,6 +1681,11 @@ ipcMain.handle('set-setting', (event, key, value) => {
       return false;
     }
   }
+  if (key === 'backgroundImagePath') {
+    const normalized = (typeof value === 'string') ? value.trim() : '';
+    if (normalized && !fs.existsSync(normalized)) return false;
+    nextValue = normalized || null;
+  }
   appSettings[key] = nextValue;
   // Persist settings if enabled
   if (appSettings.persistSettings) saveSettings();
@@ -1878,6 +1884,23 @@ ipcMain.handle('choose-links-file', async () => {
     return null;
   } catch (err) {
     console.error('Error choosing links file:', err);
+    return null;
+  }
+});
+
+ipcMain.handle('choose-background-image', async () => {
+  try {
+    const res = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'] }],
+      defaultPath: app.getPath('pictures')
+    });
+    if (res && !res.canceled && res.filePaths && res.filePaths[0]) {
+      return res.filePaths[0];
+    }
+    return null;
+  } catch (err) {
+    console.error('Error choosing background image:', err);
     return null;
   }
 });

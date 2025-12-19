@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('electron', {
   chooseLinksFile: () => ipcRenderer.invoke('choose-links-file'),
   getDefaultLinksPath: () => ipcRenderer.invoke('get-default-links-file'),
   revealLinksFile: () => ipcRenderer.invoke('reveal-links-file'),
+  chooseBackgroundImage: () => ipcRenderer.invoke('choose-background-image'),
   onLinksChanged: (cb) => {
     ipcRenderer.on('links-changed', () => cb());
   },
