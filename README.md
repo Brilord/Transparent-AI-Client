@@ -154,6 +154,7 @@ This app provides both mouse and keyboard controls for frameless windows.
 - Keyboard resize: hold `Ctrl + Alt` and press arrow keys to resize by 20px.
 - Keyboard move: hold `Ctrl + Alt + Shift` and press arrow keys to move the window by 20px.
 - Toggle maximize: `Ctrl + Alt + M` toggles maximize/restore.
+- Snap link window to left third: `Alt + 6` (link windows only).
 - Dragging a window near a screen edge lets the operating system snap it, just like any other application—Plana no longer adds extra snap layouts.
 
 ## Link Windows (External Pages)

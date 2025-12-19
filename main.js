@@ -900,6 +900,25 @@ ipcMain.handle('get-window-bounds', (event) => {
   return win.getBounds();
 });
 
+ipcMain.handle('get-window-work-area', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return null;
+  try {
+    const bounds = win.getBounds();
+    let display = null;
+    try {
+      if (bounds) display = screen.getDisplayMatching(bounds);
+    } catch (err) {}
+    if (!display) display = screen.getPrimaryDisplay();
+    const workArea = display && display.workArea
+      ? display.workArea
+      : { x: 0, y: 0, width: DEFAULT_MAIN_WINDOW_WIDTH, height: DEFAULT_MAIN_WINDOW_HEIGHT };
+    return workArea;
+  } catch (err) {
+    return null;
+  }
+});
+
 ipcMain.handle('set-window-bounds', (event, bounds) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (!win || !bounds) return false;

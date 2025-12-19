@@ -35,6 +35,22 @@ document.addEventListener('keydown', async (e) => {
 // Additional keybindings for link windows
 document.addEventListener('keydown', async (e) => {
   try {
+    // Snap left third: Alt+6
+    if (e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey && (e.key === '6' || e.code === 'Digit6' || e.code === 'Numpad6')) {
+      const workArea = await ipcRenderer.invoke('get-window-work-area');
+      if (!workArea) return;
+      const width = Math.max(1, Math.round(workArea.width / 3));
+      const bounds = {
+        x: Math.round(workArea.x),
+        y: Math.round(workArea.y),
+        width,
+        height: Math.max(1, Math.round(workArea.height))
+      };
+      e.preventDefault();
+      await ipcRenderer.invoke('set-window-bounds', bounds);
+      return;
+    }
+
     // Move window: Ctrl+Alt+Shift + Arrow
     if (e.ctrlKey && e.altKey && e.shiftKey) {
       const moveStep = 20;
