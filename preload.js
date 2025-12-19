@@ -52,7 +52,10 @@ contextBridge.exposeInMainWorld('electron', {
   onSettingChanged: (cb) => {
     ipcRenderer.on('setting-changed', (evt, key, value) => cb(key, value));
   },
-  resetSettings: () => ipcRenderer.invoke('reset-settings')
+  resetSettings: () => ipcRenderer.invoke('reset-settings'),
+  onDataCollectionEvent: (cb) => {
+    ipcRenderer.on('data-collection-event', (evt, payload) => cb(payload));
+  }
 });
 
 // Window management helpers

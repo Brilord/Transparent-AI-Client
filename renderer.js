@@ -33,6 +33,11 @@ const linksFilePathEl = document.getElementById('linksFilePath');
 const chooseLinksFileBtn = document.getElementById('chooseLinksFileBtn');
 const resetLinksFileBtn = document.getElementById('resetLinksFileBtn');
 const openLinksFileBtn = document.getElementById('openLinksFileBtn');
+const telemetryChk = document.getElementById('telemetryChk');
+const dataCollectionStatus = document.getElementById('dataCollectionStatus');
+const dataCollectionLog = document.getElementById('dataCollectionLog');
+const dataCollectionEmpty = document.getElementById('dataCollectionEmpty');
+const clearDataCollectionBtn = document.getElementById('clearDataCollectionBtn');
 const collapsibleSections = Array.from(document.querySelectorAll('[data-collapsible]'));
 const collapseStateKey = 'plana:collapsedSections';
 let collapseState = {};
@@ -169,6 +174,184 @@ function escapeHtml(value) {
       default: return char;
     }
   });
+}
+
+const dataCollectionEntries = [];
+const dataCollectionMaxEntries = 120;
+let dataCollectionEnabled = false;
+
+function updateDataCollectionStatus(enabled) {
+  dataCollectionEnabled = !!enabled;
+  if (dataCollectionStatus) {
+    dataCollectionStatus.textContent = dataCollectionEnabled
+      ? 'Logging on. Outgoing collection events will appear below.'
+      : 'Logging off. Enable crash reporting to capture outgoing data.';
+    dataCollectionStatus.classList.toggle('active', dataCollectionEnabled);
+  }
+  if (dataCollectionLog) {
+    dataCollectionLog.classList.toggle('disabled', !dataCollectionEnabled);
+  }
+}
+
+function formatDataCollectionTime(ts) {
+  try {
+    return new Date(ts).toLocaleTimeString();
+  } catch (err) {
+    return '';
+  }
+}
+
+function buildDataCollectionSummary(entry) {
+  if (!entry || !entry.kind) return 'Data collection event';
+  if (entry.kind === 'telemetry-state') {
+    return entry.enabled ? 'Telemetry enabled' : 'Telemetry disabled';
+  }
+  if (entry.kind === 'network-request') {
+    const purpose = entry.purpose ? ` (${entry.purpose})` : '';
+    return `${entry.method || 'GET'} ${entry.url || ''}${purpose}`.trim();
+  }
+  if (entry.kind === 'network-response') {
+    const status = entry.statusCode ? `HTTP ${entry.statusCode}` : 'Response';
+    const duration = typeof entry.durationMs === 'number' ? ` in ${entry.durationMs}ms` : '';
+    return `${status}${duration}`.trim();
+  }
+  if (entry.kind === 'network-error') {
+    return entry.message ? `Error: ${entry.message}` : 'Network error';
+  }
+  return entry.kind;
+}
+
+function buildDataCollectionDetails(entry) {
+  if (!entry || !entry.kind) return null;
+  if (entry.kind === 'telemetry-state') {
+    return {
+      enabled: entry.enabled,
+      submitURL: entry.submitURL,
+      config: entry.config || null,
+      note: entry.note || null,
+      source: entry.source || null
+    };
+  }
+  if (entry.kind === 'network-request') {
+    return {
+      requestId: entry.requestId || null,
+      purpose: entry.purpose || null,
+      method: entry.method || null,
+      url: entry.url || null,
+      headers: entry.headers || null,
+      timeoutMs: entry.timeoutMs || null,
+      context: entry.context || null
+    };
+  }
+  if (entry.kind === 'network-response') {
+    return {
+      requestId: entry.requestId || null,
+      statusCode: entry.statusCode || null,
+      contentType: entry.contentType || null,
+      bytes: entry.bytes || null,
+      durationMs: entry.durationMs || null
+    };
+  }
+  if (entry.kind === 'network-error') {
+    return {
+      requestId: entry.requestId || null,
+      message: entry.message || null,
+      durationMs: entry.durationMs || null
+    };
+  }
+  return null;
+}
+
+function buildDataCollectionItem(entry) {
+  const item = document.createElement('div');
+  item.className = 'data-collection-item';
+
+  const header = document.createElement('div');
+  header.className = 'data-collection-item-header';
+
+  const kind = document.createElement('span');
+  kind.className = 'data-collection-kind';
+  if (entry && entry.kind === 'network-error') kind.classList.add('error');
+  if (entry && entry.kind === 'network-response') kind.classList.add('response');
+  if (entry && entry.kind === 'telemetry-state') kind.classList.add('telemetry');
+  kind.textContent = entry && entry.kind ? entry.kind.replace(/-/g, ' ') : 'event';
+
+  const time = document.createElement('span');
+  time.textContent = formatDataCollectionTime(entry && entry.ts);
+
+  header.appendChild(kind);
+  header.appendChild(time);
+
+  const summary = document.createElement('div');
+  summary.className = 'data-collection-summary';
+  summary.textContent = buildDataCollectionSummary(entry);
+
+  item.appendChild(header);
+  item.appendChild(summary);
+
+  const details = buildDataCollectionDetails(entry);
+  if (details) {
+    const pre = document.createElement('pre');
+    pre.className = 'data-collection-details';
+    pre.textContent = JSON.stringify(details, null, 2);
+    item.appendChild(pre);
+  }
+
+  return item;
+}
+
+function renderDataCollectionLog() {
+  if (!dataCollectionLog) return;
+  if (!dataCollectionEntries.length) {
+    if (dataCollectionEmpty) {
+      dataCollectionLog.replaceChildren(dataCollectionEmpty);
+    } else {
+      const empty = document.createElement('div');
+      empty.className = 'data-collection-empty';
+      empty.textContent = 'No data collection events yet.';
+      dataCollectionLog.replaceChildren(empty);
+    }
+    return;
+  }
+  const items = dataCollectionEntries.map((entry) => buildDataCollectionItem(entry));
+  dataCollectionLog.replaceChildren(...items);
+}
+
+function appendDataCollectionEntry(entry) {
+  if (!entry) return;
+  dataCollectionEntries.push(entry);
+  if (dataCollectionEntries.length > dataCollectionMaxEntries) {
+    dataCollectionEntries.shift();
+  }
+  renderDataCollectionLog();
+  if (dataCollectionLog) {
+    dataCollectionLog.scrollTop = dataCollectionLog.scrollHeight;
+  }
+}
+
+function initDataCollectionDebugger() {
+  if (!dataCollectionLog || !window.electron) return;
+  if (clearDataCollectionBtn) {
+    clearDataCollectionBtn.addEventListener('click', () => {
+      dataCollectionEntries.length = 0;
+      renderDataCollectionLog();
+    });
+  }
+  if (typeof window.electron.getSetting === 'function') {
+    window.electron.getSetting('telemetryEnabled')
+      .then((value) => updateDataCollectionStatus(!!value))
+      .catch(() => {});
+  }
+  if (typeof window.electron.onDataCollectionEvent === 'function') {
+    window.electron.onDataCollectionEvent((entry) => {
+      appendDataCollectionEntry(entry);
+    });
+  }
+  if (typeof window.electron.onSettingChanged === 'function') {
+    window.electron.onSettingChanged((key, value) => {
+      if (key === 'telemetryEnabled') updateDataCollectionStatus(!!value);
+    });
+  }
 }
 
 function formatTagsForInput(tags) {
@@ -535,6 +718,8 @@ async function initSettingsUI() {
         // reflect new boolean settings into UI
         launchOnStartupChk.checked = !!newSettings.launchOnStartup;
         updateLinksFileDisplay(newSettings.customDataFile || null);
+        if (telemetryChk) telemetryChk.checked = !!newSettings.telemetryEnabled;
+        updateDataCollectionStatus(!!newSettings.telemetryEnabled);
       }
     });
 
@@ -558,6 +743,10 @@ async function initSettingsUI() {
             updateLinksFileDisplay(value || null);
             loadLinks();
           }
+          if (key === 'telemetryEnabled') {
+            if (telemetryChk) telemetryChk.checked = !!value;
+            updateDataCollectionStatus(!!value);
+          }
           if (key === 'pinnedTags') {
             pinnedTags = Array.isArray(value) ? value : [];
             renderTagFilters();
@@ -576,6 +765,7 @@ async function initSettingsUI() {
 }
 
 initSettingsUI();
+initDataCollectionDebugger();
 
 // Resizers
 const resizers = Array.from(document.querySelectorAll('.resizer'));
@@ -1334,16 +1524,18 @@ document.addEventListener('drop', async (e) => {
 });
 
 // Telemetry opt-in
-const telemetryChk = document.getElementById('telemetryChk');
 if (telemetryChk) {
   (async () => {
     try {
       const val = await window.electron.getSetting('telemetryEnabled');
       telemetryChk.checked = !!val;
+      updateDataCollectionStatus(!!val);
     } catch (err) {}
   })();
   telemetryChk.addEventListener('change', async (e) => {
-    await window.electron.setSetting('telemetryEnabled', !!e.target.checked);
+    const enabled = !!e.target.checked;
+    updateDataCollectionStatus(enabled);
+    await window.electron.setSetting('telemetryEnabled', enabled);
   });
 }
 

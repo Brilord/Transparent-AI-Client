@@ -33,6 +33,58 @@ let metadataTimer = null;
 let healthTimer = null;
 
 let crashReporterInitialized = false;
+let dataCollectionSeq = 0;
+
+function shouldLogDataCollection() {
+  return !!(appSettings && appSettings.telemetryEnabled);
+}
+
+function nextDataCollectionId() {
+  dataCollectionSeq += 1;
+  return `dc-${Date.now()}-${dataCollectionSeq}`;
+}
+
+function sanitizeHeaders(headers = {}) {
+  const sanitized = {};
+  const blocked = new Set(['authorization', 'cookie', 'set-cookie', 'proxy-authorization']);
+  Object.entries(headers || {}).forEach(([key, value]) => {
+    if (!key) return;
+    if (blocked.has(String(key).toLowerCase())) return;
+    if (value === undefined || value === null) return;
+    if (Array.isArray(value)) sanitized[key] = value.join('; ');
+    else sanitized[key] = String(value);
+  });
+  return sanitized;
+}
+
+function emitDataCollectionEvent(kind, payload = {}) {
+  const entry = Object.assign({
+    id: nextDataCollectionId(),
+    ts: new Date().toISOString(),
+    kind
+  }, payload);
+  BrowserWindow.getAllWindows().forEach((w) => {
+    try { w.webContents.send('data-collection-event', entry); } catch (err) {}
+  });
+}
+
+function emitTelemetryStateSnapshot(source = 'init', enabledOverride) {
+  const enabled = typeof enabledOverride === 'boolean'
+    ? enabledOverride
+    : !!(appSettings && appSettings.telemetryEnabled);
+  emitDataCollectionEvent('telemetry-state', {
+    source,
+    enabled,
+    submitURL: TELEMETRY_SUBMIT_URL,
+    config: {
+      productName: 'PlanaClientV2.0',
+      companyName: 'PlanaClient',
+      compress: true,
+      uploadToServer: enabled
+    },
+    note: 'No extra app payload attached.'
+  });
+}
 
 function applyTelemetryState(enabled) {
   if (!crashReporter || typeof crashReporter.start !== 'function') return;
@@ -53,6 +105,7 @@ function applyTelemetryState(enabled) {
   } catch (err) {
     console.error('Crash reporter error:', err);
   }
+  try { emitTelemetryStateSnapshot('apply', uploadEnabled); } catch (err) {}
 }
 
 function normalizeTags(input) {
@@ -358,6 +411,9 @@ async function processNextHealthJob() {
 
 function httpRequest(targetUrl, options = {}) {
   return new Promise((resolve, reject) => {
+    const startedAt = Date.now();
+    const shouldLog = shouldLogDataCollection();
+    const requestId = shouldLog ? nextDataCollectionId() : null;
     try {
       const parsed = new URL(targetUrl);
       const isHttps = parsed.protocol === 'https:';
@@ -375,23 +431,41 @@ function httpRequest(targetUrl, options = {}) {
           Connection: 'close'
         }, options.headers || {})
       };
+      if (shouldLog) {
+        emitDataCollectionEvent('network-request', {
+          requestId,
+          purpose: options.purpose || 'unknown',
+          method: requestOptions.method,
+          url: targetUrl,
+          headers: sanitizeHeaders(requestOptions.headers),
+          timeoutMs: requestOptions.timeout,
+          context: options.context || null
+        });
+      }
       const req = client.request(requestOptions, (res) => {
         let total = 0;
         const maxBytes = typeof options.maxBytes === 'number' ? options.maxBytes : MAX_METADATA_BYTES;
         const buffers = [];
-        if (options.collectBody === false) {
-          res.on('data', () => {});
-        } else {
-          res.on('data', (chunk) => {
-            total += chunk.length;
-            if (total <= maxBytes) {
-              buffers.push(chunk);
-            } else if (buffers.length === 0) {
-              buffers.push(chunk.slice(0, maxBytes));
-            }
-          });
-        }
+        const collectBody = options.collectBody !== false;
+        res.on('data', (chunk) => {
+          total += chunk.length;
+          if (!collectBody) return;
+          if (total <= maxBytes) {
+            buffers.push(chunk);
+          } else if (buffers.length === 0) {
+            buffers.push(chunk.slice(0, maxBytes));
+          }
+        });
         res.on('end', () => {
+          if (shouldLog) {
+            emitDataCollectionEvent('network-response', {
+              requestId,
+              statusCode: res.statusCode || null,
+              contentType: (res.headers && res.headers['content-type']) || null,
+              bytes: total,
+              durationMs: Date.now() - startedAt
+            });
+          }
           resolve({
             statusCode: res.statusCode,
             headers: res.headers || {},
@@ -399,12 +473,28 @@ function httpRequest(targetUrl, options = {}) {
           });
         });
       });
-      req.on('error', (err) => reject(err));
+      req.on('error', (err) => {
+        if (shouldLog) {
+          emitDataCollectionEvent('network-error', {
+            requestId,
+            message: err && err.message ? err.message : String(err),
+            durationMs: Date.now() - startedAt
+          });
+        }
+        reject(err);
+      });
       req.setTimeout(requestOptions.timeout, () => {
         try { req.destroy(new Error('Request timed out')); } catch (err) {}
       });
       req.end();
     } catch (err) {
+      if (shouldLog) {
+        emitDataCollectionEvent('network-error', {
+          requestId,
+          message: err && err.message ? err.message : String(err),
+          durationMs: Date.now() - startedAt
+        });
+      }
       reject(err);
     }
   });
@@ -464,9 +554,15 @@ function extractMetadataFromHtml(html, pageUrl) {
   return metadata;
 }
 
-async function collectMetadataForUrl(targetUrl) {
+async function collectMetadataForUrl(targetUrl, context = null) {
   try {
-    const response = await fetchWithRedirects(targetUrl, { method: 'GET', maxBytes: MAX_METADATA_BYTES, timeout: HTTP_TIMEOUT_MS });
+    const response = await fetchWithRedirects(targetUrl, {
+      method: 'GET',
+      maxBytes: MAX_METADATA_BYTES,
+      timeout: HTTP_TIMEOUT_MS,
+      purpose: 'metadata',
+      context
+    });
     if (!response) return null;
     const contentType = (response.headers && response.headers['content-type']) || '';
     if (contentType && !/text\/html/i.test(contentType)) {
@@ -494,7 +590,7 @@ async function refreshLinkMetadata(linkId) {
   if (idx === -1) return false;
   const link = links[idx];
   try {
-    const info = await collectMetadataForUrl(link.url);
+    const info = await collectMetadataForUrl(link.url, { linkId: link.id });
     if (info) {
       link.metadata = Object.assign(createEmptyMetadata(), link.metadata || {}, info, {
         lastFetchedAt: new Date().toISOString(),
@@ -527,7 +623,13 @@ async function refreshLinkHealth(linkId) {
   const health = Object.assign(createEmptyHealth(), link.health || {});
   try {
     const started = Date.now();
-    const response = await fetchWithRedirects(link.url, { method: 'HEAD', collectBody: false, timeout: 8000 });
+    const response = await fetchWithRedirects(link.url, {
+      method: 'HEAD',
+      collectBody: false,
+      timeout: 8000,
+      purpose: 'health',
+      context: { linkId: link.id }
+    });
     health.statusCode = response.statusCode || null;
     health.redirected = !!response.redirected;
     health.checkedAt = new Date().toISOString();
@@ -776,6 +878,7 @@ function createWindow() {
     // Notify main renderer of current app opacity so it can apply background-only transparency
     mainWindow.webContents.on('did-finish-load', () => {
       try { mainWindow.webContents.send('app-opacity-changed', appOpacity); } catch (e) {}
+      try { emitTelemetryStateSnapshot('window-ready'); } catch (err) {}
     });
 
   mainWindow.loadFile('index.html');

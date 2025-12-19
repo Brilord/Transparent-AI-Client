@@ -184,6 +184,18 @@
                         <label><input id="telemetryChk" type="checkbox"> Enable crash reporting (anonymous, opt-in)</label>
                         <small class="hint">Help improve the app by sending anonymous crash reports. Data is opt-in and can be revoked anytime.</small>
                     </div>
+
+                    <div class="setting-row data-collection-row">
+                        <div class="data-collection-header">
+                            <span class="data-collection-title">Data collection debugger</span>
+                            <button id="clearDataCollectionBtn" class="small-btn subtle" type="button">Clear</button>
+                        </div>
+                        <div id="dataCollectionStatus" class="data-collection-status hint">Logging off. Enable crash reporting to capture outgoing data.</div>
+                        <div id="dataCollectionLog" class="data-collection-log">
+                            <div id="dataCollectionEmpty" class="data-collection-empty">No data collection events yet.</div>
+                        </div>
+                        <small class="hint">Shows outgoing requests and crash-report configuration while telemetry is enabled.</small>
+                    </div>
                 </div>
             </div>
         </div>
