@@ -73,7 +73,32 @@ contextBridge.exposeInMainWorld('windowActions', {
 
 // Keybindings for main renderer window
 window.addEventListener('DOMContentLoaded', () => {
+  const centerWindow = async () => {
+    const bounds = await ipcRenderer.invoke('get-window-bounds');
+    const workArea = await ipcRenderer.invoke('get-window-work-area');
+    if (!bounds || !workArea) return;
+    const width = Math.max(1, Math.min(bounds.width, workArea.width));
+    const height = Math.max(1, Math.min(bounds.height, workArea.height));
+    const x = Math.round(workArea.x + (workArea.width - width) / 2);
+    const y = Math.round(workArea.y + (workArea.height - height) / 2);
+    await ipcRenderer.invoke('set-window-bounds', { ...bounds, x, y, width, height });
+  };
+
   document.addEventListener('keydown', async (e) => {
+    // Center window: Ctrl+Alt+C
+    if (e.ctrlKey && e.altKey && !e.shiftKey && (e.key === 'c' || e.key === 'C')) {
+      e.preventDefault();
+      await centerWindow();
+      return;
+    }
+
+    // Reset window bounds: Ctrl+Alt+R
+    if (e.ctrlKey && e.altKey && !e.shiftKey && (e.key === 'r' || e.key === 'R')) {
+      e.preventDefault();
+      await ipcRenderer.invoke('reset-window-bounds');
+      return;
+    }
+
     // Resize: Ctrl+Alt + Arrow
     if (e.ctrlKey && e.altKey && !e.shiftKey) {
       const step = 20;

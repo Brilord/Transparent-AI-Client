@@ -171,7 +171,9 @@ const DEFAULT_SETTINGS = {
   lastOpenedLinks: [],
   // Quick filter preferences
   pinnedTags: [],
-  groupingPreference: 'none'
+  groupingPreference: 'none',
+  // Self chat notes
+  selfChatNotes: []
 };
 
 let appSettings = Object.assign({}, DEFAULT_SETTINGS);

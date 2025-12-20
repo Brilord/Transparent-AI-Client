@@ -12,6 +12,7 @@
             <h1>PlanaClientV2.0</h1>
             <div class="window-controls">
                 <button id="settingsBtn" class="control-btn settings-btn">⚙</button>
+                <button id="selfChatBtn" class="control-btn chat-btn" title="Self notes">Chat</button>
                 <button id="resetBtn" class="control-btn reset-btn" title="Reset window">R</button>
                 <button id="minimizeBtn" class="control-btn minimize-btn">−</button>
                 <button id="closeBtn" class="control-btn close-btn">×</button>
@@ -210,6 +211,24 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div id="selfChatOverlay" class="chat-overlay hidden" aria-hidden="true">
+        <div id="selfChatPanel" class="chat-panel" role="dialog" aria-modal="true" aria-labelledby="selfChatTitle">
+            <div class="chat-header">
+                <h3 id="selfChatTitle">Self notes</h3>
+                <div class="chat-header-actions">
+                    <button id="selfChatClearBtn" class="small-btn subtle" type="button">Clear</button>
+                    <button id="selfChatCloseBtn" class="control-btn chat-close-btn" type="button" title="Close">X</button>
+                </div>
+            </div>
+            <div id="selfChatMessages" class="chat-messages"></div>
+            <div class="chat-input-row">
+                <textarea id="selfChatInput" class="chat-input" rows="2" placeholder="Type a note..."></textarea>
+                <button id="selfChatSendBtn" class="small-btn" type="button">Send</button>
+            </div>
+            <small class="hint chat-hint">Enter to send, Shift+Enter for new line.</small>
         </div>
     </div>
 

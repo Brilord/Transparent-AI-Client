@@ -2,6 +2,34 @@ const { ipcRenderer } = require('electron');
 
 // Link windows use the OS chrome for dragging/resizing; keep keyboard helpers for precision moves.
 
+const centerWindow = async () => {
+  const bounds = await ipcRenderer.invoke('get-window-bounds');
+  const workArea = await ipcRenderer.invoke('get-window-work-area');
+  if (!bounds || !workArea) return;
+  const width = Math.max(1, Math.min(bounds.width, workArea.width));
+  const height = Math.max(1, Math.min(bounds.height, workArea.height));
+  const x = Math.round(workArea.x + (workArea.width - width) / 2);
+  const y = Math.round(workArea.y + (workArea.height - height) / 2);
+  await ipcRenderer.invoke('set-window-bounds', { ...bounds, x, y, width, height });
+};
+
+const snapWindowToThird = async (position) => {
+  const workArea = await ipcRenderer.invoke('get-window-work-area');
+  if (!workArea) return;
+  const width = Math.max(1, Math.round(workArea.width / 3));
+  const height = Math.max(1, Math.round(workArea.height));
+  let x = workArea.x;
+  if (position === 'right') x = workArea.x + width * 2;
+  if (position === 'center') x = workArea.x + width;
+  const bounds = {
+    x: Math.round(x),
+    y: Math.round(workArea.y),
+    width,
+    height
+  };
+  await ipcRenderer.invoke('set-window-bounds', bounds);
+};
+
 // Keyboard resize for link windows: Ctrl+Alt + Arrow keys
 document.addEventListener('keydown', async (e) => {
   if (!(e.ctrlKey && e.altKey)) return;
@@ -35,19 +63,24 @@ document.addEventListener('keydown', async (e) => {
 // Additional keybindings for link windows
 document.addEventListener('keydown', async (e) => {
   try {
+    // Center window: Ctrl+Alt+C
+    if (e.ctrlKey && e.altKey && !e.shiftKey && (e.key === 'c' || e.key === 'C')) {
+      e.preventDefault();
+      await centerWindow();
+      return;
+    }
+
     // Snap left third: Alt+6
     if (e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey && (e.key === '6' || e.code === 'Digit6' || e.code === 'Numpad6')) {
-      const workArea = await ipcRenderer.invoke('get-window-work-area');
-      if (!workArea) return;
-      const width = Math.max(1, Math.round(workArea.width / 3));
-      const bounds = {
-        x: Math.round(workArea.x),
-        y: Math.round(workArea.y),
-        width,
-        height: Math.max(1, Math.round(workArea.height))
-      };
       e.preventDefault();
-      await ipcRenderer.invoke('set-window-bounds', bounds);
+      await snapWindowToThird('left');
+      return;
+    }
+
+    // Snap right third: Alt+9
+    if (e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey && (e.key === '9' || e.code === 'Digit9' || e.code === 'Numpad9')) {
+      e.preventDefault();
+      await snapWindowToThird('right');
       return;
     }
 

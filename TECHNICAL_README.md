@@ -134,7 +134,10 @@ Imports merge by `id`; duplicates are skipped. Favorites toggle via `toggle-favo
 | Ctrl + Alt + Arrow | Main and link windows | Resize by plus or minus 20px in that direction (`preload.js`, `preload-link.js`). |
 | Ctrl + Alt + Shift + Arrow | Main and link windows | Move window by plus or minus 20px (`move-window`). |
 | Ctrl + Alt + M | Main and link windows | Toggle maximize/restore (`toggle-maximize`). |
+| Ctrl + Alt + C | Main and link windows | Center the current window on the active display (`preload.js`, `preload-link.js`). |
+| Ctrl + Alt + R | Main window | Reset the main window to default bounds (`reset-window-bounds`). |
 | Alt + 6 | Link windows | Snap to the left third of the current display (`preload-link.js`). |
+| Alt + 9 | Link windows | Snap to the right third of the current display (`preload-link.js`). |
 | Mouse drag edges/corners | Main window (and link windows when injection is enabled) | Resize via `.resizer` divs or injected overlays that call `windowManager.setBounds()`. |
 
 ---

@@ -8,6 +8,14 @@ const closeBtn = document.getElementById('closeBtn');
 const settingsBtn = document.getElementById('settingsBtn');
 const resetBtn = document.getElementById('resetBtn');
 const settingsPanel = document.getElementById('settingsPanel');
+const selfChatBtn = document.getElementById('selfChatBtn');
+const selfChatOverlay = document.getElementById('selfChatOverlay');
+const selfChatPanel = document.getElementById('selfChatPanel');
+const selfChatMessages = document.getElementById('selfChatMessages');
+const selfChatInput = document.getElementById('selfChatInput');
+const selfChatSendBtn = document.getElementById('selfChatSendBtn');
+const selfChatCloseBtn = document.getElementById('selfChatCloseBtn');
+const selfChatClearBtn = document.getElementById('selfChatClearBtn');
 const opacityRange = document.getElementById('opacityRange');
 const opacityVal = document.getElementById('opacityVal');
 const alwaysOnTopChk = document.getElementById('alwaysOnTopChk');
@@ -206,6 +214,182 @@ function escapeHtml(value) {
       default: return char;
     }
   });
+}
+
+const selfChatSettingKey = 'selfChatNotes';
+const selfChatMaxEntries = 200;
+const selfChatMaxChars = 2000;
+let selfChatEntries = [];
+
+function normalizeSelfChatEntries(raw) {
+  if (!Array.isArray(raw)) return [];
+  const normalized = [];
+  raw.forEach((entry, idx) => {
+    if (typeof entry === 'string') {
+      const text = entry.trim();
+      if (!text) return;
+      normalized.push({
+        id: Date.now() + idx,
+        text: text.slice(0, selfChatMaxChars),
+        ts: null
+      });
+      return;
+    }
+    if (entry && typeof entry.text === 'string') {
+      const text = entry.text.trim();
+      if (!text) return;
+      normalized.push({
+        id: entry.id || Date.now() + idx,
+        text: text.slice(0, selfChatMaxChars),
+        ts: entry.ts || null
+      });
+    }
+  });
+  return normalized;
+}
+
+function formatSelfChatTime(ts) {
+  if (!ts) return '';
+  try {
+    return new Date(ts).toLocaleString();
+  } catch (err) {
+    return '';
+  }
+}
+
+function renderSelfChatEntries() {
+  if (!selfChatMessages) return;
+  if (!selfChatEntries.length) {
+    const empty = document.createElement('div');
+    empty.className = 'chat-empty';
+    empty.textContent = 'No notes yet.';
+    selfChatMessages.replaceChildren(empty);
+    return;
+  }
+  const nodes = selfChatEntries.map((entry) => {
+    const row = document.createElement('div');
+    row.className = 'chat-message';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble';
+    bubble.textContent = entry.text;
+    row.appendChild(bubble);
+
+    const time = formatSelfChatTime(entry.ts);
+    if (time) {
+      const tsEl = document.createElement('div');
+      tsEl.className = 'chat-time';
+      tsEl.textContent = time;
+      row.appendChild(tsEl);
+    }
+
+    return row;
+  });
+  selfChatMessages.replaceChildren(...nodes);
+  selfChatMessages.scrollTop = selfChatMessages.scrollHeight;
+}
+
+async function persistSelfChatEntries() {
+  if (!window.electron || typeof window.electron.setSetting !== 'function') return;
+  try {
+    await window.electron.setSetting(selfChatSettingKey, selfChatEntries);
+  } catch (err) {}
+}
+
+function addSelfChatEntry(text) {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+  const entry = {
+    id: Date.now(),
+    text: trimmed.slice(0, selfChatMaxChars),
+    ts: new Date().toISOString()
+  };
+  selfChatEntries = [...selfChatEntries, entry].slice(-selfChatMaxEntries);
+  renderSelfChatEntries();
+  persistSelfChatEntries();
+}
+
+function openSelfChat() {
+  if (!selfChatOverlay) return;
+  selfChatOverlay.classList.remove('hidden');
+  selfChatOverlay.setAttribute('aria-hidden', 'false');
+  if (selfChatInput) selfChatInput.focus();
+}
+
+function closeSelfChat() {
+  if (!selfChatOverlay) return;
+  selfChatOverlay.classList.add('hidden');
+  selfChatOverlay.setAttribute('aria-hidden', 'true');
+}
+
+async function initSelfChat() {
+  if (!selfChatOverlay || !selfChatBtn) return;
+  if (window.electron && typeof window.electron.getSetting === 'function') {
+    try {
+      const stored = await window.electron.getSetting(selfChatSettingKey);
+      selfChatEntries = normalizeSelfChatEntries(stored);
+    } catch (err) {
+      selfChatEntries = [];
+    }
+  }
+  renderSelfChatEntries();
+
+  selfChatBtn.addEventListener('click', () => {
+    openSelfChat();
+  });
+
+  if (selfChatCloseBtn) {
+    selfChatCloseBtn.addEventListener('click', () => {
+      closeSelfChat();
+    });
+  }
+
+  if (selfChatClearBtn) {
+    selfChatClearBtn.addEventListener('click', async () => {
+      if (!confirm('Clear all notes?')) return;
+      selfChatEntries = [];
+      renderSelfChatEntries();
+      await persistSelfChatEntries();
+    });
+  }
+
+  if (selfChatSendBtn) {
+    selfChatSendBtn.addEventListener('click', () => {
+      if (!selfChatInput) return;
+      addSelfChatEntry(selfChatInput.value || '');
+      selfChatInput.value = '';
+      selfChatInput.focus();
+    });
+  }
+
+  if (selfChatInput) {
+    selfChatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        addSelfChatEntry(selfChatInput.value || '');
+        selfChatInput.value = '';
+        selfChatInput.focus();
+      }
+    });
+  }
+
+  selfChatOverlay.addEventListener('click', (e) => {
+    if (e.target === selfChatOverlay) closeSelfChat();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && selfChatOverlay && !selfChatOverlay.classList.contains('hidden')) {
+      closeSelfChat();
+    }
+  });
+
+  if (window.electron && typeof window.electron.onSettingChanged === 'function') {
+    window.electron.onSettingChanged((key, value) => {
+      if (key !== selfChatSettingKey) return;
+      selfChatEntries = normalizeSelfChatEntries(value);
+      renderSelfChatEntries();
+    });
+  }
 }
 
 const dataCollectionEntries = [];
@@ -769,6 +953,8 @@ async function initSettingsUI() {
         if (telemetryChk) telemetryChk.checked = !!newSettings.telemetryEnabled;
         updateDataCollectionStatus(!!newSettings.telemetryEnabled);
         applyCustomBackground(newSettings.backgroundImagePath || null);
+        selfChatEntries = normalizeSelfChatEntries(newSettings[selfChatSettingKey]);
+        renderSelfChatEntries();
       }
     });
 
@@ -818,6 +1004,7 @@ async function initSettingsUI() {
 
 initSettingsUI();
 initDataCollectionDebugger();
+initSelfChat();
 
 // Resizers
 const resizers = Array.from(document.querySelectorAll('.resizer'));
