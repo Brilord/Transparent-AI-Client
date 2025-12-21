@@ -175,7 +175,8 @@ const DEFAULT_SETTINGS = {
   // Saved workspace layouts
   workspaces: [],
   // Self chat notes
-  selfChatNotes: []
+  selfChatNotes: [],
+  selfChatRoomsV2: null
 };
 
 let appSettings = Object.assign({}, DEFAULT_SETTINGS);

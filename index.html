@@ -13,7 +13,7 @@
             <div class="window-controls">
                 <button id="settingsBtn" class="control-btn settings-btn">⚙</button>
                 <button id="helpBtn" class="control-btn help-btn" title="Help">?</button>
-                <button id="selfChatBtn" class="control-btn chat-btn" title="Self notes">Chat</button>
+                <button id="selfChatBtn" class="control-btn chat-btn" title="Chat rooms">Chat</button>
                 <button id="resetBtn" class="control-btn reset-btn" title="Reset window">R</button>
                 <button id="minimizeBtn" class="control-btn minimize-btn">−</button>
                 <button id="closeBtn" class="control-btn close-btn">×</button>
@@ -234,19 +234,72 @@
 
     <div id="selfChatOverlay" class="chat-overlay hidden" aria-hidden="true">
         <div id="selfChatPanel" class="chat-panel" role="dialog" aria-modal="true" aria-labelledby="selfChatTitle">
-            <div class="chat-header">
-                <h3 id="selfChatTitle">Self notes</h3>
-                <div class="chat-header-actions">
-                    <button id="selfChatClearBtn" class="small-btn subtle" type="button">Clear</button>
+            <div class="chat-rail">
+                <div class="chat-rail-top">
+                    <div id="selfChatTitle" class="chat-rail-logo">Plana</div>
+                    <button id="selfChatNewServerBtn" class="chat-rail-btn" type="button" title="New space">+</button>
+                </div>
+                <div id="selfChatServerList" class="chat-rail-list"></div>
+                <div class="chat-rail-bottom">
                     <button id="selfChatCloseBtn" class="control-btn chat-close-btn" type="button" title="Close">X</button>
                 </div>
             </div>
-            <div id="selfChatMessages" class="chat-messages"></div>
-            <div class="chat-input-row">
-                <textarea id="selfChatInput" class="chat-input" rows="2" placeholder="Type a note..."></textarea>
-                <button id="selfChatSendBtn" class="small-btn" type="button">Send</button>
+            <div class="chat-sidebar">
+                <div class="chat-sidebar-header">
+                    <div id="selfChatServerName" class="chat-server-name">Plana spaces</div>
+                    <div id="selfChatServerMeta" class="chat-server-meta">Local-only rooms</div>
+                </div>
+                <div class="chat-sidebar-tools">
+                    <input id="selfChatChannelSearch" class="chat-channel-search" type="search" placeholder="Find a room">
+                    <button id="selfChatNewChannelBtn" class="small-btn" type="button">New</button>
+                </div>
+                <div class="chat-channel-wrap">
+                    <div class="chat-channel-label">Channels</div>
+                    <div id="selfChatChannelList" class="chat-channel-list"></div>
+                </div>
+                <div class="chat-sidebar-footer">
+                    <div class="chat-user-card">
+                        <div class="chat-user-avatar">Y</div>
+                        <div class="chat-user-meta">
+                            <div class="chat-user-name">You</div>
+                            <div class="chat-user-status">Local vault</div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <small class="hint chat-hint">Enter to send, Shift+Enter for new line.</small>
+            <div class="chat-main">
+                <div class="chat-main-header">
+                    <div class="chat-channel-header">
+                        <div id="selfChatChannelTitle" class="chat-channel-title"># lobby</div>
+                        <div id="selfChatChannelTopic" class="chat-channel-topic">Drop quick thoughts, links, or next steps.</div>
+                    </div>
+                    <div class="chat-main-actions">
+                        <button id="selfChatRenameChannelBtn" class="small-btn subtle" type="button">Rename</button>
+                        <button id="selfChatClearBtn" class="small-btn ghost" type="button">Clear</button>
+                    </div>
+                </div>
+                <div id="selfChatMessages" class="chat-messages"></div>
+                <div class="chat-composer">
+                    <div class="chat-composer-prefix">#</div>
+                    <textarea id="selfChatInput" class="chat-input" rows="2" placeholder="Write to this room..."></textarea>
+                    <button id="selfChatSendBtn" class="small-btn" type="button">Send</button>
+                </div>
+                <small class="hint chat-hint">Enter to send, Shift+Enter for new line.</small>
+            </div>
+            <div class="chat-info">
+                <div class="chat-info-card">
+                    <div class="chat-info-title">Channel detail</div>
+                    <div id="selfChatChannelAbout" class="chat-info-text"></div>
+                    <div class="chat-info-meta">
+                        <div id="selfChatChannelCount" class="chat-info-chip">0 messages</div>
+                        <div id="selfChatChannelUpdated" class="chat-info-chip">No updates yet</div>
+                    </div>
+                </div>
+                <div class="chat-info-card">
+                    <div class="chat-info-title">Room actions</div>
+                    <button id="selfChatDeleteChannelBtn" class="small-btn danger" type="button">Delete room</button>
+                </div>
+            </div>
         </div>
     </div>
 

@@ -16,6 +16,20 @@ const selfChatInput = document.getElementById('selfChatInput');
 const selfChatSendBtn = document.getElementById('selfChatSendBtn');
 const selfChatCloseBtn = document.getElementById('selfChatCloseBtn');
 const selfChatClearBtn = document.getElementById('selfChatClearBtn');
+const selfChatServerList = document.getElementById('selfChatServerList');
+const selfChatServerName = document.getElementById('selfChatServerName');
+const selfChatServerMeta = document.getElementById('selfChatServerMeta');
+const selfChatChannelList = document.getElementById('selfChatChannelList');
+const selfChatChannelSearch = document.getElementById('selfChatChannelSearch');
+const selfChatChannelTitle = document.getElementById('selfChatChannelTitle');
+const selfChatChannelTopic = document.getElementById('selfChatChannelTopic');
+const selfChatChannelAbout = document.getElementById('selfChatChannelAbout');
+const selfChatChannelCount = document.getElementById('selfChatChannelCount');
+const selfChatChannelUpdated = document.getElementById('selfChatChannelUpdated');
+const selfChatNewChannelBtn = document.getElementById('selfChatNewChannelBtn');
+const selfChatRenameChannelBtn = document.getElementById('selfChatRenameChannelBtn');
+const selfChatDeleteChannelBtn = document.getElementById('selfChatDeleteChannelBtn');
+const selfChatNewServerBtn = document.getElementById('selfChatNewServerBtn');
 const helpBtn = document.getElementById('helpBtn');
 const helpOverlay = document.getElementById('helpOverlay');
 const helpPanel = document.getElementById('helpPanel');
@@ -489,10 +503,20 @@ async function saveWorkspaceFromOpenWindows() {
   renderWorkspaces();
 }
 
-const selfChatSettingKey = 'selfChatNotes';
-const selfChatMaxEntries = 200;
+const selfChatSettingKey = 'selfChatRoomsV2';
+const selfChatLegacyKey = 'selfChatNotes';
+const selfChatMaxEntries = 300;
 const selfChatMaxChars = 2000;
-let selfChatEntries = [];
+const selfChatMaxChannels = 50;
+const selfChatMaxServers = 12;
+let selfChatState = null;
+let selfChatChannelFilter = '';
+let selfChatIdSeq = 0;
+
+function createChatId(prefix) {
+  selfChatIdSeq += 1;
+  return `${prefix}-${Date.now()}-${selfChatIdSeq}`;
+}
 
 function normalizeSelfChatEntries(raw) {
   if (!Array.isArray(raw)) return [];
@@ -502,7 +526,7 @@ function normalizeSelfChatEntries(raw) {
       const text = entry.trim();
       if (!text) return;
       normalized.push({
-        id: Date.now() + idx,
+        id: createChatId('msg'),
         text: text.slice(0, selfChatMaxChars),
         ts: null
       });
@@ -512,13 +536,143 @@ function normalizeSelfChatEntries(raw) {
       const text = entry.text.trim();
       if (!text) return;
       normalized.push({
-        id: entry.id || Date.now() + idx,
+        id: entry.id || createChatId('msg'),
         text: text.slice(0, selfChatMaxChars),
         ts: entry.ts || null
       });
     }
   });
   return normalized;
+}
+
+function getServerIcon(name) {
+  const cleaned = String(name || '').trim();
+  if (!cleaned) return 'NA';
+  const parts = cleaned.split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+function createChannel(name, topic) {
+  const cleanName = String(name || '').trim() || 'room';
+  return {
+    id: createChatId('ch'),
+    name: cleanName,
+    topic: topic ? String(topic).trim() : '',
+    messages: [],
+    updatedAt: null
+  };
+}
+
+function createServer(name, options = {}) {
+  const cleanName = String(name || '').trim() || 'Untitled Space';
+  const channels = Array.isArray(options.channels) && options.channels.length
+    ? options.channels
+    : [createChannel('lobby', 'Drop quick notes and links for this space.')];
+  return {
+    id: createChatId('srv'),
+    name: cleanName,
+    icon: options.icon ? String(options.icon).trim() : getServerIcon(cleanName),
+    accent: options.accent || null,
+    channels,
+    lastActiveChannelId: channels[0].id,
+    createdAt: new Date().toISOString()
+  };
+}
+
+function createDefaultChatState() {
+  const home = createServer('Plana HQ', {
+    accent: '#f78b3a',
+    channels: [
+      createChannel('lobby', 'Daily pulse, quick notes, and reminders.'),
+      createChannel('link-lab', 'Context for saved links and experiments.'),
+      createChannel('ideas', 'Loose concepts worth revisiting.')
+    ]
+  });
+  const ops = createServer('Project Desk', {
+    accent: '#52dcc4',
+    channels: [
+      createChannel('tasks', 'What is shipping next and why.'),
+      createChannel('wins', 'Progress log and shipped moments.')
+    ]
+  });
+  return {
+    version: 2,
+    servers: [home, ops],
+    activeServerId: home.id,
+    activeChannelId: home.channels[0].id
+  };
+}
+
+function normalizeChannel(raw, idx) {
+  if (!raw || typeof raw !== 'object') return null;
+  const name = raw.name ? String(raw.name).trim() : `room-${idx + 1}`;
+  const messages = normalizeSelfChatEntries(raw.messages || raw.entries || []);
+  const updatedAt = raw.updatedAt || (messages.length ? messages[messages.length - 1].ts : null);
+  return {
+    id: raw.id ? String(raw.id) : createChatId('ch'),
+    name,
+    topic: raw.topic ? String(raw.topic).trim() : '',
+    messages,
+    updatedAt
+  };
+}
+
+function normalizeServer(raw, idx) {
+  if (!raw || typeof raw !== 'object') return null;
+  const name = raw.name ? String(raw.name).trim() : `Space ${idx + 1}`;
+  const channels = Array.isArray(raw.channels) ? raw.channels.map(normalizeChannel).filter(Boolean) : [];
+  const finalChannels = channels.length ? channels : [createChannel('lobby', 'Notes for this space.')];
+  const icon = raw.icon ? String(raw.icon).trim() : getServerIcon(name);
+  const lastActive = raw.lastActiveChannelId && finalChannels.some((ch) => ch.id === raw.lastActiveChannelId)
+    ? raw.lastActiveChannelId
+    : finalChannels[0].id;
+  return {
+    id: raw.id ? String(raw.id) : createChatId('srv'),
+    name,
+    icon,
+    accent: raw.accent || null,
+    channels: finalChannels,
+    lastActiveChannelId: lastActive,
+    createdAt: raw.createdAt || null
+  };
+}
+
+function normalizeSelfChatState(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const servers = Array.isArray(raw.servers) ? raw.servers.map(normalizeServer).filter(Boolean) : [];
+  if (!servers.length) return null;
+  const activeServerId = servers.some((srv) => srv.id === raw.activeServerId)
+    ? raw.activeServerId
+    : servers[0].id;
+  const activeServer = servers.find((srv) => srv.id === activeServerId) || servers[0];
+  let activeChannelId = raw.activeChannelId;
+  if (!activeChannelId || !activeServer.channels.some((ch) => ch.id === activeChannelId)) {
+    activeChannelId = activeServer.lastActiveChannelId || activeServer.channels[0].id;
+  }
+  return {
+    version: 2,
+    servers,
+    activeServerId,
+    activeChannelId
+  };
+}
+
+function getActiveServer() {
+  if (!selfChatState) return null;
+  return selfChatState.servers.find((srv) => srv.id === selfChatState.activeServerId) || null;
+}
+
+function getActiveChannel() {
+  const server = getActiveServer();
+  if (!server) return null;
+  return server.channels.find((ch) => ch.id === selfChatState.activeChannelId) || null;
+}
+
+function applyChatAccent(accent) {
+  if (!selfChatPanel) return;
+  if (accent) selfChatPanel.style.setProperty('--active-chat-accent', accent);
+  else selfChatPanel.style.removeProperty('--active-chat-accent');
 }
 
 function formatSelfChatTime(ts) {
@@ -530,31 +684,158 @@ function formatSelfChatTime(ts) {
   }
 }
 
-function renderSelfChatEntries() {
-  if (!selfChatMessages) return;
-  if (!selfChatEntries.length) {
+function renderSelfChatServers() {
+  if (!selfChatServerList || !selfChatState) return;
+  selfChatServerList.innerHTML = '';
+  selfChatState.servers.forEach((server) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chat-rail-item';
+    if (server.id === selfChatState.activeServerId) btn.classList.add('active');
+    btn.textContent = server.icon || getServerIcon(server.name);
+    btn.title = server.name;
+    if (server.accent) btn.style.setProperty('--server-accent', server.accent);
+    btn.addEventListener('click', () => {
+      setActiveServer(server.id);
+    });
+    selfChatServerList.appendChild(btn);
+  });
+}
+
+function renderSelfChatChannels() {
+  if (!selfChatChannelList) return;
+  const server = getActiveServer();
+  if (selfChatChannelSearch && selfChatChannelSearch.value !== selfChatChannelFilter) {
+    selfChatChannelSearch.value = selfChatChannelFilter;
+  }
+  selfChatChannelList.innerHTML = '';
+  if (!server) return;
+  const filter = selfChatChannelFilter.trim().toLowerCase();
+  const channels = filter
+    ? server.channels.filter((ch) => ch.name.toLowerCase().includes(filter))
+    : server.channels;
+  if (!channels.length) {
     const empty = document.createElement('div');
     empty.className = 'chat-empty';
-    empty.textContent = 'No notes yet.';
+    empty.textContent = 'No rooms match that search.';
+    selfChatChannelList.appendChild(empty);
+    return;
+  }
+  channels.forEach((channel) => {
+    const row = document.createElement('div');
+    row.className = 'chat-channel';
+    row.tabIndex = 0;
+    if (channel.id === selfChatState.activeChannelId) row.classList.add('active');
+
+    const hash = document.createElement('span');
+    hash.className = 'chat-channel-hash';
+    hash.textContent = '#';
+    row.appendChild(hash);
+
+    const name = document.createElement('span');
+    name.className = 'chat-channel-name';
+    name.textContent = channel.name;
+    row.appendChild(name);
+
+    const count = document.createElement('span');
+    count.className = 'chat-channel-count';
+    count.textContent = String(channel.messages.length);
+    row.appendChild(count);
+
+    row.addEventListener('click', () => {
+      setActiveChannel(channel.id);
+    });
+    row.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') setActiveChannel(channel.id);
+    });
+    selfChatChannelList.appendChild(row);
+  });
+}
+
+function renderSelfChatHeader() {
+  const server = getActiveServer();
+  const channel = getActiveChannel();
+  if (selfChatServerName) {
+    selfChatServerName.textContent = server ? server.name : 'Spaces';
+  }
+  if (selfChatServerMeta) {
+    const count = server ? server.channels.length : 0;
+    selfChatServerMeta.textContent = `${count} room${count === 1 ? '' : 's'}`;
+  }
+  if (selfChatChannelTitle) {
+    selfChatChannelTitle.textContent = channel ? `# ${channel.name}` : '# room';
+  }
+  if (selfChatChannelTopic) {
+    selfChatChannelTopic.textContent = channel && channel.topic
+      ? channel.topic
+      : 'Add a topic to guide what belongs here.';
+  }
+  if (selfChatChannelAbout) {
+    selfChatChannelAbout.textContent = channel && channel.topic
+      ? channel.topic
+      : 'Keep this room focused with a short topic or intention.';
+  }
+  if (selfChatChannelCount) {
+    const messageCount = channel ? channel.messages.length : 0;
+    selfChatChannelCount.textContent = `${messageCount} message${messageCount === 1 ? '' : 's'}`;
+  }
+  if (selfChatChannelUpdated) {
+    let updatedLabel = 'No updates yet';
+    if (channel && channel.updatedAt) {
+      const relative = formatRelativeTime(channel.updatedAt);
+      if (relative) updatedLabel = `Updated ${relative}`;
+    }
+    selfChatChannelUpdated.textContent = updatedLabel;
+  }
+  applyChatAccent(server && server.accent ? server.accent : null);
+}
+
+function renderSelfChatEntries() {
+  if (!selfChatMessages) return;
+  const channel = getActiveChannel();
+  if (!channel || !channel.messages.length) {
+    const empty = document.createElement('div');
+    empty.className = 'chat-empty';
+    empty.textContent = channel ? `No messages in #${channel.name} yet.` : 'Select a room to get started.';
     selfChatMessages.replaceChildren(empty);
     return;
   }
-  const nodes = selfChatEntries.map((entry) => {
+  const nodes = channel.messages.map((entry, index) => {
     const row = document.createElement('div');
     row.className = 'chat-message';
+    row.style.setProperty('--stagger', `${Math.min(index * 30, 240)}ms`);
 
-    const bubble = document.createElement('div');
-    bubble.className = 'chat-bubble';
-    bubble.textContent = entry.text;
-    row.appendChild(bubble);
+    const avatar = document.createElement('div');
+    avatar.className = 'chat-avatar';
+    avatar.textContent = 'Y';
+    row.appendChild(avatar);
+
+    const body = document.createElement('div');
+    body.className = 'chat-message-body';
+
+    const meta = document.createElement('div');
+    meta.className = 'chat-message-meta';
+
+    const author = document.createElement('span');
+    author.className = 'chat-message-author';
+    author.textContent = 'You';
+    meta.appendChild(author);
 
     const time = formatSelfChatTime(entry.ts);
     if (time) {
-      const tsEl = document.createElement('div');
+      const tsEl = document.createElement('span');
       tsEl.className = 'chat-time';
       tsEl.textContent = time;
-      row.appendChild(tsEl);
+      meta.appendChild(tsEl);
     }
+
+    const text = document.createElement('div');
+    text.className = 'chat-message-text';
+    text.textContent = entry.text;
+
+    body.appendChild(meta);
+    body.appendChild(text);
+    row.appendChild(body);
 
     return row;
   });
@@ -562,30 +843,69 @@ function renderSelfChatEntries() {
   selfChatMessages.scrollTop = selfChatMessages.scrollHeight;
 }
 
-async function persistSelfChatEntries() {
+function renderSelfChat() {
+  renderSelfChatServers();
+  renderSelfChatChannels();
+  renderSelfChatHeader();
+  renderSelfChatEntries();
+}
+
+async function persistSelfChatState() {
   if (!window.electron || typeof window.electron.setSetting !== 'function') return;
   try {
-    await window.electron.setSetting(selfChatSettingKey, selfChatEntries);
+    await window.electron.setSetting(selfChatSettingKey, selfChatState);
   } catch (err) {}
+}
+
+function setActiveServer(serverId) {
+  if (!selfChatState) return;
+  const server = selfChatState.servers.find((srv) => srv.id === serverId);
+  if (!server) return;
+  selfChatChannelFilter = '';
+  if (selfChatChannelSearch) selfChatChannelSearch.value = '';
+  selfChatState.activeServerId = server.id;
+  const nextChannel = server.channels.find((ch) => ch.id === server.lastActiveChannelId) || server.channels[0];
+  selfChatState.activeChannelId = nextChannel.id;
+  renderSelfChat();
+  persistSelfChatState();
+}
+
+function setActiveChannel(channelId) {
+  const server = getActiveServer();
+  if (!server) return;
+  const channel = server.channels.find((ch) => ch.id === channelId);
+  if (!channel) return;
+  selfChatState.activeChannelId = channel.id;
+  server.lastActiveChannelId = channel.id;
+  renderSelfChatChannels();
+  renderSelfChatHeader();
+  renderSelfChatEntries();
+  persistSelfChatState();
 }
 
 function addSelfChatEntry(text) {
   const trimmed = text.trim();
   if (!trimmed) return;
+  const channel = getActiveChannel();
+  if (!channel) return;
   const entry = {
-    id: Date.now(),
+    id: createChatId('msg'),
     text: trimmed.slice(0, selfChatMaxChars),
     ts: new Date().toISOString()
   };
-  selfChatEntries = [...selfChatEntries, entry].slice(-selfChatMaxEntries);
+  channel.messages = [...channel.messages, entry].slice(-selfChatMaxEntries);
+  channel.updatedAt = entry.ts;
   renderSelfChatEntries();
-  persistSelfChatEntries();
+  renderSelfChatHeader();
+  renderSelfChatChannels();
+  persistSelfChatState();
 }
 
 function openSelfChat() {
   if (!selfChatOverlay) return;
   selfChatOverlay.classList.remove('hidden');
   selfChatOverlay.setAttribute('aria-hidden', 'false');
+  renderSelfChat();
   if (selfChatInput) selfChatInput.focus();
 }
 
@@ -595,30 +915,38 @@ function closeSelfChat() {
   selfChatOverlay.setAttribute('aria-hidden', 'true');
 }
 
-function openHelp() {
-  if (!helpOverlay) return;
-  helpOverlay.classList.remove('hidden');
-  helpOverlay.setAttribute('aria-hidden', 'false');
-  if (helpCloseBtn) helpCloseBtn.focus();
-}
-
-function closeHelp() {
-  if (!helpOverlay) return;
-  helpOverlay.classList.add('hidden');
-  helpOverlay.setAttribute('aria-hidden', 'true');
-}
-
 async function initSelfChat() {
   if (!selfChatOverlay || !selfChatBtn) return;
+  let nextState = null;
   if (window.electron && typeof window.electron.getSetting === 'function') {
     try {
       const stored = await window.electron.getSetting(selfChatSettingKey);
-      selfChatEntries = normalizeSelfChatEntries(stored);
+      nextState = normalizeSelfChatState(stored);
     } catch (err) {
-      selfChatEntries = [];
+      nextState = null;
+    }
+    if (!nextState) {
+      let legacyEntries = [];
+      try {
+        const legacy = await window.electron.getSetting(selfChatLegacyKey);
+        legacyEntries = normalizeSelfChatEntries(legacy);
+      } catch (err) {
+        legacyEntries = [];
+      }
+      nextState = createDefaultChatState();
+      if (legacyEntries.length && nextState.servers.length) {
+        const channel = nextState.servers[0].channels[0];
+        channel.messages = legacyEntries.slice(-selfChatMaxEntries);
+        channel.updatedAt = channel.messages.length ? channel.messages[channel.messages.length - 1].ts : null;
+      }
+      try {
+        await window.electron.setSetting(selfChatSettingKey, nextState);
+      } catch (err) {}
     }
   }
-  renderSelfChatEntries();
+  if (!nextState) nextState = createDefaultChatState();
+  selfChatState = nextState;
+  renderSelfChat();
 
   selfChatBtn.addEventListener('click', () => {
     openSelfChat();
@@ -630,12 +958,94 @@ async function initSelfChat() {
     });
   }
 
+  if (selfChatNewServerBtn) {
+    selfChatNewServerBtn.addEventListener('click', () => {
+      if (!selfChatState) return;
+      if (selfChatState.servers.length >= selfChatMaxServers) {
+        alert('Max spaces reached.');
+        return;
+      }
+      const name = prompt('New space name');
+      if (!name) return;
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      const palette = ['#f78b3a', '#52dcc4', '#f1b75b', '#6fc2ff', '#f06666'];
+      const accent = palette[selfChatState.servers.length % palette.length];
+      const server = createServer(trimmed, { accent });
+      selfChatState.servers = [...selfChatState.servers, server];
+      selfChatState.activeServerId = server.id;
+      selfChatState.activeChannelId = server.channels[0].id;
+      renderSelfChat();
+      persistSelfChatState();
+    });
+  }
+
+  if (selfChatNewChannelBtn) {
+    selfChatNewChannelBtn.addEventListener('click', () => {
+      const server = getActiveServer();
+      if (!server) return;
+      if (server.channels.length >= selfChatMaxChannels) {
+        alert('Max rooms reached for this space.');
+        return;
+      }
+      const name = prompt('New room name');
+      if (!name) return;
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      const topic = prompt('Room topic (optional)', '');
+      const channel = createChannel(trimmed, topic || '');
+      server.channels = [...server.channels, channel];
+      server.lastActiveChannelId = channel.id;
+      selfChatState.activeChannelId = channel.id;
+      renderSelfChat();
+      persistSelfChatState();
+    });
+  }
+
+  if (selfChatRenameChannelBtn) {
+    selfChatRenameChannelBtn.addEventListener('click', () => {
+      const channel = getActiveChannel();
+      if (!channel) return;
+      const name = prompt('Rename room', channel.name);
+      if (name === null) return;
+      const trimmed = name.trim();
+      if (trimmed) channel.name = trimmed;
+      const topic = prompt('Room topic (optional)', channel.topic || '');
+      if (topic !== null) channel.topic = String(topic).trim();
+      channel.updatedAt = new Date().toISOString();
+      renderSelfChat();
+      persistSelfChatState();
+    });
+  }
+
+  if (selfChatDeleteChannelBtn) {
+    selfChatDeleteChannelBtn.addEventListener('click', () => {
+      const server = getActiveServer();
+      const channel = getActiveChannel();
+      if (!server || !channel) return;
+      if (server.channels.length <= 1) {
+        alert('Keep at least one room in a space.');
+        return;
+      }
+      if (!confirm(`Delete room "${channel.name}"?`)) return;
+      server.channels = server.channels.filter((ch) => ch.id !== channel.id);
+      const nextChannel = server.channels[0];
+      server.lastActiveChannelId = nextChannel.id;
+      selfChatState.activeChannelId = nextChannel.id;
+      renderSelfChat();
+      persistSelfChatState();
+    });
+  }
+
   if (selfChatClearBtn) {
-    selfChatClearBtn.addEventListener('click', async () => {
-      if (!confirm('Clear all notes?')) return;
-      selfChatEntries = [];
-      renderSelfChatEntries();
-      await persistSelfChatEntries();
+    selfChatClearBtn.addEventListener('click', () => {
+      const channel = getActiveChannel();
+      if (!channel) return;
+      if (!confirm(`Clear all messages in #${channel.name}?`)) return;
+      channel.messages = [];
+      channel.updatedAt = null;
+      renderSelfChat();
+      persistSelfChatState();
     });
   }
 
@@ -659,6 +1069,13 @@ async function initSelfChat() {
     });
   }
 
+  if (selfChatChannelSearch) {
+    selfChatChannelSearch.addEventListener('input', (e) => {
+      selfChatChannelFilter = e.target.value || '';
+      renderSelfChatChannels();
+    });
+  }
+
   selfChatOverlay.addEventListener('click', (e) => {
     if (e.target === selfChatOverlay) closeSelfChat();
   });
@@ -672,10 +1089,24 @@ async function initSelfChat() {
   if (window.electron && typeof window.electron.onSettingChanged === 'function') {
     window.electron.onSettingChanged((key, value) => {
       if (key !== selfChatSettingKey) return;
-      selfChatEntries = normalizeSelfChatEntries(value);
-      renderSelfChatEntries();
+      const normalized = normalizeSelfChatState(value) || createDefaultChatState();
+      selfChatState = normalized;
+      renderSelfChat();
     });
   }
+}
+
+function openHelp() {
+  if (!helpOverlay) return;
+  helpOverlay.classList.remove('hidden');
+  helpOverlay.setAttribute('aria-hidden', 'false');
+  if (helpCloseBtn) helpCloseBtn.focus();
+}
+
+function closeHelp() {
+  if (!helpOverlay) return;
+  helpOverlay.classList.add('hidden');
+  helpOverlay.setAttribute('aria-hidden', 'true');
 }
 
 function initHelp() {
@@ -1534,8 +1965,8 @@ async function initSettingsUI() {
         if (telemetryChk) telemetryChk.checked = !!newSettings.telemetryEnabled;
         updateDataCollectionStatus(!!newSettings.telemetryEnabled);
         applyCustomBackground(newSettings.backgroundImagePath || null);
-        selfChatEntries = normalizeSelfChatEntries(newSettings[selfChatSettingKey]);
-        renderSelfChatEntries();
+        selfChatState = normalizeSelfChatState(newSettings[selfChatSettingKey]) || createDefaultChatState();
+        renderSelfChat();
       }
     });
 
