@@ -70,6 +70,34 @@ document.addEventListener('keydown', async (e) => {
       return;
     }
 
+    // Navigate back/forward (macOS): Cmd+[ / Cmd+]
+    if (e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      if (e.key === '[' || e.code === 'BracketLeft') {
+        e.preventDefault();
+        await ipcRenderer.invoke('link-go-back');
+        return;
+      }
+      if (e.key === ']' || e.code === 'BracketRight') {
+        e.preventDefault();
+        await ipcRenderer.invoke('link-go-forward');
+        return;
+      }
+    }
+
+    // Navigate back/forward: Alt+Left / Alt+Right
+    if (e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey) {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        await ipcRenderer.invoke('link-go-back');
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        await ipcRenderer.invoke('link-go-forward');
+        return;
+      }
+    }
+
     // Snap left third: Alt+6
     if (e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey && (e.key === '6' || e.code === 'Digit6' || e.code === 'Numpad6')) {
       e.preventDefault();
@@ -111,6 +139,136 @@ document.addEventListener('keydown', async (e) => {
     // ignore
   }
 });
+
+// Mouse back/forward buttons (XButton1/XButton2)
+document.addEventListener('mouseup', async (e) => {
+  if (e.button !== 3 && e.button !== 4) return;
+  try {
+    if (e.button === 3) await ipcRenderer.invoke('link-go-back');
+    if (e.button === 4) await ipcRenderer.invoke('link-go-forward');
+    e.preventDefault();
+  } catch (err) {
+    // ignore
+  }
+});
+
+// Lightweight nav overlay ----------------------------------------------------
+const NAV_STYLE_ID = 'plana-link-nav-style';
+const NAV_ID = 'plana-link-nav';
+let navHideTimer = null;
+
+function mountNavStyles() {
+  if (!document || !document.head) return false;
+  if (document.getElementById(NAV_STYLE_ID)) return true;
+  const styleEl = document.createElement('style');
+  styleEl.id = NAV_STYLE_ID;
+  styleEl.textContent = `
+#${NAV_ID} {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: rgba(12, 16, 26, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(12px) saturate(140%);
+  z-index: 2147483646;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+#${NAV_ID}.plana-nav-hidden {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-8px);
+  pointer-events: none;
+}
+#${NAV_ID} button {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 11px;
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+#${NAV_ID} button:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+`;
+  document.head.appendChild(styleEl);
+  return true;
+}
+
+function createNavBar() {
+  if (!document || document.getElementById(NAV_ID)) return;
+  if (!mountNavStyles()) return;
+  const nav = document.createElement('div');
+  nav.id = NAV_ID;
+  nav.className = 'plana-nav-hidden';
+  nav.innerHTML = `
+    <button data-action="back">Back</button>
+    <button data-action="forward">Forward</button>
+    <button data-action="reload">Reload</button>
+    <button data-action="browser">Browser</button>
+    <button data-action="copy">Copy URL</button>
+  `;
+
+  nav.addEventListener('click', async (e) => {
+    const target = e.target;
+    if (!target || !target.dataset) return;
+    const action = target.dataset.action;
+    if (!action) return;
+    if (action === 'back') await ipcRenderer.invoke('link-go-back');
+    if (action === 'forward') await ipcRenderer.invoke('link-go-forward');
+    if (action === 'reload') await ipcRenderer.invoke('link-reload');
+    if (action === 'browser') await ipcRenderer.invoke('link-open-external', location.href);
+    if (action === 'copy') {
+      await ipcRenderer.invoke('link-copy-url', location.href);
+      const original = target.textContent;
+      target.textContent = 'Copied';
+      setTimeout(() => { target.textContent = original; }, 900);
+    }
+  });
+
+  nav.addEventListener('mouseenter', () => showNav(nav));
+  nav.addEventListener('mouseleave', () => scheduleHideNav(nav, 600));
+  document.documentElement.appendChild(nav);
+}
+
+function showNav(navEl) {
+  if (!navEl) return;
+  navEl.classList.remove('plana-nav-hidden');
+  if (navHideTimer) {
+    clearTimeout(navHideTimer);
+    navHideTimer = null;
+  }
+}
+
+function scheduleHideNav(navEl, delay = 1200) {
+  if (!navEl) return;
+  if (navHideTimer) clearTimeout(navHideTimer);
+  navHideTimer = setTimeout(() => {
+    if (navEl.matches(':hover')) return;
+    navEl.classList.add('plana-nav-hidden');
+  }, delay);
+}
+
+document.addEventListener('mousemove', (e) => {
+  const navEl = document.getElementById(NAV_ID);
+  if (!navEl) return;
+  if (e.clientY <= 28) {
+    showNav(navEl);
+  } else {
+    scheduleHideNav(navEl, 1200);
+  }
+});
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => createNavBar(), { once: true });
+} else {
+  createNavBar();
+}
 
 // Remote resizer injection ---------------------------------------------------
 const REMOTE_RESIZER_CLASS = 'plana-remote-resizer';

@@ -1669,6 +1669,66 @@ ipcMain.handle('open-link', (event, idOrUrl, maybeUrl, options) => {
   return openLinkWindow(idOrUrl, maybeUrl, options);
 });
 
+ipcMain.handle('link-go-back', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win.isDestroyed()) return false;
+  const wc = win.webContents;
+  if (wc && wc.canGoBack()) {
+    wc.goBack();
+    return true;
+  }
+  return false;
+});
+
+ipcMain.handle('link-go-forward', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win.isDestroyed()) return false;
+  const wc = win.webContents;
+  if (wc && wc.canGoForward()) {
+    wc.goForward();
+    return true;
+  }
+  return false;
+});
+
+ipcMain.handle('link-reload', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win.isDestroyed()) return false;
+  const wc = win.webContents;
+  if (!wc) return false;
+  try {
+    wc.reload();
+    return true;
+  } catch (err) {
+    return false;
+  }
+});
+
+ipcMain.handle('link-open-external', (event, url) => {
+  try {
+    const target = url || (event.sender ? event.sender.getURL() : '');
+    if (!target) return false;
+    new URL(target);
+    shell.openExternal(target);
+    return true;
+  } catch (err) {
+    console.error('Error opening link externally:', err);
+    return false;
+  }
+});
+
+ipcMain.handle('link-copy-url', (event, url) => {
+  try {
+    const target = url || (event.sender ? event.sender.getURL() : '');
+    if (!target) return false;
+    clipboard.writeText(String(target));
+    return true;
+  } catch (err) {
+    console.error('Error copying link url:', err);
+    return false;
+  }
+});
+
 ipcMain.handle('get-open-link-windows', () => {
   return getOpenLinkWindowsSnapshot();
 });
