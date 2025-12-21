@@ -16,6 +16,10 @@ const selfChatInput = document.getElementById('selfChatInput');
 const selfChatSendBtn = document.getElementById('selfChatSendBtn');
 const selfChatCloseBtn = document.getElementById('selfChatCloseBtn');
 const selfChatClearBtn = document.getElementById('selfChatClearBtn');
+const helpBtn = document.getElementById('helpBtn');
+const helpOverlay = document.getElementById('helpOverlay');
+const helpPanel = document.getElementById('helpPanel');
+const helpCloseBtn = document.getElementById('helpCloseBtn');
 const opacityRange = document.getElementById('opacityRange');
 const opacityVal = document.getElementById('opacityVal');
 const alwaysOnTopChk = document.getElementById('alwaysOnTopChk');
@@ -591,6 +595,19 @@ function closeSelfChat() {
   selfChatOverlay.setAttribute('aria-hidden', 'true');
 }
 
+function openHelp() {
+  if (!helpOverlay) return;
+  helpOverlay.classList.remove('hidden');
+  helpOverlay.setAttribute('aria-hidden', 'false');
+  if (helpCloseBtn) helpCloseBtn.focus();
+}
+
+function closeHelp() {
+  if (!helpOverlay) return;
+  helpOverlay.classList.add('hidden');
+  helpOverlay.setAttribute('aria-hidden', 'true');
+}
+
 async function initSelfChat() {
   if (!selfChatOverlay || !selfChatBtn) return;
   if (window.electron && typeof window.electron.getSetting === 'function') {
@@ -659,6 +676,30 @@ async function initSelfChat() {
       renderSelfChatEntries();
     });
   }
+}
+
+function initHelp() {
+  if (!helpOverlay || !helpBtn) return;
+  helpBtn.addEventListener('click', () => {
+    openHelp();
+  });
+
+  if (helpCloseBtn) {
+    helpCloseBtn.addEventListener('click', () => {
+      closeHelp();
+    });
+  }
+
+  helpOverlay.addEventListener('click', (e) => {
+    if (e.target === helpOverlay) closeHelp();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && helpOverlay && !helpOverlay.classList.contains('hidden')) {
+      e.preventDefault();
+      closeHelp();
+    }
+  });
 }
 
 const dataCollectionEntries = [];
@@ -1549,6 +1590,7 @@ async function initSettingsUI() {
 initSettingsUI();
 initDataCollectionDebugger();
 initSelfChat();
+initHelp();
 loadWorkspaces();
 
 // Resizers

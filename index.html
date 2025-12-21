@@ -12,6 +12,7 @@
             <h1>PlanaClientV2.0</h1>
             <div class="window-controls">
                 <button id="settingsBtn" class="control-btn settings-btn">⚙</button>
+                <button id="helpBtn" class="control-btn help-btn" title="Help">?</button>
                 <button id="selfChatBtn" class="control-btn chat-btn" title="Self notes">Chat</button>
                 <button id="resetBtn" class="control-btn reset-btn" title="Reset window">R</button>
                 <button id="minimizeBtn" class="control-btn minimize-btn">−</button>
@@ -246,6 +247,49 @@
                 <button id="selfChatSendBtn" class="small-btn" type="button">Send</button>
             </div>
             <small class="hint chat-hint">Enter to send, Shift+Enter for new line.</small>
+        </div>
+    </div>
+
+    <div id="helpOverlay" class="help-overlay hidden" aria-hidden="true">
+        <div id="helpPanel" class="help-panel" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+            <div class="help-header">
+                <h3 id="helpTitle">Plana help</h3>
+                <button id="helpCloseBtn" class="control-btn help-close-btn" type="button" title="Close">X</button>
+            </div>
+            <div class="help-body">
+                <div class="help-section">
+                    <div class="help-section-title">Capture</div>
+                    <p>Add a link with URL, optional title, tags, folder, priority, and notes. Use drag-and-drop or the clipboard banner to capture faster.</p>
+                </div>
+                <div class="help-section">
+                    <div class="help-section-title">Links list</div>
+                    <p>Click a card to open its window. Use inline actions for open in browser, copy, edit, pin, favorite, or delete.</p>
+                </div>
+                <div class="help-section">
+                    <div class="help-section-title">Search and tags</div>
+                    <p>Search filters by title, URL, tags, and notes. Toggle fuzzy/exact. Tag chips filter the list; right-click a chip to pin it.</p>
+                </div>
+                <div class="help-section">
+                    <div class="help-section-title">Quick access</div>
+                    <p>Recents shows recently opened links. Frequently used ranks links by open count.</p>
+                </div>
+                <div class="help-section">
+                    <div class="help-section-title">Workspaces</div>
+                    <p>Save workspace captures currently open link windows and their positions. Open restores them; delete removes the workspace.</p>
+                </div>
+                <div class="help-section">
+                    <div class="help-section-title">Command palette</div>
+                    <p>Press Ctrl/Cmd+K to open the palette. Type to search, Enter to open, use action buttons, Esc to close.</p>
+                </div>
+                <div class="help-section">
+                    <div class="help-section-title">Options</div>
+                    <p>Use the gear for transparency, always-on-top, resizer injection, persistence, launch on startup, folder sync, storage file, background, reset, and telemetry.</p>
+                </div>
+                <div class="help-section">
+                    <div class="help-section-title">Window controls and shortcuts</div>
+                    <p>Drag the top bar to move. Resize from edges (if resizers are enabled). Shortcuts: Ctrl+Alt+Arrows resize, Ctrl+Alt+Shift+Arrows move, Ctrl+Alt+M maximize, Ctrl+Alt+C center, Ctrl+Alt+R reset window.</p>
+                </div>
+            </div>
         </div>
     </div>
 

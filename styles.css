@@ -757,6 +757,98 @@ body {
     opacity: 0.8;
 }
 
+.help-btn {
+    width: 32px;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.help-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(6, 8, 14, 0.6);
+    backdrop-filter: blur(8px);
+    z-index: 100180;
+}
+
+.help-overlay.hidden {
+    display: none;
+}
+
+.help-panel {
+    width: min(680px, 92vw);
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    background: rgba(12, 14, 22, 0.86);
+    border: 1px solid rgba(255, 255, 255, var(--panel-border-alpha));
+    border-radius: 14px;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+}
+
+.help-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.help-header h3 {
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 15px;
+}
+
+.help-close-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+}
+
+.help-body {
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-right: 6px;
+}
+
+.help-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.help-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+.help-section {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.help-section-title {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.help-section p {
+    font-size: 12px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.78);
+}
+
 .command-palette-overlay {
     position: fixed;
     inset: 0;
