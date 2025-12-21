@@ -5,6 +5,7 @@ const http = require('http');
 const https = require('https');
 
 let mainWindow;
+let chatWindow;
 let appOpacity = 1.0; // global app opacity applied to all windows
 const linkWindows = new Set();
 const linkWindowMeta = new Map(); // track metadata for open link windows
@@ -914,8 +915,51 @@ function createWindow() {
 
   mainWindow.on('closed', function () {
     mainWindow = null;
+    if (chatWindow && !chatWindow.isDestroyed()) {
+      chatWindow.close();
+    }
   });
 
+}
+
+function openChatWindow() {
+  if (chatWindow && !chatWindow.isDestroyed()) {
+    chatWindow.focus();
+    return true;
+  }
+  chatWindow = new BrowserWindow({
+    width: 1200,
+    height: 820,
+    minWidth: 720,
+    minHeight: 520,
+    transparent: false,
+    frame: true,
+    backgroundColor: '#0b1018',
+    autoHideMenuBar: true,
+    alwaysOnTop: !!appSettings.alwaysOnTop,
+    resizable: true,
+    movable: true,
+    icon: path.join(__dirname, 'assets', 'icons', 'png', '512x512.png'),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      enableRemoteModule: false
+    }
+  });
+
+  chatWindow.webContents.on('did-finish-load', () => {
+    try { chatWindow.webContents.send('app-opacity-changed', appOpacity); } catch (e) {}
+    try { emitTelemetryStateSnapshot('chat-window-ready'); } catch (err) {}
+  });
+
+  chatWindow.loadFile('index.html', { query: { chat: '1' } });
+
+  chatWindow.on('closed', function () {
+    chatWindow = null;
+  });
+
+  return true;
 }
 
 // Window bounds helpers for renderer processes
@@ -1430,6 +1474,17 @@ ipcMain.handle('close-window', () => {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
 });
 
+ipcMain.handle('open-chat-window', () => {
+  return openChatWindow();
+});
+
+ipcMain.handle('close-current-window', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win.isDestroyed()) return false;
+  win.close();
+  return true;
+});
+
 function recordLinkOpen(id, url) {
   try {
     const links = getLinksNormalized();
@@ -1899,6 +1954,7 @@ ipcMain.handle('set-setting', (event, key, value) => {
     if (key === 'alwaysOnTop') {
       // update main window
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setAlwaysOnTop(!!value);
+      if (chatWindow && !chatWindow.isDestroyed()) chatWindow.setAlwaysOnTop(!!value);
       // update link windows
       for (const win of linkWindows) {
         if (win && !win.isDestroyed()) win.setAlwaysOnTop(!!value);

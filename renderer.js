@@ -30,6 +30,10 @@ const selfChatNewChannelBtn = document.getElementById('selfChatNewChannelBtn');
 const selfChatRenameChannelBtn = document.getElementById('selfChatRenameChannelBtn');
 const selfChatDeleteChannelBtn = document.getElementById('selfChatDeleteChannelBtn');
 const selfChatNewServerBtn = document.getElementById('selfChatNewServerBtn');
+const isChatOnlyWindow = new URLSearchParams(window.location.search).get('chat') === '1';
+if (isChatOnlyWindow && document.body) {
+  document.body.classList.add('chat-only');
+}
 const helpBtn = document.getElementById('helpBtn');
 const helpOverlay = document.getElementById('helpOverlay');
 const helpPanel = document.getElementById('helpPanel');
@@ -910,13 +914,19 @@ function openSelfChat() {
 }
 
 function closeSelfChat() {
+  if (isChatOnlyWindow) {
+    if (window.electron && typeof window.electron.closeCurrentWindow === 'function') {
+      window.electron.closeCurrentWindow();
+    }
+    return;
+  }
   if (!selfChatOverlay) return;
   selfChatOverlay.classList.add('hidden');
   selfChatOverlay.setAttribute('aria-hidden', 'true');
 }
 
 async function initSelfChat() {
-  if (!selfChatOverlay || !selfChatBtn) return;
+  if (!selfChatOverlay) return;
   let nextState = null;
   if (window.electron && typeof window.electron.getSetting === 'function') {
     try {
@@ -947,10 +957,19 @@ async function initSelfChat() {
   if (!nextState) nextState = createDefaultChatState();
   selfChatState = nextState;
   renderSelfChat();
-
-  selfChatBtn.addEventListener('click', () => {
+  if (isChatOnlyWindow) {
     openSelfChat();
-  });
+  }
+
+  if (selfChatBtn) {
+    selfChatBtn.addEventListener('click', () => {
+      if (!isChatOnlyWindow && window.electron && typeof window.electron.openChatWindow === 'function') {
+        window.electron.openChatWindow();
+        return;
+      }
+      openSelfChat();
+    });
+  }
 
   if (selfChatCloseBtn) {
     selfChatCloseBtn.addEventListener('click', () => {
@@ -1077,11 +1096,16 @@ async function initSelfChat() {
   }
 
   selfChatOverlay.addEventListener('click', (e) => {
+    if (isChatOnlyWindow) return;
     if (e.target === selfChatOverlay) closeSelfChat();
   });
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && selfChatOverlay && !selfChatOverlay.classList.contains('hidden')) {
+      if (isChatOnlyWindow) {
+        closeSelfChat();
+        return;
+      }
       closeSelfChat();
     }
   });
