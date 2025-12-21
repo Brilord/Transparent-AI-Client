@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('electron', {
   ,
   openLinkWithId: (id, url) => ipcRenderer.invoke('open-link', id, url)
   ,
+  getOpenLinkWindows: () => ipcRenderer.invoke('get-open-link-windows'),
+  openWorkspace: (workspaceId) => ipcRenderer.invoke('open-workspace', workspaceId),
   // App-level settings
   getAppOpacity: () => ipcRenderer.invoke('get-app-opacity'),
   setAppOpacity: (value) => ipcRenderer.invoke('set-app-opacity', value),

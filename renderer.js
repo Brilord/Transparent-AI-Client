@@ -36,7 +36,28 @@ const useClipboardLinkBtn = document.getElementById('useClipboardLinkBtn');
 const dismissClipboardBannerBtn = document.getElementById('dismissClipboardBannerBtn');
 const searchModeToggle = document.getElementById('searchModeToggle');
 const groupingSelect = document.getElementById('groupingSelect');
+const workspaceList = document.getElementById('workspaceList');
+const saveWorkspaceBtn = document.getElementById('saveWorkspaceBtn');
+const quickAccessEl = document.getElementById('quickAccess');
+const recentLinksEl = document.getElementById('recentLinks');
+const frequentLinksEl = document.getElementById('frequentLinks');
+const recentEmptyEl = document.getElementById('recentEmpty');
+const frequentEmptyEl = document.getElementById('frequentEmpty');
 const dropOverlay = document.getElementById('dropOverlay');
+const commandPaletteOverlay = document.getElementById('commandPaletteOverlay');
+const commandPalettePanel = document.getElementById('commandPalettePanel');
+const commandPaletteInput = document.getElementById('commandPaletteInput');
+const commandPaletteResults = document.getElementById('commandPaletteResults');
+const commandPaletteCloseBtn = document.getElementById('commandPaletteCloseBtn');
+const commandPaletteEditor = document.getElementById('commandPaletteEditor');
+const paletteEditTitle = document.getElementById('paletteEditTitle');
+const paletteEditUrl = document.getElementById('paletteEditUrl');
+const paletteEditTags = document.getElementById('paletteEditTags');
+const paletteEditFolder = document.getElementById('paletteEditFolder');
+const paletteEditPriority = document.getElementById('paletteEditPriority');
+const paletteEditNotes = document.getElementById('paletteEditNotes');
+const paletteEditSaveBtn = document.getElementById('paletteEditSaveBtn');
+const paletteEditCancelBtn = document.getElementById('paletteEditCancelBtn');
 const linksFilePathEl = document.getElementById('linksFilePath');
 const chooseLinksFileBtn = document.getElementById('chooseLinksFileBtn');
 const resetLinksFileBtn = document.getElementById('resetLinksFileBtn');
@@ -146,6 +167,10 @@ let groupingMode = 'none';
 let clipboardCandidate = null;
 let clipboardDismissedToken = null;
 let defaultLinksPath = null;
+let workspaces = [];
+let paletteResults = [];
+let paletteSelection = 0;
+let paletteEditingId = null;
 
 function updateLinksFileDisplay(customPath) {
   if (!linksFilePathEl) return;
@@ -214,6 +239,250 @@ function escapeHtml(value) {
       default: return char;
     }
   });
+}
+
+function formatRelativeTime(ts) {
+  if (!ts) return '';
+  const parsed = Date.parse(ts);
+  if (isNaN(parsed)) return '';
+  const deltaMs = Date.now() - parsed;
+  if (deltaMs < 60000) return 'just now';
+  if (deltaMs < 3600000) return `${Math.floor(deltaMs / 60000)}m ago`;
+  if (deltaMs < 86400000) return `${Math.floor(deltaMs / 3600000)}h ago`;
+  if (deltaMs < 86400000 * 7) return `${Math.floor(deltaMs / 86400000)}d ago`;
+  return new Date(parsed).toLocaleDateString();
+}
+
+function getRecentLinks(limit = 5) {
+  return currentLinks
+    .filter((link) => link.lastOpenedAt)
+    .sort((a, b) => Date.parse(b.lastOpenedAt) - Date.parse(a.lastOpenedAt))
+    .slice(0, limit);
+}
+
+function getFrequentLinks(limit = 5) {
+  return currentLinks
+    .filter((link) => (link.openCount || 0) > 0)
+    .sort((a, b) => (b.openCount || 0) - (a.openCount || 0))
+    .slice(0, limit);
+}
+
+function buildQuickAccessCard(link, metaText) {
+  const card = document.createElement('div');
+  card.className = 'quick-access-card';
+  card.dataset.id = link.id;
+
+  const name = document.createElement('div');
+  name.className = 'quick-access-name';
+  name.textContent = link.title || link.url;
+  card.appendChild(name);
+
+  const url = document.createElement('div');
+  url.className = 'quick-access-url';
+  url.textContent = link.url;
+  card.appendChild(url);
+
+  if (metaText) {
+    const meta = document.createElement('div');
+    meta.className = 'quick-access-meta';
+    meta.textContent = metaText;
+    card.appendChild(meta);
+  }
+
+  const actions = document.createElement('div');
+  actions.className = 'quick-access-actions';
+
+  const openBtn = document.createElement('button');
+  openBtn.className = 'action-btn';
+  openBtn.textContent = 'Open';
+  openBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    recordLocalOpen(link.id);
+    try {
+      window.electron.openLinkWithId(Number(link.id), link.url);
+    } catch (err) {
+      window.electron.openLink(link.url);
+    }
+  });
+  actions.appendChild(openBtn);
+
+  const pinBtn = document.createElement('button');
+  pinBtn.className = 'action-btn ghost';
+  pinBtn.textContent = link.pinned ? 'Unpin' : 'Pin';
+  pinBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await window.electron.setLinkPinned(link.id, !link.pinned);
+    loadLinks();
+  });
+  actions.appendChild(pinBtn);
+
+  card.appendChild(actions);
+  return card;
+}
+
+function renderQuickAccess() {
+  if (!quickAccessEl || !recentLinksEl || !frequentLinksEl) return;
+
+  const recents = getRecentLinks(5);
+  const frequent = getFrequentLinks(5);
+
+  recentLinksEl.innerHTML = '';
+  frequentLinksEl.innerHTML = '';
+
+  if (recents.length) {
+    recents.forEach((link) => {
+      const meta = link.lastOpenedAt ? `Last opened ${formatRelativeTime(link.lastOpenedAt)}` : '';
+      recentLinksEl.appendChild(buildQuickAccessCard(link, meta));
+    });
+    if (recentEmptyEl) recentEmptyEl.style.display = 'none';
+  } else if (recentEmptyEl) {
+    recentEmptyEl.style.display = 'block';
+  }
+
+  if (frequent.length) {
+    frequent.forEach((link) => {
+      const meta = `Opened ${link.openCount || 0}x`;
+      frequentLinksEl.appendChild(buildQuickAccessCard(link, meta));
+    });
+    if (frequentEmptyEl) frequentEmptyEl.style.display = 'none';
+  } else if (frequentEmptyEl) {
+    frequentEmptyEl.style.display = 'block';
+  }
+}
+
+function recordLocalOpen(linkId) {
+  const idx = currentLinks.findIndex((link) => Number(link.id) === Number(linkId));
+  if (idx === -1) return;
+  const link = Object.assign({}, currentLinks[idx]);
+  const count = Number(link.openCount);
+  link.openCount = Number.isFinite(count) && count >= 0 ? count + 1 : 1;
+  link.lastOpenedAt = new Date().toISOString();
+  currentLinks[idx] = link;
+  renderQuickAccess();
+}
+
+function normalizeWorkspaces(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((entry, idx) => {
+    const name = entry && entry.name ? String(entry.name).trim() : `Workspace ${idx + 1}`;
+    const id = entry && entry.id ? entry.id : Date.now() + idx;
+    const items = Array.isArray(entry && entry.items) ? entry.items : [];
+    return {
+      id,
+      name,
+      items,
+      updatedAt: entry && entry.updatedAt ? entry.updatedAt : null,
+      lastOpenedAt: entry && entry.lastOpenedAt ? entry.lastOpenedAt : null
+    };
+  });
+}
+
+function sortWorkspaces(list) {
+  return list.slice().sort((a, b) => {
+    const aTime = Date.parse(a.lastOpenedAt || a.updatedAt || 0);
+    const bTime = Date.parse(b.lastOpenedAt || b.updatedAt || 0);
+    return (isNaN(bTime) ? 0 : bTime) - (isNaN(aTime) ? 0 : aTime);
+  });
+}
+
+function renderWorkspaces() {
+  if (!workspaceList) return;
+  workspaceList.innerHTML = '';
+  if (!workspaces.length) {
+    const empty = document.createElement('span');
+    empty.className = 'tag-chip muted';
+    empty.textContent = 'No workspaces yet';
+    workspaceList.appendChild(empty);
+    return;
+  }
+  sortWorkspaces(workspaces).forEach((workspace) => {
+    const chip = document.createElement('div');
+    chip.className = 'workspace-chip';
+
+    const name = document.createElement('span');
+    name.textContent = workspace.name;
+    chip.appendChild(name);
+
+    const openBtn = document.createElement('button');
+    openBtn.textContent = 'Open';
+    openBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await window.electron.openWorkspace(workspace.id);
+      workspace.lastOpenedAt = new Date().toISOString();
+      await window.electron.setSetting('workspaces', workspaces);
+      renderWorkspaces();
+      loadLinks();
+    });
+    chip.appendChild(openBtn);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!confirm(`Delete workspace "${workspace.name}"?`)) return;
+      workspaces = workspaces.filter((entry) => entry.id !== workspace.id);
+      await window.electron.setSetting('workspaces', workspaces);
+      renderWorkspaces();
+    });
+    chip.appendChild(deleteBtn);
+
+    workspaceList.appendChild(chip);
+  });
+}
+
+async function loadWorkspaces() {
+  if (!window.electron || typeof window.electron.getSetting !== 'function') return;
+  try {
+    const stored = await window.electron.getSetting('workspaces');
+    workspaces = normalizeWorkspaces(stored);
+  } catch (err) {
+    workspaces = [];
+  }
+  renderWorkspaces();
+}
+
+async function saveWorkspaceFromOpenWindows() {
+  if (!window.electron || typeof window.electron.getOpenLinkWindows !== 'function') return;
+  const openWindows = await window.electron.getOpenLinkWindows();
+  if (!Array.isArray(openWindows) || openWindows.length === 0) {
+    alert('No open link windows to save.');
+    return;
+  }
+  const name = prompt('Workspace name');
+  if (!name) return;
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  const existingIdx = workspaces.findIndex((entry) => entry.name.toLowerCase() === trimmed.toLowerCase());
+  if (existingIdx !== -1) {
+    const ok = confirm(`Replace workspace "${workspaces[existingIdx].name}"?`);
+    if (!ok) return;
+  }
+
+  const items = openWindows
+    .filter((entry) => entry && entry.url)
+    .map((entry) => ({
+      id: entry.id || null,
+      url: entry.url,
+      bounds: entry.bounds || null
+    }));
+
+  const now = new Date().toISOString();
+  const workspace = {
+    id: existingIdx !== -1 ? workspaces[existingIdx].id : Date.now(),
+    name: trimmed,
+    items,
+    updatedAt: now,
+    lastOpenedAt: existingIdx !== -1 ? workspaces[existingIdx].lastOpenedAt : null
+  };
+
+  if (existingIdx !== -1) {
+    workspaces.splice(existingIdx, 1, workspace);
+  } else {
+    workspaces = [workspace, ...workspaces];
+  }
+
+  await window.electron.setSetting('workspaces', workspaces);
+  renderWorkspaces();
 }
 
 const selfChatSettingKey = 'selfChatNotes';
@@ -740,6 +1009,196 @@ function fuzzyScore(text, query) {
   return Math.max(score - (hay.length - needle.length), 1);
 }
 
+function isCommandPaletteOpen() {
+  return commandPaletteOverlay && !commandPaletteOverlay.classList.contains('hidden');
+}
+
+function getPaletteMatches(query) {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    const recents = getRecentLinks(8);
+    if (recents.length) return recents;
+    return currentLinks.slice(0, 8);
+  }
+  const scored = currentLinks
+    .map((link) => ({ link, score: computeFuzzyScore(link, trimmed) }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return scored.map((entry) => entry.link).slice(0, 20);
+}
+
+function renderCommandPaletteResults() {
+  if (!commandPaletteResults) return;
+  commandPaletteResults.innerHTML = '';
+  if (!paletteResults.length) {
+    const empty = document.createElement('div');
+    empty.className = 'palette-empty';
+    empty.textContent = 'No matching links';
+    commandPaletteResults.appendChild(empty);
+    return;
+  }
+
+  paletteResults.forEach((link, idx) => {
+    const row = document.createElement('div');
+    row.className = `palette-item${idx === paletteSelection ? ' selected' : ''}`;
+    row.dataset.id = link.id;
+
+    const info = document.createElement('div');
+    info.className = 'palette-item-info';
+    const title = document.createElement('div');
+    title.className = 'palette-item-title';
+    title.textContent = link.title || link.url;
+    const url = document.createElement('div');
+    url.className = 'palette-item-url';
+    url.textContent = link.url;
+    info.appendChild(title);
+    info.appendChild(url);
+
+    const actions = document.createElement('div');
+    actions.className = 'palette-item-actions';
+
+    const openBtn = document.createElement('button');
+    openBtn.className = 'palette-action';
+    openBtn.textContent = 'Open';
+    openBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      recordLocalOpen(link.id);
+      try {
+        window.electron.openLinkWithId(Number(link.id), link.url);
+      } catch (err) {
+        window.electron.openLink(link.url);
+      }
+      closeCommandPalette();
+    });
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'palette-action';
+    editBtn.textContent = 'Edit';
+    editBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openPaletteEditor(link);
+    });
+
+    const tagBtn = document.createElement('button');
+    tagBtn.className = 'palette-action';
+    tagBtn.textContent = 'Tag';
+    tagBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const value = prompt('Tags (comma separated)', formatTagsForInput(link.tags));
+      if (value === null) return;
+      const tags = normalizeTagsInput(value);
+      await window.electron.updateLink({ id: link.id, tags });
+      loadLinks();
+    });
+
+    const pinBtn = document.createElement('button');
+    pinBtn.className = 'palette-action';
+    pinBtn.textContent = link.pinned ? 'Unpin' : 'Pin';
+    pinBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await window.electron.setLinkPinned(link.id, !link.pinned);
+      loadLinks();
+    });
+
+    actions.appendChild(openBtn);
+    actions.appendChild(editBtn);
+    actions.appendChild(tagBtn);
+    actions.appendChild(pinBtn);
+
+    row.appendChild(info);
+    row.appendChild(actions);
+
+    row.addEventListener('click', () => {
+      paletteSelection = idx;
+      renderCommandPaletteResults();
+    });
+
+    row.addEventListener('dblclick', () => {
+      recordLocalOpen(link.id);
+      try {
+        window.electron.openLinkWithId(Number(link.id), link.url);
+      } catch (err) {
+        window.electron.openLink(link.url);
+      }
+      closeCommandPalette();
+    });
+
+    commandPaletteResults.appendChild(row);
+  });
+}
+
+function updateCommandPaletteResults() {
+  if (!commandPaletteInput) return;
+  paletteResults = getPaletteMatches(commandPaletteInput.value || '');
+  if (paletteSelection >= paletteResults.length) paletteSelection = 0;
+  renderCommandPaletteResults();
+}
+
+function openPaletteEditor(link) {
+  if (!commandPaletteEditor || !link) return;
+  paletteEditingId = link.id;
+  if (paletteEditTitle) paletteEditTitle.value = link.title || '';
+  if (paletteEditUrl) paletteEditUrl.value = link.url || '';
+  if (paletteEditTags) paletteEditTags.value = formatTagsForInput(link.tags);
+  if (paletteEditFolder) paletteEditFolder.value = link.folder || '';
+  if (paletteEditPriority) paletteEditPriority.value = link.priority || 'normal';
+  if (paletteEditNotes) paletteEditNotes.value = link.notes || '';
+  commandPaletteEditor.classList.remove('hidden');
+}
+
+function closePaletteEditor() {
+  paletteEditingId = null;
+  if (commandPaletteEditor) commandPaletteEditor.classList.add('hidden');
+}
+
+async function savePaletteEdit() {
+  if (!paletteEditingId) return;
+  const payload = {
+    id: paletteEditingId,
+    title: paletteEditTitle ? paletteEditTitle.value.trim() : '',
+    url: paletteEditUrl ? paletteEditUrl.value.trim() : '',
+    tags: paletteEditTags ? normalizeTagsInput(paletteEditTags.value) : [],
+    folder: paletteEditFolder ? paletteEditFolder.value.trim() : '',
+    notes: paletteEditNotes ? paletteEditNotes.value.trim() : '',
+    priority: paletteEditPriority ? paletteEditPriority.value : 'normal'
+  };
+  if (!payload.url) {
+    alert('URL is required');
+    return;
+  }
+  const ok = await window.electron.updateLink(payload);
+  if (ok) {
+    closePaletteEditor();
+    loadLinks();
+    updateCommandPaletteResults();
+  }
+}
+
+function openCommandPalette() {
+  if (!commandPaletteOverlay) return;
+  commandPaletteOverlay.classList.remove('hidden');
+  commandPaletteOverlay.setAttribute('aria-hidden', 'false');
+  paletteSelection = 0;
+  closePaletteEditor();
+  if (commandPaletteInput) {
+    commandPaletteInput.value = '';
+    commandPaletteInput.focus();
+  }
+  updateCommandPaletteResults();
+}
+
+function closeCommandPalette() {
+  if (!commandPaletteOverlay) return;
+  commandPaletteOverlay.classList.add('hidden');
+  commandPaletteOverlay.setAttribute('aria-hidden', 'true');
+  closePaletteEditor();
+}
+
+function toggleCommandPalette() {
+  if (isCommandPaletteOpen()) closeCommandPalette();
+  else openCommandPalette();
+}
+
 // Event listeners
 addBtn.addEventListener('click', addLink);
 urlInput.addEventListener('keypress', (e) => {
@@ -751,6 +1210,87 @@ urlInput.addEventListener('keypress', (e) => {
 titleInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') {
     addLink();
+  }
+});
+
+if (commandPaletteInput) {
+  commandPaletteInput.addEventListener('input', () => {
+    paletteSelection = 0;
+    updateCommandPaletteResults();
+  });
+
+  commandPaletteInput.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (paletteResults.length) {
+        paletteSelection = (paletteSelection + 1) % paletteResults.length;
+        renderCommandPaletteResults();
+      }
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (paletteResults.length) {
+        paletteSelection = (paletteSelection - 1 + paletteResults.length) % paletteResults.length;
+        renderCommandPaletteResults();
+      }
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const link = paletteResults[paletteSelection];
+      if (!link) return;
+      recordLocalOpen(link.id);
+      try {
+        window.electron.openLinkWithId(Number(link.id), link.url);
+      } catch (err) {
+        window.electron.openLink(link.url);
+      }
+      closeCommandPalette();
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeCommandPalette();
+    }
+  });
+}
+
+if (commandPaletteCloseBtn) {
+  commandPaletteCloseBtn.addEventListener('click', () => {
+    closeCommandPalette();
+  });
+}
+
+if (commandPaletteOverlay) {
+  commandPaletteOverlay.addEventListener('click', (e) => {
+    if (e.target === commandPaletteOverlay) closeCommandPalette();
+  });
+}
+
+if (paletteEditSaveBtn) {
+  paletteEditSaveBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    savePaletteEdit();
+  });
+}
+
+if (paletteEditCancelBtn) {
+  paletteEditCancelBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    closePaletteEditor();
+  });
+}
+
+document.addEventListener('keydown', (e) => {
+  const isModifier = e.ctrlKey || e.metaKey;
+  if (isModifier && !e.shiftKey && (e.key === 'k' || e.key === 'K')) {
+    e.preventDefault();
+    toggleCommandPalette();
+  }
+  if (e.key === 'Escape' && isCommandPaletteOpen()) {
+    e.preventDefault();
+    closeCommandPalette();
   }
 });
 
@@ -994,6 +1534,10 @@ async function initSettingsUI() {
             if (groupingSelect) groupingSelect.value = groupingMode;
             renderLinks();
           }
+          if (key === 'workspaces') {
+            workspaces = normalizeWorkspaces(value);
+            renderWorkspaces();
+          }
         } catch (err) {}
       });
     }
@@ -1005,6 +1549,7 @@ async function initSettingsUI() {
 initSettingsUI();
 initDataCollectionDebugger();
 initSelfChat();
+loadWorkspaces();
 
 // Resizers
 const resizers = Array.from(document.querySelectorAll('.resizer'));
@@ -1084,6 +1629,8 @@ async function loadLinks() {
   }
   renderTagFilters();
   renderLinks();
+  renderQuickAccess();
+  if (isCommandPaletteOpen()) updateCommandPaletteResults();
 }
 
 async function addLink() {
@@ -1298,6 +1845,7 @@ function buildLinkElement(link, options = {}) {
   const displayEl = linkElement.querySelector('.link-display');
   if (displayEl) {
     displayEl.addEventListener('click', () => {
+      recordLocalOpen(link.id);
       try {
         window.electron.openLinkWithId(Number(link.id), link.url);
       } catch (err) {
@@ -1310,6 +1858,7 @@ function buildLinkElement(link, options = {}) {
   if (openBtn) {
     openBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      recordLocalOpen(link.id);
       try {
         window.electron.openLinkWithId(Number(link.id), link.url);
       } catch (err) {
@@ -1684,6 +2233,12 @@ if (backupBtn) backupBtn.addEventListener('click', async () => {
   const fp = await window.electron.manualBackup(5);
   if (fp) alert('Backup saved: ' + fp);
 });
+
+if (saveWorkspaceBtn) {
+  saveWorkspaceBtn.addEventListener('click', async () => {
+    await saveWorkspaceFromOpenWindows();
+  });
+}
 
 if (deleteSelectedBtn) deleteSelectedBtn.addEventListener('click', async () => {
   const checked = getSelectedLinkIds();

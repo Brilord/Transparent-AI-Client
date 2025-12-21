@@ -104,6 +104,23 @@
                         <button id="deleteSelectedBtn" class="small-btn danger">Delete selected</button>
                     </div>
                 </div>
+                <div class="workspace-row">
+                    <div class="workspace-label">Workspaces</div>
+                    <div id="workspaceList" class="workspace-list"></div>
+                    <button id="saveWorkspaceBtn" class="small-btn">Save workspace</button>
+                </div>
+                <div id="quickAccess" class="quick-access">
+                    <div class="quick-access-section">
+                        <div class="quick-access-title">Recents</div>
+                        <div id="recentLinks" class="quick-access-grid"></div>
+                        <div id="recentEmpty" class="quick-access-empty">No recent links yet</div>
+                    </div>
+                    <div class="quick-access-section">
+                        <div class="quick-access-title">Frequently used</div>
+                        <div id="frequentLinks" class="quick-access-grid"></div>
+                        <div id="frequentEmpty" class="quick-access-empty">No frequent links yet</div>
+                    </div>
+                </div>
                 <div class="tag-filters-row">
                     <span class="tag-filters-label">Quick tag filters:</span>
                     <div id="tagFilters" class="tag-filters">
@@ -229,6 +246,39 @@
                 <button id="selfChatSendBtn" class="small-btn" type="button">Send</button>
             </div>
             <small class="hint chat-hint">Enter to send, Shift+Enter for new line.</small>
+        </div>
+    </div>
+
+    <div id="commandPaletteOverlay" class="command-palette-overlay hidden" aria-hidden="true">
+        <div id="commandPalettePanel" class="command-palette" role="dialog" aria-modal="true" aria-labelledby="commandPaletteTitle">
+            <div class="command-palette-header">
+                <div id="commandPaletteTitle" class="command-palette-title">Command palette</div>
+                <button id="commandPaletteCloseBtn" class="control-btn palette-close-btn" type="button" title="Close">X</button>
+            </div>
+            <input id="commandPaletteInput" class="command-palette-input" type="search" placeholder="Search links or type to filter">
+            <div class="command-palette-hint">Enter to open. Up/Down to navigate. Esc to close.</div>
+            <div id="commandPaletteResults" class="command-palette-results"></div>
+            <div id="commandPaletteEditor" class="command-palette-editor hidden">
+                <div class="command-palette-editor-title">Edit link</div>
+                <div class="command-palette-editor-grid">
+                    <label>Title<input id="paletteEditTitle" type="text" class="command-palette-field"></label>
+                    <label>URL<input id="paletteEditUrl" type="text" class="command-palette-field"></label>
+                    <label>Tags<input id="paletteEditTags" type="text" class="command-palette-field" placeholder="Comma separated"></label>
+                    <label>Folder<input id="paletteEditFolder" type="text" class="command-palette-field" placeholder="Folder name"></label>
+                    <label>Priority
+                        <select id="paletteEditPriority" class="command-palette-field">
+                            <option value="high">High</option>
+                            <option value="normal">Normal</option>
+                            <option value="low">Low</option>
+                        </select>
+                    </label>
+                    <label class="command-palette-notes">Notes<textarea id="paletteEditNotes" class="command-palette-field" rows="2" placeholder="Notes"></textarea></label>
+                </div>
+                <div class="command-palette-editor-actions">
+                    <button id="paletteEditSaveBtn" class="small-btn">Save changes</button>
+                    <button id="paletteEditCancelBtn" class="small-btn ghost">Cancel</button>
+                </div>
+            </div>
         </div>
     </div>
 

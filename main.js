@@ -172,6 +172,8 @@ const DEFAULT_SETTINGS = {
   // Quick filter preferences
   pinnedTags: [],
   groupingPreference: 'none',
+  // Saved workspace layouts
+  workspaces: [],
   // Self chat notes
   selfChatNotes: []
 };
@@ -243,6 +245,13 @@ function normalizePriority(value) {
   return ALLOWED_PRIORITIES.has(normalized) ? normalized : DEFAULT_PRIORITY;
 }
 
+function normalizeLastOpenedAt(value) {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  if (isNaN(parsed)) return null;
+  return new Date(parsed).toISOString();
+}
+
 function getSortValue(link, fallbackIndex = 0) {
   if (link && typeof link.sortOrder === 'number' && !isNaN(link.sortOrder)) return link.sortOrder;
   if (link && link.createdAt) {
@@ -293,6 +302,19 @@ function normalizeLinkCollection(rawLinks) {
       changed = true;
     } else {
       nextLink.health = Object.assign(createEmptyHealth(), nextLink.health);
+    }
+    const normalizedOpenedAt = normalizeLastOpenedAt(nextLink.lastOpenedAt);
+    if (nextLink.lastOpenedAt !== normalizedOpenedAt) {
+      nextLink.lastOpenedAt = normalizedOpenedAt;
+      changed = true;
+    }
+    const openCount = Number(nextLink.openCount);
+    if (!Number.isFinite(openCount) || openCount < 0) {
+      nextLink.openCount = 0;
+      changed = true;
+    } else if (nextLink.openCount !== openCount) {
+      nextLink.openCount = openCount;
+      changed = true;
     }
     if (typeof nextLink.sortOrder !== 'number' || isNaN(nextLink.sortOrder)) {
       nextLink.sortOrder = getSortValue(nextLink, idx + 1);
@@ -1032,6 +1054,8 @@ ipcMain.handle('add-link', (event, link) => {
     folder,
     notes,
     priority,
+    openCount: 0,
+    lastOpenedAt: null,
     sortOrder: getNextSortOrder(links),
     metadata: createEmptyMetadata(),
     health: createEmptyHealth()
@@ -1405,7 +1429,29 @@ ipcMain.handle('close-window', () => {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
 });
 
-function openLinkWindow(idOrUrl, maybeUrl) {
+function recordLinkOpen(id, url) {
+  try {
+    const links = getLinksNormalized();
+    let idx = -1;
+    if (id) {
+      idx = links.findIndex(l => Number(l.id) === Number(id));
+    }
+    if (idx === -1 && url) {
+      idx = links.findIndex(l => l.url === url);
+    }
+    if (idx === -1) return;
+    const link = links[idx];
+    const count = Number(link.openCount);
+    link.openCount = Number.isFinite(count) && count >= 0 ? count + 1 : 1;
+    link.lastOpenedAt = new Date().toISOString();
+    link.updatedAt = new Date().toISOString();
+    saveLinks(links);
+  } catch (err) {
+    console.error('Error recording open stats:', err);
+  }
+}
+
+function openLinkWindow(idOrUrl, maybeUrl, options = {}) {
   // Handler supports two calling conventions for backward compatibility:
   // - open-link(id, url) where id is numeric
   // - open-link(url) older callers
@@ -1424,8 +1470,14 @@ function openLinkWindow(idOrUrl, maybeUrl) {
 
   // Find saved bounds for this link id if available
   let savedBounds = null;
+  const overrideBounds = options && options.bounds && typeof options.bounds === 'object'
+    ? options.bounds
+    : null;
+  if (overrideBounds) {
+    savedBounds = overrideBounds;
+  }
   try {
-    if (id) {
+    if (!savedBounds && id) {
       const links = getLinksNormalized();
       const found = links.find(l => Number(l.id) === Number(id));
       if (found && found.lastBounds) savedBounds = found.lastBounds;
@@ -1456,6 +1508,8 @@ function openLinkWindow(idOrUrl, maybeUrl) {
     winOpts.width = savedBounds.width || winOpts.width;
     winOpts.height = savedBounds.height || winOpts.height;
   }
+
+  recordLinkOpen(id, url);
 
   let linkWindow = new BrowserWindow(winOpts);
 
@@ -1556,8 +1610,71 @@ function openLinkWindow(idOrUrl, maybeUrl) {
   return true;
 }
 
-ipcMain.handle('open-link', (event, idOrUrl, maybeUrl) => {
-  return openLinkWindow(idOrUrl, maybeUrl);
+function getOpenLinkWindowsSnapshot() {
+  const snapshots = [];
+  for (const win of linkWindows) {
+    if (!win || win.isDestroyed()) continue;
+    const meta = linkWindowMeta.get(win);
+    if (!meta || !meta.url) continue;
+    let bounds = null;
+    try { bounds = win.getBounds(); } catch (err) {}
+    snapshots.push({
+      id: meta.id || null,
+      url: meta.url,
+      bounds: bounds || null
+    });
+  }
+  return snapshots;
+}
+
+function openWorkspaceById(workspaceId) {
+  if (!workspaceId) return false;
+  const list = Array.isArray(appSettings.workspaces) ? appSettings.workspaces : [];
+  const workspace = list.find((entry) => String(entry.id) === String(workspaceId));
+  if (!workspace || !Array.isArray(workspace.items)) return false;
+
+  const openById = new Map();
+  const openByUrl = new Map();
+  for (const win of linkWindows) {
+    if (!win || win.isDestroyed()) continue;
+    const meta = linkWindowMeta.get(win);
+    if (!meta || !meta.url) continue;
+    if (meta.id) openById.set(String(meta.id), win);
+    openByUrl.set(String(meta.url), win);
+  }
+
+  workspace.items.forEach((item) => {
+    if (!item || !item.url) return;
+    const existing = (item.id && openById.get(String(item.id))) || openByUrl.get(String(item.url));
+    if (existing && !existing.isDestroyed()) {
+      if (item.bounds) {
+        try { existing.setBounds(item.bounds); } catch (err) {}
+      }
+      try { existing.focus(); } catch (err) {}
+      return;
+    }
+    openLinkWindow(item.id || null, item.url, { bounds: item.bounds || null });
+  });
+
+  try {
+    workspace.lastOpenedAt = new Date().toISOString();
+    appSettings.workspaces = list.map((entry) => entry.id === workspace.id ? workspace : entry);
+    if (appSettings.persistSettings) saveSettings();
+  } catch (err) {}
+
+  return true;
+}
+
+ipcMain.handle('open-link', (event, idOrUrl, maybeUrl, options) => {
+  return openLinkWindow(idOrUrl, maybeUrl, options);
+});
+
+ipcMain.handle('get-open-link-windows', () => {
+  return getOpenLinkWindowsSnapshot();
+});
+
+ipcMain.handle('open-workspace', (event, workspaceId) => {
+  return openWorkspaceById(workspaceId);
 });
 
 // Try to restore the last opened links when the app launches
@@ -1631,6 +1748,7 @@ function loadSettings() {
       if (legacy && legacy.url) appSettings.lastOpenedLinks = [{ id: legacy.id || null, url: legacy.url }];
     }
     if (!Array.isArray(appSettings.lastOpenedLinks)) appSettings.lastOpenedLinks = [];
+    if (!Array.isArray(appSettings.workspaces)) appSettings.workspaces = [];
     // Keep launch-on-startup in sync with OS login item
     if (typeof appSettings.launchOnStartup !== 'boolean') {
       appSettings.launchOnStartup = getLaunchOnStartupState();
@@ -1706,6 +1824,10 @@ ipcMain.handle('set-setting', (event, key, value) => {
     const normalized = (typeof value === 'string') ? value.trim() : '';
     if (normalized && !fs.existsSync(normalized)) return false;
     nextValue = normalized || null;
+  }
+  if (key === 'workspaces') {
+    if (!Array.isArray(value)) return false;
+    nextValue = value;
   }
   appSettings[key] = nextValue;
   // Persist settings if enabled
