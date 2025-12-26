@@ -42,6 +42,7 @@ const opacityRange = document.getElementById('opacityRange');
 const opacityVal = document.getElementById('opacityVal');
 const alwaysOnTopChk = document.getElementById('alwaysOnTopChk');
 const injectResizersChk = document.getElementById('injectResizersChk');
+const linkSessionModeSelect = document.getElementById('linkSessionMode');
 const persistSettingsChk = document.getElementById('persistSettingsChk');
 const launchOnStartupChk = document.getElementById('launchOnStartupChk');
 const resetSettingsBtn = document.getElementById('resetSettingsBtn');
@@ -1913,6 +1914,10 @@ async function initSettingsUI() {
       injectResizersChk.checked = s.injectResizers;
       applyResizerVisibility(!!s.injectResizers);
     }
+    if (linkSessionModeSelect) {
+      const mode = typeof s.linkSessionMode === 'string' ? s.linkSessionMode : 'shared';
+      linkSessionModeSelect.value = mode;
+    }
     if (typeof s.persistSettings === 'boolean') persistSettingsChk.checked = s.persistSettings;
     if (typeof s.launchOnStartup === 'boolean') launchOnStartupChk.checked = s.launchOnStartup;
 
@@ -1926,6 +1931,12 @@ async function initSettingsUI() {
       await window.electron.setSetting('injectResizers', enabled);
       applyResizerVisibility(enabled);
     });
+
+    if (linkSessionModeSelect) {
+      linkSessionModeSelect.addEventListener('change', async (e) => {
+        await window.electron.setSetting('linkSessionMode', e.target.value);
+      });
+    }
 
     persistSettingsChk.addEventListener('change', async (e) => {
       await window.electron.setSetting('persistSettings', !!e.target.checked);
@@ -2009,6 +2020,7 @@ async function initSettingsUI() {
         alwaysOnTopChk.checked = newSettings.alwaysOnTop;
         injectResizersChk.checked = newSettings.injectResizers;
         applyResizerVisibility(!!newSettings.injectResizers);
+        if (linkSessionModeSelect) linkSessionModeSelect.value = newSettings.linkSessionMode || 'shared';
         persistSettingsChk.checked = newSettings.persistSettings;
         // reflect new boolean settings into UI
         launchOnStartupChk.checked = !!newSettings.launchOnStartup;
@@ -2034,6 +2046,9 @@ async function initSettingsUI() {
           if (key === 'injectResizers') {
             injectResizersChk.checked = !!value;
             applyResizerVisibility(!!value);
+          }
+          if (key === 'linkSessionMode' && linkSessionModeSelect) {
+            linkSessionModeSelect.value = value || 'shared';
           }
           if (key === 'persistSettings') persistSettingsChk.checked = !!value;
           if (key === 'launchOnStartup') launchOnStartupChk.checked = !!value;

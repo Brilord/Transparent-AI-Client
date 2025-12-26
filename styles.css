@@ -646,6 +646,19 @@ body {
 
 .settings-panel label { color: rgba(255,255,255,0.9); font-size: 13px; display: flex; align-items: center; gap: 8px; }
 .settings-panel input[type="checkbox"] { width: 14px; height: 14px; }
+.settings-select {
+    min-width: 190px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.9);
+}
+.settings-select:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.45);
+    background: rgba(255, 255, 255, 0.12);
+}
 
 /* Self chat overlay */
 .chat-btn {

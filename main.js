@@ -23,6 +23,7 @@ const MAX_METADATA_BYTES = 512 * 1024;
 const HTTP_TIMEOUT_MS = 12000;
 const DEFAULT_PRIORITY = 'normal';
 const ALLOWED_PRIORITIES = new Set(['low', 'normal', 'high']);
+const LINK_SESSION_MODES = new Set(['shared', 'per-link', 'incognito']);
 
 const metadataQueue = [];
 const metadataPending = new Set();
@@ -158,6 +159,7 @@ const DEFAULT_SETTINGS = {
   appOpacity: 1.0,
   alwaysOnTop: false,
   injectResizers: true,
+  linkSessionMode: 'shared',
   persistSettings: true,
   customDataFile: null,
   backgroundImagePath: null,
@@ -245,6 +247,27 @@ function sanitizeString(value) {
 function normalizePriority(value) {
   const normalized = String(value || '').toLowerCase();
   return ALLOWED_PRIORITIES.has(normalized) ? normalized : DEFAULT_PRIORITY;
+}
+
+function normalizeLinkSessionMode(value) {
+  const normalized = String(value || '').toLowerCase();
+  return LINK_SESSION_MODES.has(normalized) ? normalized : DEFAULT_SETTINGS.linkSessionMode;
+}
+
+function getLinkSessionPartition(mode, linkId) {
+  const normalized = normalizeLinkSessionMode(mode);
+  if (normalized === 'incognito') {
+    const stamp = Date.now().toString(36);
+    const rand = Math.random().toString(36).slice(2, 8);
+    return `temp-${stamp}-${rand}`;
+  }
+  if (normalized === 'per-link') {
+    const numericId = Number(linkId);
+    if (Number.isFinite(numericId) && numericId > 0) {
+      return `persist:link-${Math.floor(numericId)}`;
+    }
+  }
+  return null;
 }
 
 function normalizeLastOpenedAt(value) {
@@ -1540,6 +1563,17 @@ function openLinkWindow(idOrUrl, maybeUrl, options = {}) {
     }
   } catch (err) {}
 
+  const sessionMode = normalizeLinkSessionMode(
+    options && options.sessionMode ? options.sessionMode : appSettings.linkSessionMode
+  );
+  const sessionPartition = getLinkSessionPartition(sessionMode, id);
+  const webPreferences = {
+    nodeIntegration: false,
+    contextIsolation: true,
+    preload: path.join(__dirname, 'preload-link.js')
+  };
+  if (sessionPartition) webPreferences.partition = sessionPartition;
+
   let winOpts = {
     width: 1000,
     height: 800,
@@ -1550,11 +1584,7 @@ function openLinkWindow(idOrUrl, maybeUrl, options = {}) {
     backgroundColor: '#111111',
     autoHideMenuBar: true,
     alwaysOnTop: !!appSettings.alwaysOnTop,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, 'preload-link.js')
-    }
+    webPreferences
   };
 
   if (savedBounds) {
@@ -1868,6 +1898,7 @@ function loadSettings() {
     const raw = fs.readFileSync(settingsFile, 'utf8');
     const parsed = JSON.parse(raw || '{}');
     appSettings = Object.assign({}, DEFAULT_SETTINGS, parsed);
+    appSettings.linkSessionMode = normalizeLinkSessionMode(appSettings.linkSessionMode);
     // reflect appOpacity from settings
     if (typeof appSettings.appOpacity === 'number') appOpacity = appSettings.appOpacity;
     // Normalize last opened links (support legacy single object)
@@ -1956,6 +1987,9 @@ ipcMain.handle('set-setting', (event, key, value) => {
   if (key === 'workspaces') {
     if (!Array.isArray(value)) return false;
     nextValue = value;
+  }
+  if (key === 'linkSessionMode') {
+    nextValue = normalizeLinkSessionMode(value);
   }
   appSettings[key] = nextValue;
   // Persist settings if enabled

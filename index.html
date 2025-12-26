@@ -164,6 +164,16 @@
                     </div>
 
                     <div class="setting-row">
+                        <label for="linkSessionMode">Link window session</label>
+                        <select id="linkSessionMode" class="settings-select">
+                            <option value="shared">Shared (default)</option>
+                            <option value="per-link">Per-link profile</option>
+                            <option value="incognito">Incognito (no saved cookies)</option>
+                        </select>
+                        <small class="hint">Controls whether link windows share cookies or keep separate logins.</small>
+                    </div>
+
+                    <div class="setting-row">
                         <label><input id="persistSettingsChk" type="checkbox"> Persist settings between launches</label>
                         <small class="hint">Save your options so they persist across restarts</small>
                     </div>
