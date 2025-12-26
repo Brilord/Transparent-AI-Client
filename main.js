@@ -1785,6 +1785,18 @@ ipcMain.handle('link-copy-url', (event, url) => {
   }
 });
 
+ipcMain.handle('link-copy-selection', (_event, text) => {
+  try {
+    const selection = typeof text === 'string' ? text : '';
+    if (!selection) return false;
+    clipboard.writeText(selection);
+    return true;
+  } catch (err) {
+    console.error('Error copying selection:', err);
+    return false;
+  }
+});
+
 ipcMain.handle('get-open-link-windows', () => {
   return getOpenLinkWindowsSnapshot();
 });

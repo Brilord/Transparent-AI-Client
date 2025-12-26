@@ -212,6 +212,7 @@ function createNavBar() {
     <button data-action="reload">Reload</button>
     <button data-action="browser">Browser</button>
     <button data-action="copy">Copy URL</button>
+    <button data-action="copy-selection">Copy text</button>
   `;
 
   nav.addEventListener('click', async (e) => {
@@ -229,11 +230,58 @@ function createNavBar() {
       target.textContent = 'Copied';
       setTimeout(() => { target.textContent = original; }, 900);
     }
+    if (action === 'copy-selection') {
+      const selection = getSelectedText();
+      const original = target.textContent;
+      if (!selection || !selection.trim()) {
+        target.textContent = 'Select text';
+        setTimeout(() => { target.textContent = original; }, 900);
+        return;
+      }
+      const ok = await ipcRenderer.invoke('link-copy-selection', selection);
+      target.textContent = ok ? 'Copied' : 'Copy failed';
+      setTimeout(() => { target.textContent = original; }, 900);
+    }
   });
 
   nav.addEventListener('mouseenter', () => showNav(nav));
   nav.addEventListener('mouseleave', () => scheduleHideNav(nav, 600));
   document.documentElement.appendChild(nav);
+}
+
+function getSelectedText() {
+  try {
+    const active = document.activeElement;
+    if (active) {
+      const tag = String(active.tagName || '').toUpperCase();
+      if (tag === 'TEXTAREA') {
+        const start = active.selectionStart;
+        const end = active.selectionEnd;
+        if (typeof start === 'number' && typeof end === 'number' && end > start) {
+          return String(active.value || '').slice(start, end);
+        }
+      }
+      if (tag === 'INPUT') {
+        const type = String(active.type || '').toLowerCase();
+        const allowed = new Set(['text', 'search', 'url', 'tel', 'email', 'number', 'password']);
+        if (allowed.has(type)) {
+          const start = active.selectionStart;
+          const end = active.selectionEnd;
+          if (typeof start === 'number' && typeof end === 'number' && end > start) {
+            return String(active.value || '').slice(start, end);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    // fall through to window selection
+  }
+  try {
+    const selection = window.getSelection ? window.getSelection() : null;
+    return selection ? selection.toString() : '';
+  } catch (err) {
+    return '';
+  }
 }
 
 function showNav(navEl) {

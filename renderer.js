@@ -509,6 +509,7 @@ async function saveWorkspaceFromOpenWindows() {
 
 const selfChatSettingKey = 'selfChatRoomsV2';
 const selfChatLegacyKey = 'selfChatNotes';
+const selfChatLocalStorageKey = 'plana:selfChatRoomsV2';
 const selfChatMaxEntries = 300;
 const selfChatMaxChars = 2000;
 const selfChatMaxChannels = 50;
@@ -660,6 +661,25 @@ function normalizeSelfChatState(raw) {
     activeServerId,
     activeChannelId
   };
+}
+
+function loadSelfChatStateFromStorage() {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(selfChatLocalStorageKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return normalizeSelfChatState(parsed);
+  } catch (err) {
+    return null;
+  }
+}
+
+function persistSelfChatStateToStorage(state) {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(selfChatLocalStorageKey, JSON.stringify(state));
+  } catch (err) {}
 }
 
 function getActiveServer() {
@@ -855,6 +875,8 @@ function renderSelfChat() {
 }
 
 async function persistSelfChatState() {
+  if (!selfChatState) return;
+  persistSelfChatStateToStorage(selfChatState);
   if (!window.electron || typeof window.electron.setSetting !== 'function') return;
   try {
     await window.electron.setSetting(selfChatSettingKey, selfChatState);
@@ -954,8 +976,12 @@ async function initSelfChat() {
       } catch (err) {}
     }
   }
+  if (!nextState) {
+    nextState = loadSelfChatStateFromStorage();
+  }
   if (!nextState) nextState = createDefaultChatState();
   selfChatState = nextState;
+  persistSelfChatStateToStorage(selfChatState);
   renderSelfChat();
   if (isChatOnlyWindow) {
     openSelfChat();
@@ -1115,6 +1141,7 @@ async function initSelfChat() {
       if (key !== selfChatSettingKey) return;
       const normalized = normalizeSelfChatState(value) || createDefaultChatState();
       selfChatState = normalized;
+      persistSelfChatStateToStorage(selfChatState);
       renderSelfChat();
     });
   }

@@ -12,7 +12,11 @@
     "build:portable": "electron-builder --win portable",
     "build:linux": "electron-builder --linux"
   },
-  "keywords": ["electron", "transparent", "link-storage"],
+  "keywords": [
+    "electron",
+    "transparent",
+    "link-storage"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
@@ -40,21 +44,32 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64", "ia32"]
+          "arch": [
+            "x64",
+            "ia32"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
     "mac": {
       "icon": "assets/icons/mac/icon.icns",
-      "target": ["dmg", "zip"]
+      "target": [
+        "dmg",
+        "zip"
+      ]
     },
     "linux": {
       "icon": "assets/icons/png/512x512.png",
-      "target": ["AppImage", "deb"]
+      "target": [
+        "AppImage",
+        "deb"
+      ]
     },
     "nsis": {
       "oneClick": false,
