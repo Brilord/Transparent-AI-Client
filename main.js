@@ -19,11 +19,17 @@ const METADATA_REFRESH_INTERVAL_MS = 1000 * 60 * 60 * 6;
 const HEALTH_REFRESH_INTERVAL_MS = 1000 * 60 * 60 * 12;
 const METADATA_POLL_INTERVAL_MS = 7000;
 const HEALTH_POLL_INTERVAL_MS = 12000;
+const METADATA_BACKOFF_BASE_MS = 1000 * 30;
+const METADATA_BACKOFF_MAX_MS = 1000 * 60 * 30;
+const HEALTH_BACKOFF_BASE_MS = 1000 * 60;
+const HEALTH_BACKOFF_MAX_MS = 1000 * 60 * 60;
 const MAX_METADATA_BYTES = 512 * 1024;
 const HTTP_TIMEOUT_MS = 12000;
 const DEFAULT_PRIORITY = 'normal';
 const ALLOWED_PRIORITIES = new Set(['low', 'normal', 'high']);
 const LINK_SESSION_MODES = new Set(['shared', 'per-link', 'incognito']);
+const SAFE_LINK_SCHEMES = new Set(['http:', 'https:']);
+const LINK_WINDOW_CSP = "default-src * data: blob: 'unsafe-inline' 'unsafe-eval'; object-src 'none'; base-uri 'self'";
 
 const metadataQueue = [];
 const metadataPending = new Set();
@@ -33,9 +39,19 @@ const healthPending = new Set();
 const healthProcessing = new Set();
 let metadataTimer = null;
 let healthTimer = null;
+const metadataRetryTimers = new Map();
+const healthRetryTimers = new Map();
+const linkWindowCspSessions = new Map();
 
 let crashReporterInitialized = false;
 let dataCollectionSeq = 0;
+let autoUpdater = null;
+
+try {
+  ({ autoUpdater } = require('electron-updater'));
+} catch (err) {
+  autoUpdater = null;
+}
 
 function shouldLogDataCollection() {
   return !!(appSettings && appSettings.telemetryEnabled);
@@ -224,7 +240,9 @@ function createEmptyMetadata() {
     previewImage: null,
     sourceUrl: null,
     lastFetchedAt: null,
-    error: null
+    error: null,
+    retryCount: 0,
+    nextRetryAt: null
   };
 }
 
@@ -235,7 +253,9 @@ function createEmptyHealth() {
     redirected: false,
     checkedAt: null,
     latency: null,
-    error: null
+    error: null,
+    retryCount: 0,
+    nextRetryAt: null
   };
 }
 
@@ -408,8 +428,13 @@ function queueMetadataJob(link, urgent = false, nowTs = Date.now()) {
   if (!link || !link.url || !link.id) return;
   const id = Number(link.id);
   const lastFetched = link.metadata && link.metadata.lastFetchedAt ? Date.parse(link.metadata.lastFetchedAt) : 0;
+  const nextRetryAt = link.metadata && link.metadata.nextRetryAt ? Date.parse(link.metadata.nextRetryAt) : 0;
   const hasMetadata = !!(link.metadata && (link.metadata.title || link.metadata.description || link.metadata.favicon));
   const needsUpdate = !hasMetadata || !lastFetched || (nowTs - lastFetched) > METADATA_REFRESH_INTERVAL_MS;
+  if (!urgent && nextRetryAt && nowTs < nextRetryAt) {
+    scheduleRetry(metadataRetryTimers, id, nextRetryAt - nowTs, () => queueMetadataJobById(id, false));
+    return;
+  }
   if (!needsUpdate && !urgent) return;
   if (metadataPending.has(id) || metadataProcessing.has(id)) return;
   if (urgent) metadataQueue.unshift(id); else metadataQueue.push(id);
@@ -421,12 +446,89 @@ function queueHealthJob(link, urgent = false, nowTs = Date.now()) {
   if (!link || !link.url || !link.id) return;
   const id = Number(link.id);
   const lastChecked = link.health && link.health.checkedAt ? Date.parse(link.health.checkedAt) : 0;
+  const nextRetryAt = link.health && link.health.nextRetryAt ? Date.parse(link.health.nextRetryAt) : 0;
   const needsUpdate = !lastChecked || (nowTs - lastChecked) > HEALTH_REFRESH_INTERVAL_MS || urgent;
+  if (!urgent && nextRetryAt && nowTs < nextRetryAt) {
+    scheduleRetry(healthRetryTimers, id, nextRetryAt - nowTs, () => queueHealthJobById(id, false));
+    return;
+  }
   if (!needsUpdate && !urgent) return;
   if (healthPending.has(id) || healthProcessing.has(id)) return;
   if (urgent) healthQueue.unshift(id); else healthQueue.push(id);
   healthPending.add(id);
   ensureBackgroundWorkersRunning();
+}
+
+function queueMetadataJobById(linkId, urgent = false) {
+  const links = getLinksNormalized();
+  const link = links.find((entry) => Number(entry.id) === Number(linkId));
+  if (link) queueMetadataJob(link, urgent);
+}
+
+function queueHealthJobById(linkId, urgent = false) {
+  const links = getLinksNormalized();
+  const link = links.find((entry) => Number(entry.id) === Number(linkId));
+  if (link) queueHealthJob(link, urgent);
+}
+
+function scheduleRetry(timerMap, linkId, delayMs, enqueue) {
+  if (!delayMs || delayMs <= 0) return;
+  if (timerMap.has(linkId)) return;
+  const timer = setTimeout(() => {
+    timerMap.delete(linkId);
+    try { enqueue(); } catch (err) {}
+  }, delayMs);
+  timerMap.set(linkId, timer);
+}
+
+function computeBackoffMs(retryCount, baseMs, maxMs) {
+  const exponent = Math.min(Number(retryCount) || 0, 6);
+  const raw = Math.min(maxMs, baseMs * Math.pow(2, exponent));
+  const jitter = Math.floor(raw * (0.1 * Math.random()));
+  return raw + jitter;
+}
+
+function getNextRetryAtIso(retryCount, baseMs, maxMs) {
+  const delay = computeBackoffMs(retryCount, baseMs, maxMs);
+  return new Date(Date.now() + delay).toISOString();
+}
+
+function isSafeLinkUrl(targetUrl) {
+  try {
+    const parsed = new URL(targetUrl);
+    return SAFE_LINK_SCHEMES.has(parsed.protocol);
+  } catch (err) {
+    return false;
+  }
+}
+
+function ensureLinkWindowCsp(linkWindow) {
+  if (!linkWindow || linkWindow.isDestroyed()) return;
+  const session = linkWindow.webContents.session;
+  const webContentsId = linkWindow.webContents.id;
+  let entry = linkWindowCspSessions.get(session);
+  if (!entry) {
+    const webContentsIds = new Set();
+    const handler = (details, callback) => {
+      if (!webContentsIds.has(details.webContentsId) || details.resourceType !== 'mainFrame') {
+        callback({ cancel: false, responseHeaders: details.responseHeaders });
+        return;
+      }
+      const headers = details.responseHeaders || {};
+      const hasCsp = Object.keys(headers).some((key) => key.toLowerCase() === 'content-security-policy');
+      if (!hasCsp) {
+        headers['Content-Security-Policy'] = [LINK_WINDOW_CSP];
+      }
+      callback({ cancel: false, responseHeaders: headers });
+    };
+    session.webRequest.onHeadersReceived(handler);
+    entry = { webContentsIds, handler };
+    linkWindowCspSessions.set(session, entry);
+  }
+  entry.webContentsIds.add(webContentsId);
+  linkWindow.on('closed', () => {
+    entry.webContentsIds.delete(webContentsId);
+  });
 }
 
 async function processNextMetadataJob() {
@@ -639,12 +741,15 @@ async function refreshLinkMetadata(linkId) {
   const idx = links.findIndex((l) => Number(l.id) === Number(linkId));
   if (idx === -1) return false;
   const link = links[idx];
+  const metadata = Object.assign(createEmptyMetadata(), link.metadata || {});
   try {
     const info = await collectMetadataForUrl(link.url, { linkId: link.id });
     if (info) {
-      link.metadata = Object.assign(createEmptyMetadata(), link.metadata || {}, info, {
+      link.metadata = Object.assign(metadata, info, {
         lastFetchedAt: new Date().toISOString(),
-        error: null
+        error: null,
+        retryCount: 0,
+        nextRetryAt: null
       });
       let hostname = null;
       try { hostname = new URL(link.url).hostname; } catch (err) {}
@@ -652,16 +757,26 @@ async function refreshLinkMetadata(linkId) {
         if (info.title) link.title = info.title;
       }
     } else {
-      link.metadata = Object.assign(createEmptyMetadata(), link.metadata || {}, { lastFetchedAt: new Date().toISOString() });
+      link.metadata = Object.assign(metadata, {
+        lastFetchedAt: new Date().toISOString(),
+        retryCount: 0,
+        nextRetryAt: null
+      });
     }
   } catch (err) {
-    link.metadata = Object.assign(createEmptyMetadata(), link.metadata || {}, {
+    const retryCount = (metadata.retryCount || 0) + 1;
+    link.metadata = Object.assign(metadata, {
       lastFetchedAt: new Date().toISOString(),
-      error: err && err.message ? err.message : String(err)
+      error: err && err.message ? err.message : String(err),
+      retryCount,
+      nextRetryAt: getNextRetryAtIso(retryCount, METADATA_BACKOFF_BASE_MS, METADATA_BACKOFF_MAX_MS)
     });
   }
   links[idx] = link;
   saveLinks(links);
+  if (link.metadata && link.metadata.nextRetryAt) {
+    queueMetadataJob(link, false, Date.now());
+  }
   return true;
 }
 
@@ -691,14 +806,21 @@ async function refreshLinkHealth(linkId) {
     else if (code >= 500) health.status = 'error';
     else health.status = 'unknown';
     health.error = null;
+    health.retryCount = 0;
+    health.nextRetryAt = null;
   } catch (err) {
     health.status = 'broken';
     health.error = err && err.message ? err.message : String(err);
     health.checkedAt = new Date().toISOString();
+    health.retryCount = (health.retryCount || 0) + 1;
+    health.nextRetryAt = getNextRetryAtIso(health.retryCount, HEALTH_BACKOFF_BASE_MS, HEALTH_BACKOFF_MAX_MS);
   }
   link.health = health;
   links[idx] = link;
   saveLinks(links);
+  if (link.health && link.health.nextRetryAt) {
+    queueHealthJob(link, false, Date.now());
+  }
   return true;
 }
 
@@ -1074,6 +1196,7 @@ app.on('ready', () => {
   // Restore the last opened link (if any) after the main window is ready
   try { reopenLastLinksIfAvailable(); } catch (err) {}
   try { ensureBackgroundWorkersRunning(); } catch (err) {}
+  try { initAutoUpdater(); } catch (err) {}
 });
 
 app.on('window-all-closed', function () {
@@ -1546,6 +1669,7 @@ function openLinkWindow(idOrUrl, maybeUrl, options = {}) {
 
   // Guard against missing/invalid urls
   if (!url || typeof url !== 'string') return false;
+  if (!isSafeLinkUrl(url)) return false;
 
   // Find saved bounds for this link id if available
   let savedBounds = null;
@@ -1618,9 +1742,12 @@ function openLinkWindow(idOrUrl, maybeUrl, options = {}) {
     } catch (err) { /* ignore invalid saved bounds */ }
   }
 
+  ensureLinkWindowCsp(linkWindow);
+
   // Force target=_blank / window.open navigations to stay in the same window (e.g., Google account switchers)
   try {
     linkWindow.webContents.setWindowOpenHandler(({ url: targetUrl }) => {
+      if (!isSafeLinkUrl(targetUrl)) return { action: 'deny' };
       try { if (targetUrl) linkWindow.loadURL(targetUrl); } catch (err) {}
       return { action: 'deny' };
     });
@@ -1628,9 +1755,14 @@ function openLinkWindow(idOrUrl, maybeUrl, options = {}) {
     // Fallback for older Electron versions
     linkWindow.webContents.on('new-window', (event, targetUrl) => {
       event.preventDefault();
+      if (!isSafeLinkUrl(targetUrl)) return;
       try { if (targetUrl) linkWindow.loadURL(targetUrl); } catch (e) {}
     });
   }
+
+  linkWindow.webContents.on('will-navigate', (event, targetUrl) => {
+    if (!isSafeLinkUrl(targetUrl)) event.preventDefault();
+  });
 
   // Load the URL directly
   linkWindow.loadURL(url);
@@ -2230,3 +2362,14 @@ ipcMain.handle('reveal-links-file', () => {
 app.on('ready', () => {
   try { if (appSettings.useFolderSync && appSettings.syncFolder) startSyncWatcher(); } catch (e) {}
 });
+
+function initAutoUpdater() {
+  if (!autoUpdater || !app.isPackaged) return;
+  autoUpdater.autoDownload = true;
+  autoUpdater.on('error', (err) => {
+    console.error('Auto update error:', err && err.message ? err.message : err);
+  });
+  autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+    console.error('Auto update check failed:', err && err.message ? err.message : err);
+  });
+}
