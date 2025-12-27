@@ -882,6 +882,45 @@ body.chat-only .chat-panel {
     gap: 8px;
 }
 
+.chat-room-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.chat-room-form.hidden {
+    display: none;
+}
+
+.chat-room-name-input {
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 12px;
+}
+
+.chat-room-name-input:focus {
+    outline: none;
+    border-color: var(--chat-accent);
+    box-shadow: 0 0 0 2px rgba(37, 211, 102, 0.2);
+}
+
+.chat-room-name-input::placeholder {
+    color: var(--chat-muted);
+}
+
+.chat-room-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
 .chat-channel-search {
     flex: 1;
     padding: 8px 10px;

@@ -23,6 +23,10 @@ const selfChatChannelTopic = document.getElementById('selfChatChannelTopic');
 const selfChatNewChannelBtn = document.getElementById('selfChatNewChannelBtn');
 const selfChatRenameChannelBtn = document.getElementById('selfChatRenameChannelBtn');
 const selfChatDeleteChannelBtn = document.getElementById('selfChatDeleteChannelBtn');
+const selfChatRoomForm = document.getElementById('selfChatRoomForm');
+const selfChatRoomNameInput = document.getElementById('selfChatRoomNameInput');
+const selfChatRoomCreateBtn = document.getElementById('selfChatRoomCreateBtn');
+const selfChatRoomCancelBtn = document.getElementById('selfChatRoomCancelBtn');
 const selfChatImageInput = document.getElementById('selfChatImageInput');
 const selfChatAddImageBtn = document.getElementById('selfChatAddImageBtn');
 const selfChatAttachmentPreview = document.getElementById('selfChatAttachmentPreview');
@@ -911,6 +915,47 @@ function clearSelfChatAttachments() {
   renderSelfChatAttachments();
 }
 
+function openSelfChatRoomForm() {
+  if (!selfChatRoomForm) return;
+  if (selfChatState && selfChatState.rooms.length >= selfChatMaxRooms) {
+    alert('Max rooms reached.');
+    return;
+  }
+  selfChatRoomForm.classList.remove('hidden');
+  if (selfChatRoomNameInput) {
+    selfChatRoomNameInput.value = '';
+    selfChatRoomNameInput.focus();
+  }
+}
+
+function closeSelfChatRoomForm() {
+  if (!selfChatRoomForm) return;
+  selfChatRoomForm.classList.add('hidden');
+  if (selfChatRoomNameInput) selfChatRoomNameInput.value = '';
+}
+
+function submitSelfChatRoomForm() {
+  if (!selfChatState || !selfChatRoomNameInput) return;
+  const trimmed = selfChatRoomNameInput.value.trim();
+  if (!trimmed) {
+    alert('Room name required.');
+    selfChatRoomNameInput.focus();
+    return;
+  }
+  if (selfChatState.rooms.length >= selfChatMaxRooms) {
+    alert('Max rooms reached.');
+    return;
+  }
+  const room = createRoom(trimmed);
+  selfChatState.rooms = [...selfChatState.rooms, room];
+  selfChatState.activeRoomId = room.id;
+  selfChatRoomFilter = '';
+  if (selfChatChannelSearch) selfChatChannelSearch.value = '';
+  renderSelfChat();
+  persistSelfChatState();
+  closeSelfChatRoomForm();
+}
+
 function renderSelfChat() {
   renderSelfChatRooms();
   renderSelfChatHeader();
@@ -1012,6 +1057,7 @@ function closeSelfChat() {
     return;
   }
   if (!selfChatOverlay) return;
+  closeSelfChatRoomForm();
   clearSelfChatAttachments();
   selfChatOverlay.classList.add('hidden');
   selfChatOverlay.setAttribute('aria-hidden', 'true');
@@ -1075,22 +1121,32 @@ async function initSelfChat() {
 
   if (selfChatNewChannelBtn) {
     selfChatNewChannelBtn.addEventListener('click', () => {
-      if (!selfChatState) return;
-      if (selfChatState.rooms.length >= selfChatMaxRooms) {
-        alert('Max rooms reached.');
-        return;
+      openSelfChatRoomForm();
+    });
+  }
+
+  if (selfChatRoomCreateBtn) {
+    selfChatRoomCreateBtn.addEventListener('click', () => {
+      submitSelfChatRoomForm();
+    });
+  }
+
+  if (selfChatRoomCancelBtn) {
+    selfChatRoomCancelBtn.addEventListener('click', () => {
+      closeSelfChatRoomForm();
+    });
+  }
+
+  if (selfChatRoomNameInput) {
+    selfChatRoomNameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitSelfChatRoomForm();
       }
-      const name = prompt('New room name');
-      if (!name) return;
-      const trimmed = name.trim();
-      if (!trimmed) return;
-      const room = createRoom(trimmed);
-      selfChatState.rooms = [...selfChatState.rooms, room];
-      selfChatState.activeRoomId = room.id;
-      selfChatRoomFilter = '';
-      if (selfChatChannelSearch) selfChatChannelSearch.value = '';
-      renderSelfChat();
-      persistSelfChatState();
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeSelfChatRoomForm();
+      }
     });
   }
 
