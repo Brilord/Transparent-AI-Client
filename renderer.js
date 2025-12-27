@@ -16,20 +16,16 @@ const selfChatInput = document.getElementById('selfChatInput');
 const selfChatSendBtn = document.getElementById('selfChatSendBtn');
 const selfChatCloseBtn = document.getElementById('selfChatCloseBtn');
 const selfChatClearBtn = document.getElementById('selfChatClearBtn');
-const selfChatServerList = document.getElementById('selfChatServerList');
-const selfChatServerName = document.getElementById('selfChatServerName');
-const selfChatServerMeta = document.getElementById('selfChatServerMeta');
 const selfChatChannelList = document.getElementById('selfChatChannelList');
 const selfChatChannelSearch = document.getElementById('selfChatChannelSearch');
 const selfChatChannelTitle = document.getElementById('selfChatChannelTitle');
 const selfChatChannelTopic = document.getElementById('selfChatChannelTopic');
-const selfChatChannelAbout = document.getElementById('selfChatChannelAbout');
-const selfChatChannelCount = document.getElementById('selfChatChannelCount');
-const selfChatChannelUpdated = document.getElementById('selfChatChannelUpdated');
 const selfChatNewChannelBtn = document.getElementById('selfChatNewChannelBtn');
 const selfChatRenameChannelBtn = document.getElementById('selfChatRenameChannelBtn');
 const selfChatDeleteChannelBtn = document.getElementById('selfChatDeleteChannelBtn');
-const selfChatNewServerBtn = document.getElementById('selfChatNewServerBtn');
+const selfChatImageInput = document.getElementById('selfChatImageInput');
+const selfChatAddImageBtn = document.getElementById('selfChatAddImageBtn');
+const selfChatAttachmentPreview = document.getElementById('selfChatAttachmentPreview');
 const isChatOnlyWindow = new URLSearchParams(window.location.search).get('chat') === '1';
 if (isChatOnlyWindow && document.body) {
   document.body.classList.add('chat-only');
@@ -513,155 +509,195 @@ const selfChatLegacyKey = 'selfChatNotes';
 const selfChatLocalStorageKey = 'plana:selfChatRoomsV2';
 const selfChatMaxEntries = 300;
 const selfChatMaxChars = 2000;
-const selfChatMaxChannels = 50;
-const selfChatMaxServers = 12;
+const selfChatMaxRooms = 50;
+const selfChatMaxImagesPerMessage = 4;
+const selfChatMaxImageBytes = 2 * 1024 * 1024;
 let selfChatState = null;
-let selfChatChannelFilter = '';
+let selfChatRoomFilter = '';
 let selfChatIdSeq = 0;
+let selfChatPendingImages = [];
 
 function createChatId(prefix) {
   selfChatIdSeq += 1;
   return `${prefix}-${Date.now()}-${selfChatIdSeq}`;
 }
 
+function normalizeSelfChatImages(raw) {
+  if (!Array.isArray(raw)) return [];
+  const images = [];
+  raw.forEach((item) => {
+    if (!item) return;
+    if (typeof item === 'string') {
+      const src = item.trim();
+      if (!src) return;
+      images.push({
+        id: createChatId('img'),
+        src,
+        name: 'image',
+        type: '',
+        size: null
+      });
+      return;
+    }
+    if (typeof item === 'object' && typeof item.src === 'string') {
+      const src = item.src.trim();
+      if (!src) return;
+      images.push({
+        id: item.id ? String(item.id) : createChatId('img'),
+        src,
+        name: item.name ? String(item.name).trim() : 'image',
+        type: item.type ? String(item.type) : '',
+        size: typeof item.size === 'number' ? item.size : null
+      });
+    }
+  });
+  return images.slice(0, selfChatMaxImagesPerMessage);
+}
+
 function normalizeSelfChatEntries(raw) {
   if (!Array.isArray(raw)) return [];
   const normalized = [];
-  raw.forEach((entry, idx) => {
+  raw.forEach((entry) => {
     if (typeof entry === 'string') {
       const text = entry.trim();
       if (!text) return;
       normalized.push({
         id: createChatId('msg'),
         text: text.slice(0, selfChatMaxChars),
+        images: [],
         ts: null
       });
       return;
     }
-    if (entry && typeof entry.text === 'string') {
-      const text = entry.text.trim();
-      if (!text) return;
-      normalized.push({
-        id: entry.id || createChatId('msg'),
-        text: text.slice(0, selfChatMaxChars),
-        ts: entry.ts || null
-      });
-    }
+    if (!entry || typeof entry !== 'object') return;
+    const text = typeof entry.text === 'string' ? entry.text.trim() : '';
+    const images = normalizeSelfChatImages(entry.images || entry.attachments || []);
+    if (!text && !images.length) return;
+    normalized.push({
+      id: entry.id ? String(entry.id) : createChatId('msg'),
+      text: text.slice(0, selfChatMaxChars),
+      images,
+      ts: entry.ts || null
+    });
   });
   return normalized;
 }
 
-function getServerIcon(name) {
-  const cleaned = String(name || '').trim();
-  if (!cleaned) return 'NA';
-  const parts = cleaned.split(/\s+/);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase();
-}
-
-function createChannel(name, topic) {
+function createRoom(name, options = {}) {
   const cleanName = String(name || '').trim() || 'room';
+  const messages = Array.isArray(options.messages) ? options.messages : [];
+  const updatedAt = options.updatedAt || (messages.length ? messages[messages.length - 1].ts : null);
   return {
-    id: createChatId('ch'),
+    id: createChatId('room'),
     name: cleanName,
-    topic: topic ? String(topic).trim() : '',
-    messages: [],
-    updatedAt: null
-  };
-}
-
-function createServer(name, options = {}) {
-  const cleanName = String(name || '').trim() || 'Untitled Space';
-  const channels = Array.isArray(options.channels) && options.channels.length
-    ? options.channels
-    : [createChannel('lobby', 'Drop quick notes and links for this space.')];
-  return {
-    id: createChatId('srv'),
-    name: cleanName,
-    icon: options.icon ? String(options.icon).trim() : getServerIcon(cleanName),
-    accent: options.accent || null,
-    channels,
-    lastActiveChannelId: channels[0].id,
-    createdAt: new Date().toISOString()
+    messages,
+    createdAt: options.createdAt || new Date().toISOString(),
+    updatedAt
   };
 }
 
 function createDefaultChatState() {
-  const home = createServer('Plana HQ', {
-    accent: '#f78b3a',
-    channels: [
-      createChannel('lobby', 'Daily pulse, quick notes, and reminders.'),
-      createChannel('link-lab', 'Context for saved links and experiments.'),
-      createChannel('ideas', 'Loose concepts worth revisiting.')
-    ]
-  });
-  const ops = createServer('Project Desk', {
-    accent: '#52dcc4',
-    channels: [
-      createChannel('tasks', 'What is shipping next and why.'),
-      createChannel('wins', 'Progress log and shipped moments.')
-    ]
-  });
+  const general = createRoom('general');
   return {
-    version: 2,
-    servers: [home, ops],
-    activeServerId: home.id,
-    activeChannelId: home.channels[0].id
+    version: 3,
+    rooms: [general],
+    activeRoomId: general.id
   };
 }
 
-function normalizeChannel(raw, idx) {
+function normalizeRoom(raw, idx) {
   if (!raw || typeof raw !== 'object') return null;
   const name = raw.name ? String(raw.name).trim() : `room-${idx + 1}`;
   const messages = normalizeSelfChatEntries(raw.messages || raw.entries || []);
   const updatedAt = raw.updatedAt || (messages.length ? messages[messages.length - 1].ts : null);
   return {
-    id: raw.id ? String(raw.id) : createChatId('ch'),
+    id: raw.id ? String(raw.id) : createChatId('room'),
     name,
-    topic: raw.topic ? String(raw.topic).trim() : '',
+    messages,
+    createdAt: raw.createdAt || null,
+    updatedAt
+  };
+}
+
+function normalizeLegacyChannel(raw, idx) {
+  if (!raw || typeof raw !== 'object') return null;
+  const name = raw.name ? String(raw.name).trim() : `room-${idx + 1}`;
+  const messages = normalizeSelfChatEntries(raw.messages || raw.entries || []);
+  const updatedAt = raw.updatedAt || (messages.length ? messages[messages.length - 1].ts : null);
+  return {
+    id: raw.id ? String(raw.id) : createChatId('legacy-ch'),
+    name,
     messages,
     updatedAt
   };
 }
 
-function normalizeServer(raw, idx) {
+function normalizeLegacyServer(raw, idx) {
   if (!raw || typeof raw !== 'object') return null;
   const name = raw.name ? String(raw.name).trim() : `Space ${idx + 1}`;
-  const channels = Array.isArray(raw.channels) ? raw.channels.map(normalizeChannel).filter(Boolean) : [];
-  const finalChannels = channels.length ? channels : [createChannel('lobby', 'Notes for this space.')];
-  const icon = raw.icon ? String(raw.icon).trim() : getServerIcon(name);
+  const channels = Array.isArray(raw.channels) ? raw.channels.map(normalizeLegacyChannel).filter(Boolean) : [];
+  const finalChannels = channels.length ? channels : [normalizeLegacyChannel({ name: 'lobby', messages: [] }, 0)].filter(Boolean);
+  if (!finalChannels.length) return null;
   const lastActive = raw.lastActiveChannelId && finalChannels.some((ch) => ch.id === raw.lastActiveChannelId)
     ? raw.lastActiveChannelId
     : finalChannels[0].id;
   return {
-    id: raw.id ? String(raw.id) : createChatId('srv'),
+    id: raw.id ? String(raw.id) : createChatId('legacy-srv'),
     name,
-    icon,
-    accent: raw.accent || null,
     channels: finalChannels,
     lastActiveChannelId: lastActive,
     createdAt: raw.createdAt || null
   };
 }
 
+function convertLegacyChatState(raw) {
+  const servers = Array.isArray(raw.servers) ? raw.servers.map(normalizeLegacyServer).filter(Boolean) : [];
+  if (!servers.length) return null;
+  const rooms = [];
+  let activeRoomId = null;
+  servers.forEach((server) => {
+    const usePrefix = server.channels.length > 1;
+    server.channels.forEach((channel) => {
+      const roomName = usePrefix ? `${server.name} / ${channel.name}` : server.name;
+      const roomId = createChatId('room');
+      rooms.push({
+        id: roomId,
+        name: roomName,
+        messages: channel.messages,
+        createdAt: server.createdAt || null,
+        updatedAt: channel.updatedAt || null
+      });
+      if (raw.activeServerId === server.id && raw.activeChannelId === channel.id) {
+        activeRoomId = roomId;
+      }
+    });
+  });
+  if (!rooms.length) return null;
+  return {
+    version: 3,
+    rooms,
+    activeRoomId: activeRoomId || rooms[0].id
+  };
+}
+
 function normalizeSelfChatState(raw) {
   if (!raw || typeof raw !== 'object') return null;
-  const servers = Array.isArray(raw.servers) ? raw.servers.map(normalizeServer).filter(Boolean) : [];
-  if (!servers.length) return null;
-  const activeServerId = servers.some((srv) => srv.id === raw.activeServerId)
-    ? raw.activeServerId
-    : servers[0].id;
-  const activeServer = servers.find((srv) => srv.id === activeServerId) || servers[0];
-  let activeChannelId = raw.activeChannelId;
-  if (!activeChannelId || !activeServer.channels.some((ch) => ch.id === activeChannelId)) {
-    activeChannelId = activeServer.lastActiveChannelId || activeServer.channels[0].id;
+  if (Array.isArray(raw.rooms)) {
+    const rooms = raw.rooms.map(normalizeRoom).filter(Boolean);
+    if (!rooms.length) return null;
+    const activeRoomId = rooms.some((room) => room.id === raw.activeRoomId)
+      ? raw.activeRoomId
+      : rooms[0].id;
+    return {
+      version: 3,
+      rooms,
+      activeRoomId
+    };
   }
-  return {
-    version: 2,
-    servers,
-    activeServerId,
-    activeChannelId
-  };
+  if (Array.isArray(raw.servers)) {
+    return convertLegacyChatState(raw);
+  }
+  return null;
 }
 
 function loadSelfChatStateFromStorage() {
@@ -683,21 +719,9 @@ function persistSelfChatStateToStorage(state) {
   } catch (err) {}
 }
 
-function getActiveServer() {
+function getActiveRoom() {
   if (!selfChatState) return null;
-  return selfChatState.servers.find((srv) => srv.id === selfChatState.activeServerId) || null;
-}
-
-function getActiveChannel() {
-  const server = getActiveServer();
-  if (!server) return null;
-  return server.channels.find((ch) => ch.id === selfChatState.activeChannelId) || null;
-}
-
-function applyChatAccent(accent) {
-  if (!selfChatPanel) return;
-  if (accent) selfChatPanel.style.setProperty('--active-chat-accent', accent);
-  else selfChatPanel.style.removeProperty('--active-chat-accent');
+  return selfChatState.rooms.find((room) => room.id === selfChatState.activeRoomId) || null;
 }
 
 function formatSelfChatTime(ts) {
@@ -709,48 +733,35 @@ function formatSelfChatTime(ts) {
   }
 }
 
-function renderSelfChatServers() {
-  if (!selfChatServerList || !selfChatState) return;
-  selfChatServerList.innerHTML = '';
-  selfChatState.servers.forEach((server) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'chat-rail-item';
-    if (server.id === selfChatState.activeServerId) btn.classList.add('active');
-    btn.textContent = server.icon || getServerIcon(server.name);
-    btn.title = server.name;
-    if (server.accent) btn.style.setProperty('--server-accent', server.accent);
-    btn.addEventListener('click', () => {
-      setActiveServer(server.id);
-    });
-    selfChatServerList.appendChild(btn);
-  });
-}
-
-function renderSelfChatChannels() {
+function renderSelfChatRooms() {
   if (!selfChatChannelList) return;
-  const server = getActiveServer();
-  if (selfChatChannelSearch && selfChatChannelSearch.value !== selfChatChannelFilter) {
-    selfChatChannelSearch.value = selfChatChannelFilter;
+  if (selfChatChannelSearch && selfChatChannelSearch.value !== selfChatRoomFilter) {
+    selfChatChannelSearch.value = selfChatRoomFilter;
   }
   selfChatChannelList.innerHTML = '';
-  if (!server) return;
-  const filter = selfChatChannelFilter.trim().toLowerCase();
-  const channels = filter
-    ? server.channels.filter((ch) => ch.name.toLowerCase().includes(filter))
-    : server.channels;
-  if (!channels.length) {
+  if (!selfChatState || !selfChatState.rooms.length) {
+    const empty = document.createElement('div');
+    empty.className = 'chat-empty';
+    empty.textContent = 'No rooms yet.';
+    selfChatChannelList.appendChild(empty);
+    return;
+  }
+  const filter = selfChatRoomFilter.trim().toLowerCase();
+  const rooms = filter
+    ? selfChatState.rooms.filter((room) => room.name.toLowerCase().includes(filter))
+    : selfChatState.rooms;
+  if (!rooms.length) {
     const empty = document.createElement('div');
     empty.className = 'chat-empty';
     empty.textContent = 'No rooms match that search.';
     selfChatChannelList.appendChild(empty);
     return;
   }
-  channels.forEach((channel) => {
+  rooms.forEach((room) => {
     const row = document.createElement('div');
     row.className = 'chat-channel';
     row.tabIndex = 0;
-    if (channel.id === selfChatState.activeChannelId) row.classList.add('active');
+    if (room.id === selfChatState.activeRoomId) row.classList.add('active');
 
     const hash = document.createElement('span');
     hash.className = 'chat-channel-hash';
@@ -759,73 +770,55 @@ function renderSelfChatChannels() {
 
     const name = document.createElement('span');
     name.className = 'chat-channel-name';
-    name.textContent = channel.name;
+    name.textContent = room.name;
     row.appendChild(name);
 
     const count = document.createElement('span');
     count.className = 'chat-channel-count';
-    count.textContent = String(channel.messages.length);
+    count.textContent = String(room.messages.length);
     row.appendChild(count);
 
     row.addEventListener('click', () => {
-      setActiveChannel(channel.id);
+      setActiveRoom(room.id);
     });
     row.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') setActiveChannel(channel.id);
+      if (e.key === 'Enter') setActiveRoom(room.id);
     });
     selfChatChannelList.appendChild(row);
   });
 }
 
 function renderSelfChatHeader() {
-  const server = getActiveServer();
-  const channel = getActiveChannel();
-  if (selfChatServerName) {
-    selfChatServerName.textContent = server ? server.name : 'Spaces';
-  }
-  if (selfChatServerMeta) {
-    const count = server ? server.channels.length : 0;
-    selfChatServerMeta.textContent = `${count} room${count === 1 ? '' : 's'}`;
-  }
+  const room = getActiveRoom();
   if (selfChatChannelTitle) {
-    selfChatChannelTitle.textContent = channel ? `# ${channel.name}` : '# room';
+    selfChatChannelTitle.textContent = room ? room.name : 'Room';
   }
   if (selfChatChannelTopic) {
-    selfChatChannelTopic.textContent = channel && channel.topic
-      ? channel.topic
-      : 'Add a topic to guide what belongs here.';
-  }
-  if (selfChatChannelAbout) {
-    selfChatChannelAbout.textContent = channel && channel.topic
-      ? channel.topic
-      : 'Keep this room focused with a short topic or intention.';
-  }
-  if (selfChatChannelCount) {
-    const messageCount = channel ? channel.messages.length : 0;
-    selfChatChannelCount.textContent = `${messageCount} message${messageCount === 1 ? '' : 's'}`;
-  }
-  if (selfChatChannelUpdated) {
-    let updatedLabel = 'No updates yet';
-    if (channel && channel.updatedAt) {
-      const relative = formatRelativeTime(channel.updatedAt);
-      if (relative) updatedLabel = `Updated ${relative}`;
+    if (!room) {
+      selfChatChannelTopic.textContent = 'Pick a room to start.';
+      return;
     }
-    selfChatChannelUpdated.textContent = updatedLabel;
+    const messageCount = room.messages.length;
+    let updatedLabel = 'No updates yet';
+    if (room.updatedAt) {
+      const relative = formatRelativeTime(room.updatedAt);
+      updatedLabel = relative ? `Updated ${relative}` : 'Updated recently';
+    }
+    selfChatChannelTopic.textContent = `${messageCount} message${messageCount === 1 ? '' : 's'} \u2022 ${updatedLabel}`;
   }
-  applyChatAccent(server && server.accent ? server.accent : null);
 }
 
 function renderSelfChatEntries() {
   if (!selfChatMessages) return;
-  const channel = getActiveChannel();
-  if (!channel || !channel.messages.length) {
+  const room = getActiveRoom();
+  if (!room || !room.messages.length) {
     const empty = document.createElement('div');
     empty.className = 'chat-empty';
-    empty.textContent = channel ? `No messages in #${channel.name} yet.` : 'Select a room to get started.';
+    empty.textContent = room ? `No messages in ${room.name} yet.` : 'Select a room to get started.';
     selfChatMessages.replaceChildren(empty);
     return;
   }
-  const nodes = channel.messages.map((entry, index) => {
+  const nodes = room.messages.map((entry, index) => {
     const row = document.createElement('div');
     row.className = 'chat-message';
     row.style.setProperty('--stagger', `${Math.min(index * 30, 240)}ms`);
@@ -854,12 +847,27 @@ function renderSelfChatEntries() {
       meta.appendChild(tsEl);
     }
 
-    const text = document.createElement('div');
-    text.className = 'chat-message-text';
-    text.textContent = entry.text;
-
     body.appendChild(meta);
-    body.appendChild(text);
+    if (entry.text) {
+      const text = document.createElement('div');
+      text.className = 'chat-message-text';
+      text.textContent = entry.text;
+      body.appendChild(text);
+    }
+    if (Array.isArray(entry.images) && entry.images.length) {
+      const imageWrap = document.createElement('div');
+      imageWrap.className = 'chat-message-images';
+      entry.images.forEach((image) => {
+        if (!image || !image.src) return;
+        const img = document.createElement('img');
+        img.className = 'chat-message-image';
+        img.src = image.src;
+        img.alt = image.name || 'image';
+        img.loading = 'lazy';
+        imageWrap.appendChild(img);
+      });
+      if (imageWrap.childNodes.length) body.appendChild(imageWrap);
+    }
     row.appendChild(body);
 
     return row;
@@ -868,11 +876,46 @@ function renderSelfChatEntries() {
   selfChatMessages.scrollTop = selfChatMessages.scrollHeight;
 }
 
+function renderSelfChatAttachments() {
+  if (!selfChatAttachmentPreview) return;
+  if (!selfChatPendingImages.length) {
+    selfChatAttachmentPreview.innerHTML = '';
+    selfChatAttachmentPreview.classList.add('hidden');
+    return;
+  }
+  const chips = selfChatPendingImages.map((image) => {
+    const chip = document.createElement('div');
+    chip.className = 'chat-attachment-chip';
+    const img = document.createElement('img');
+    img.src = image.src;
+    img.alt = image.name || 'image';
+    chip.appendChild(img);
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'chat-attachment-remove';
+    remove.textContent = 'x';
+    remove.title = 'Remove';
+    remove.addEventListener('click', () => {
+      selfChatPendingImages = selfChatPendingImages.filter((item) => item.id !== image.id);
+      renderSelfChatAttachments();
+    });
+    chip.appendChild(remove);
+    return chip;
+  });
+  selfChatAttachmentPreview.replaceChildren(...chips);
+  selfChatAttachmentPreview.classList.remove('hidden');
+}
+
+function clearSelfChatAttachments() {
+  selfChatPendingImages = [];
+  renderSelfChatAttachments();
+}
+
 function renderSelfChat() {
-  renderSelfChatServers();
-  renderSelfChatChannels();
+  renderSelfChatRooms();
   renderSelfChatHeader();
   renderSelfChatEntries();
+  renderSelfChatAttachments();
 }
 
 async function persistSelfChatState() {
@@ -884,48 +927,73 @@ async function persistSelfChatState() {
   } catch (err) {}
 }
 
-function setActiveServer(serverId) {
+function setActiveRoom(roomId) {
   if (!selfChatState) return;
-  const server = selfChatState.servers.find((srv) => srv.id === serverId);
-  if (!server) return;
-  selfChatChannelFilter = '';
+  const room = selfChatState.rooms.find((entry) => entry.id === roomId);
+  if (!room) return;
+  selfChatRoomFilter = '';
   if (selfChatChannelSearch) selfChatChannelSearch.value = '';
-  selfChatState.activeServerId = server.id;
-  const nextChannel = server.channels.find((ch) => ch.id === server.lastActiveChannelId) || server.channels[0];
-  selfChatState.activeChannelId = nextChannel.id;
-  renderSelfChat();
-  persistSelfChatState();
-}
-
-function setActiveChannel(channelId) {
-  const server = getActiveServer();
-  if (!server) return;
-  const channel = server.channels.find((ch) => ch.id === channelId);
-  if (!channel) return;
-  selfChatState.activeChannelId = channel.id;
-  server.lastActiveChannelId = channel.id;
-  renderSelfChatChannels();
+  selfChatState.activeRoomId = room.id;
+  clearSelfChatAttachments();
+  renderSelfChatRooms();
   renderSelfChatHeader();
   renderSelfChatEntries();
   persistSelfChatState();
 }
 
-function addSelfChatEntry(text) {
+function addSelfChatEntry(text, images = []) {
   const trimmed = text.trim();
-  if (!trimmed) return;
-  const channel = getActiveChannel();
-  if (!channel) return;
+  const normalizedImages = normalizeSelfChatImages(images);
+  if (!trimmed && !normalizedImages.length) return;
+  const room = getActiveRoom();
+  if (!room) return;
   const entry = {
     id: createChatId('msg'),
     text: trimmed.slice(0, selfChatMaxChars),
+    images: normalizedImages,
     ts: new Date().toISOString()
   };
-  channel.messages = [...channel.messages, entry].slice(-selfChatMaxEntries);
-  channel.updatedAt = entry.ts;
+  room.messages = [...room.messages, entry].slice(-selfChatMaxEntries);
+  room.updatedAt = entry.ts;
   renderSelfChatEntries();
   renderSelfChatHeader();
-  renderSelfChatChannels();
+  renderSelfChatRooms();
   persistSelfChatState();
+}
+
+function appendPendingImage(file) {
+  if (!file || !file.type || !file.type.startsWith('image/')) return;
+  if (selfChatPendingImages.length >= selfChatMaxImagesPerMessage) {
+    alert('Max images per message reached.');
+    return;
+  }
+  if (file.size > selfChatMaxImageBytes) {
+    alert('Image too large. Use files under 2MB.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const src = reader.result;
+    if (typeof src !== 'string') return;
+    selfChatPendingImages = [
+      ...selfChatPendingImages,
+      {
+        id: createChatId('img'),
+        src,
+        name: file.name || 'image',
+        type: file.type || '',
+        size: file.size
+      }
+    ];
+    renderSelfChatAttachments();
+  };
+  reader.readAsDataURL(file);
+}
+
+function queuePendingImages(files) {
+  const list = Array.from(files || []);
+  if (!list.length) return;
+  list.forEach((file) => appendPendingImage(file));
 }
 
 function openSelfChat() {
@@ -944,6 +1012,7 @@ function closeSelfChat() {
     return;
   }
   if (!selfChatOverlay) return;
+  clearSelfChatAttachments();
   selfChatOverlay.classList.add('hidden');
   selfChatOverlay.setAttribute('aria-hidden', 'true');
 }
@@ -967,10 +1036,10 @@ async function initSelfChat() {
         legacyEntries = [];
       }
       nextState = createDefaultChatState();
-      if (legacyEntries.length && nextState.servers.length) {
-        const channel = nextState.servers[0].channels[0];
-        channel.messages = legacyEntries.slice(-selfChatMaxEntries);
-        channel.updatedAt = channel.messages.length ? channel.messages[channel.messages.length - 1].ts : null;
+      if (legacyEntries.length && nextState.rooms.length) {
+        const room = nextState.rooms[0];
+        room.messages = legacyEntries.slice(-selfChatMaxEntries);
+        room.updatedAt = room.messages.length ? room.messages[room.messages.length - 1].ts : null;
       }
       try {
         await window.electron.setSetting(selfChatSettingKey, nextState);
@@ -1004,45 +1073,22 @@ async function initSelfChat() {
     });
   }
 
-  if (selfChatNewServerBtn) {
-    selfChatNewServerBtn.addEventListener('click', () => {
-      if (!selfChatState) return;
-      if (selfChatState.servers.length >= selfChatMaxServers) {
-        alert('Max spaces reached.');
-        return;
-      }
-      const name = prompt('New space name');
-      if (!name) return;
-      const trimmed = name.trim();
-      if (!trimmed) return;
-      const palette = ['#f78b3a', '#52dcc4', '#f1b75b', '#6fc2ff', '#f06666'];
-      const accent = palette[selfChatState.servers.length % palette.length];
-      const server = createServer(trimmed, { accent });
-      selfChatState.servers = [...selfChatState.servers, server];
-      selfChatState.activeServerId = server.id;
-      selfChatState.activeChannelId = server.channels[0].id;
-      renderSelfChat();
-      persistSelfChatState();
-    });
-  }
-
   if (selfChatNewChannelBtn) {
     selfChatNewChannelBtn.addEventListener('click', () => {
-      const server = getActiveServer();
-      if (!server) return;
-      if (server.channels.length >= selfChatMaxChannels) {
-        alert('Max rooms reached for this space.');
+      if (!selfChatState) return;
+      if (selfChatState.rooms.length >= selfChatMaxRooms) {
+        alert('Max rooms reached.');
         return;
       }
       const name = prompt('New room name');
       if (!name) return;
       const trimmed = name.trim();
       if (!trimmed) return;
-      const topic = prompt('Room topic (optional)', '');
-      const channel = createChannel(trimmed, topic || '');
-      server.channels = [...server.channels, channel];
-      server.lastActiveChannelId = channel.id;
-      selfChatState.activeChannelId = channel.id;
+      const room = createRoom(trimmed);
+      selfChatState.rooms = [...selfChatState.rooms, room];
+      selfChatState.activeRoomId = room.id;
+      selfChatRoomFilter = '';
+      if (selfChatChannelSearch) selfChatChannelSearch.value = '';
       renderSelfChat();
       persistSelfChatState();
     });
@@ -1050,15 +1096,13 @@ async function initSelfChat() {
 
   if (selfChatRenameChannelBtn) {
     selfChatRenameChannelBtn.addEventListener('click', () => {
-      const channel = getActiveChannel();
-      if (!channel) return;
-      const name = prompt('Rename room', channel.name);
+      const room = getActiveRoom();
+      if (!room) return;
+      const name = prompt('Rename room', room.name);
       if (name === null) return;
       const trimmed = name.trim();
-      if (trimmed) channel.name = trimmed;
-      const topic = prompt('Room topic (optional)', channel.topic || '');
-      if (topic !== null) channel.topic = String(topic).trim();
-      channel.updatedAt = new Date().toISOString();
+      if (trimmed) room.name = trimmed;
+      room.updatedAt = new Date().toISOString();
       renderSelfChat();
       persistSelfChatState();
     });
@@ -1066,18 +1110,18 @@ async function initSelfChat() {
 
   if (selfChatDeleteChannelBtn) {
     selfChatDeleteChannelBtn.addEventListener('click', () => {
-      const server = getActiveServer();
-      const channel = getActiveChannel();
-      if (!server || !channel) return;
-      if (server.channels.length <= 1) {
-        alert('Keep at least one room in a space.');
+      if (!selfChatState) return;
+      const room = getActiveRoom();
+      if (!room) return;
+      if (selfChatState.rooms.length <= 1) {
+        alert('Keep at least one room.');
         return;
       }
-      if (!confirm(`Delete room "${channel.name}"?`)) return;
-      server.channels = server.channels.filter((ch) => ch.id !== channel.id);
-      const nextChannel = server.channels[0];
-      server.lastActiveChannelId = nextChannel.id;
-      selfChatState.activeChannelId = nextChannel.id;
+      if (!confirm(`Delete room "${room.name}"?`)) return;
+      selfChatState.rooms = selfChatState.rooms.filter((entry) => entry.id !== room.id);
+      selfChatState.activeRoomId = selfChatState.rooms[0].id;
+      selfChatRoomFilter = '';
+      if (selfChatChannelSearch) selfChatChannelSearch.value = '';
       renderSelfChat();
       persistSelfChatState();
     });
@@ -1085,11 +1129,11 @@ async function initSelfChat() {
 
   if (selfChatClearBtn) {
     selfChatClearBtn.addEventListener('click', () => {
-      const channel = getActiveChannel();
-      if (!channel) return;
-      if (!confirm(`Clear all messages in #${channel.name}?`)) return;
-      channel.messages = [];
-      channel.updatedAt = null;
+      const room = getActiveRoom();
+      if (!room) return;
+      if (!confirm(`Clear all messages in ${room.name}?`)) return;
+      room.messages = [];
+      room.updatedAt = null;
       renderSelfChat();
       persistSelfChatState();
     });
@@ -1098,8 +1142,9 @@ async function initSelfChat() {
   if (selfChatSendBtn) {
     selfChatSendBtn.addEventListener('click', () => {
       if (!selfChatInput) return;
-      addSelfChatEntry(selfChatInput.value || '');
+      addSelfChatEntry(selfChatInput.value || '', selfChatPendingImages);
       selfChatInput.value = '';
+      clearSelfChatAttachments();
       selfChatInput.focus();
     });
   }
@@ -1108,17 +1153,41 @@ async function initSelfChat() {
     selfChatInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        addSelfChatEntry(selfChatInput.value || '');
+        addSelfChatEntry(selfChatInput.value || '', selfChatPendingImages);
         selfChatInput.value = '';
+        clearSelfChatAttachments();
         selfChatInput.focus();
       }
+    });
+    selfChatInput.addEventListener('paste', (e) => {
+      const items = e.clipboardData && e.clipboardData.items ? Array.from(e.clipboardData.items) : [];
+      const imageFiles = items
+        .filter((item) => item.type && item.type.startsWith('image/'))
+        .map((item) => item.getAsFile())
+        .filter(Boolean);
+      if (!imageFiles.length) return;
+      e.preventDefault();
+      queuePendingImages(imageFiles);
+    });
+  }
+
+  if (selfChatAddImageBtn && selfChatImageInput) {
+    selfChatAddImageBtn.addEventListener('click', () => {
+      selfChatImageInput.click();
+    });
+  }
+
+  if (selfChatImageInput) {
+    selfChatImageInput.addEventListener('change', (e) => {
+      queuePendingImages(e.target.files);
+      e.target.value = '';
     });
   }
 
   if (selfChatChannelSearch) {
     selfChatChannelSearch.addEventListener('input', (e) => {
-      selfChatChannelFilter = e.target.value || '';
-      renderSelfChatChannels();
+      selfChatRoomFilter = e.target.value || '';
+      renderSelfChatRooms();
     });
   }
 
