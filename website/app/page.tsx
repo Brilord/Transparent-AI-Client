@@ -1,3 +1,6 @@
+import Image from "next/image";
+import exampleOperation from "../example-operation.png";
+
 export default function Home() {
   return (
     <div className="page">
@@ -5,6 +8,7 @@ export default function Home() {
         <nav className="nav">
           <div className="logo">Transparent Link Client</div>
           <div className="nav-links">
+            <a href="#demo">Example</a>
             <a href="#features">Features</a>
             <a href="#workflow">Workflow</a>
             <a href="#shortcuts">Shortcuts</a>
@@ -45,6 +49,21 @@ export default function Home() {
           </div>
 
           <div className="hero-visual">
+            <section id="demo" className="hero-demo lift">
+              <p className="eyebrow">Example</p>
+              <div className="demo-frame">
+                <Image
+                  src={exampleOperation}
+                  alt="Example of the Plana workflow showing transparent windows and saved links."
+                  className="demo-image"
+                  priority
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                />
+              </div>
+              <div className="demo-caption">
+                Example of Plana running a link library with floating windows.
+              </div>
+            </section>
             <div className="floating-card drift">
               <div className="floating-title">Command palette</div>
               <p>Search links, edit, and launch in seconds.</p>

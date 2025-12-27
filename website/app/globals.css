@@ -185,6 +185,13 @@ img {
 .hero-visual {
   position: relative;
   min-height: 420px;
+  display: grid;
+  align-items: center;
+}
+
+.hero-demo {
+  display: grid;
+  gap: 12px;
 }
 
 .screen-card {
@@ -343,6 +350,103 @@ img {
   color: var(--accent);
 }
 
+.demo {
+  position: relative;
+}
+
+.demo::before {
+  content: "";
+  position: absolute;
+  inset: 10px 6vw;
+  border-radius: 32px;
+  background:
+    radial-gradient(520px 320px at 18% 24%, rgba(255, 179, 71, 0.18), transparent 60%),
+    radial-gradient(520px 320px at 86% 70%, rgba(76, 211, 255, 0.16), transparent 60%);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.demo > * {
+  position: relative;
+}
+
+.demo-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 36px;
+  align-items: center;
+}
+
+.demo-copy {
+  display: grid;
+  gap: 16px;
+}
+
+.demo-card {
+  padding: 20px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--stroke);
+}
+
+.demo-card h3 {
+  margin: 0 0 10px;
+}
+
+.demo-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.demo-list li {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.demo-list span {
+  font-family: var(--font-display), "Fraunces", serif;
+  color: var(--accent-3);
+  letter-spacing: 0.08em;
+}
+
+.demo-list strong {
+  color: var(--ink);
+}
+
+.demo-media {
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.demo-frame {
+  padding: 14px;
+  border-radius: 24px;
+  background: var(--card);
+  border: 1px solid var(--stroke);
+  box-shadow: 0 30px 60px var(--shadow);
+}
+
+.demo-image {
+  border-radius: 18px;
+  width: 100%;
+  height: auto;
+}
+
+.demo-caption {
+  margin: 0 4px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
 .shortcut-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -438,6 +542,7 @@ img {
 
   .hero-visual {
     min-height: 340px;
+    order: -1;
   }
 
   .floating-card {
@@ -451,6 +556,14 @@ img {
 
   .split {
     grid-template-columns: 1fr;
+  }
+
+  .demo-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .demo-media {
+    order: -1;
   }
 }
 
