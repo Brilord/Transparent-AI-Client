@@ -183,4 +183,4 @@ If the build fails, check `dist/builder-effective-config.yaml` for the resolved 
 
 ## License
 
-MIT
+See `LICENSE`.
