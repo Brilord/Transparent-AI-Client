@@ -8,6 +8,10 @@ const closeBtn = document.getElementById('closeBtn');
 const settingsBtn = document.getElementById('settingsBtn');
 const resetBtn = document.getElementById('resetBtn');
 const settingsPanel = document.getElementById('settingsPanel');
+const appTitleEl = document.getElementById('appTitle');
+const appNameInput = document.getElementById('appNameInput');
+const appNameSaveBtn = document.getElementById('appNameSaveBtn');
+const appNameResetBtn = document.getElementById('appNameResetBtn');
 const selfChatBtn = document.getElementById('selfChatBtn');
 const selfChatOverlay = document.getElementById('selfChatOverlay');
 const selfChatPanel = document.getElementById('selfChatPanel');
@@ -78,6 +82,18 @@ const paletteEditUrl = document.getElementById('paletteEditUrl');
 const paletteEditTags = document.getElementById('paletteEditTags');
 const paletteEditFolder = document.getElementById('paletteEditFolder');
 const paletteEditPriority = document.getElementById('paletteEditPriority');
+
+const DEFAULT_APP_NAME = 'PlanaClientV2.0';
+
+function applyAppDisplayName(name) {
+  const trimmed = typeof name === 'string' ? name.trim() : '';
+  const resolved = trimmed || DEFAULT_APP_NAME;
+  if (appTitleEl) appTitleEl.textContent = resolved;
+  document.title = resolved;
+  if (appNameInput && document.activeElement !== appNameInput) {
+    appNameInput.value = resolved;
+  }
+}
 const paletteEditNotes = document.getElementById('paletteEditNotes');
 const paletteEditSaveBtn = document.getElementById('paletteEditSaveBtn');
 const paletteEditCancelBtn = document.getElementById('paletteEditCancelBtn');
@@ -2027,6 +2043,7 @@ async function initSettingsUI() {
     } catch (err) { defaultLinksPath = null; }
     updateLinksFileDisplay(s.customDataFile || null);
     applyCustomBackground(s.backgroundImagePath || null);
+    applyAppDisplayName(s.appDisplayName || DEFAULT_APP_NAME);
     if (groupingSelect) {
       groupingMode = typeof s.groupingPreference === 'string' ? s.groupingPreference : 'none';
       groupingSelect.value = groupingMode;
@@ -2045,6 +2062,26 @@ async function initSettingsUI() {
     }
     if (typeof s.persistSettings === 'boolean') persistSettingsChk.checked = s.persistSettings;
     if (typeof s.launchOnStartup === 'boolean') launchOnStartupChk.checked = s.launchOnStartup;
+
+    if (appNameSaveBtn && appNameInput) {
+      appNameSaveBtn.addEventListener('click', async () => {
+        await window.electron.setSetting('appDisplayName', appNameInput.value);
+      });
+    }
+
+    if (appNameResetBtn) {
+      appNameResetBtn.addEventListener('click', async () => {
+        await window.electron.setSetting('appDisplayName', null);
+      });
+    }
+
+    if (appNameInput) {
+      appNameInput.addEventListener('keydown', async (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        await window.electron.setSetting('appDisplayName', appNameInput.value);
+      });
+    }
 
     // Wire up change listeners
     alwaysOnTopChk.addEventListener('change', async (e) => {
@@ -2153,6 +2190,7 @@ async function initSettingsUI() {
         if (telemetryChk) telemetryChk.checked = !!newSettings.telemetryEnabled;
         updateDataCollectionStatus(!!newSettings.telemetryEnabled);
         applyCustomBackground(newSettings.backgroundImagePath || null);
+        applyAppDisplayName(newSettings.appDisplayName || DEFAULT_APP_NAME);
         selfChatState = normalizeSelfChatState(newSettings[selfChatSettingKey]) || createDefaultChatState();
         renderSelfChat();
       }
@@ -2200,6 +2238,9 @@ async function initSettingsUI() {
           if (key === 'workspaces') {
             workspaces = normalizeWorkspaces(value);
             renderWorkspaces();
+          }
+          if (key === 'appDisplayName') {
+            applyAppDisplayName(value || DEFAULT_APP_NAME);
           }
         } catch (err) {}
       });

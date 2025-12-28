@@ -172,6 +172,7 @@ function applyOpacityToLinkWindows() {
 
 // Default app settings
 const DEFAULT_SETTINGS = {
+  appDisplayName: 'PlanaClientV2.0',
   appOpacity: 1.0,
   alwaysOnTop: false,
   injectResizers: true,
@@ -2102,6 +2103,10 @@ ipcMain.handle('get-all-settings', () => {
 ipcMain.handle('set-setting', (event, key, value) => {
   if (!key) return false;
   let nextValue = value;
+  if (key === 'appDisplayName') {
+    const normalized = sanitizeString(value);
+    nextValue = normalized || DEFAULT_SETTINGS.appDisplayName;
+  }
   if (key === 'customDataFile') {
     const normalized = (typeof value === 'string') ? value.trim() : '';
     nextValue = normalized || null;

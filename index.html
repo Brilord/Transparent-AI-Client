@@ -9,7 +9,7 @@
 <body>
     <div class="container">
         <div class="titlebar">
-            <h1>PlanaClientV2.0</h1>
+            <h1 id="appTitle">PlanaClientV2.0</h1>
             <div class="window-controls">
                 <button id="settingsBtn" class="control-btn settings-btn">⚙</button>
                 <button id="helpBtn" class="control-btn help-btn" title="Help">?</button>
@@ -144,6 +144,16 @@
                     <button type="button" class="section-toggle" aria-expanded="true" aria-controls="settingsSectionBody">Collapse</button>
                 </div>
                 <div id="settingsSectionBody" class="section-body">
+                    <div class="setting-row">
+                        <label for="appNameInput">App name</label>
+                        <div class="folder-row">
+                            <input id="appNameInput" type="text" class="settings-input" placeholder="PlanaClientV2.0">
+                            <button id="appNameSaveBtn" class="small-btn" type="button">Save</button>
+                            <button id="appNameResetBtn" class="small-btn subtle" type="button">Reset</button>
+                        </div>
+                        <small class="hint">Shown in the title bar of the main window.</small>
+                    </div>
+
                     <div class="setting-row">
                         <label for="opacityRange">Window transparency</label>
                         <div class="range-row">

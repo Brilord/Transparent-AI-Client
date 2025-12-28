@@ -184,3 +184,11 @@ If the build fails, check `dist/builder-effective-config.yaml` for the resolved 
 ## License
 
 See `LICENSE`.
+
+
+
+
+
+git tag v1.0.0
+git push origin v1.0.0
+
