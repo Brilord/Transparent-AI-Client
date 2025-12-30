@@ -502,9 +502,10 @@ html.plana-readability button,
 html.plana-readability input,
 html.plana-readability textarea,
 html.plana-readability select {
-  background: rgba(255, 255, 255, 0.08) !important;
+  background: rgba(10, 14, 22, 0.68) !important;
   border: 1px solid rgba(255, 255, 255, 0.3) !important;
   color: rgba(248, 250, 255, 0.95) !important;
+  caret-color: rgba(248, 250, 255, 0.95) !important;
   border-radius: 8px;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 8px 24px rgba(3, 4, 8, 0.4);
 }

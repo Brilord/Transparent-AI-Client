@@ -69,6 +69,7 @@ npm run dev
 
 To create distributable builds (Windows installer and portable exe):
 ```powershell
+npm ci
 npm run build:win
 ```
 
@@ -170,6 +171,7 @@ This app provides both mouse and keyboard controls for frameless windows.
 
 - Build for Windows installer + portable exe:
 ```powershell
+npm ci
 npm run build:win
 ```
 - Outputs will be placed in `transparent-ai-client-dist/`.
