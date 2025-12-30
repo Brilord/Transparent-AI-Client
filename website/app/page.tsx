@@ -54,14 +54,14 @@ export default function Home() {
               <div className="demo-frame">
                 <Image
                   src={exampleOperation}
-                  alt="Example of the Plana workflow showing transparent windows and saved links."
+                  alt="Example of the Transparent AI Client workflow showing transparent windows and saved links."
                   className="demo-image"
                   priority
                   sizes="(max-width: 1024px) 100vw, 50vw"
                 />
               </div>
               <div className="demo-caption">
-                Example of Plana running a link library with floating windows.
+                Example of Transparent AI Client running a link library with floating windows.
               </div>
             </section>
             <div className="floating-card drift">

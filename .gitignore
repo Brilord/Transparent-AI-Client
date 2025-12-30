@@ -61,6 +61,7 @@ jspm_packages/
 
 # Electron
 dist/
+transparent-ai-client-dist/
 release/
 
 # User data

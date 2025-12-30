@@ -95,8 +95,8 @@ function emitTelemetryStateSnapshot(source = 'init', enabledOverride) {
     enabled,
     submitURL: TELEMETRY_SUBMIT_URL,
     config: {
-      productName: 'PlanaClientV2.0',
-      companyName: 'PlanaClient',
+      productName: 'Transparent AI Client',
+      companyName: 'Transparent AI Client',
       compress: true,
       uploadToServer: enabled
     },
@@ -110,8 +110,8 @@ function applyTelemetryState(enabled) {
   try {
     if (!crashReporterInitialized) {
       crashReporter.start({
-        productName: 'PlanaClientV2.0',
-        companyName: 'PlanaClient',
+        productName: 'Transparent AI Client',
+        companyName: 'Transparent AI Client',
         submitURL: TELEMETRY_SUBMIT_URL,
         uploadToServer: uploadEnabled,
         compress: true
@@ -172,7 +172,7 @@ function applyOpacityToLinkWindows() {
 
 // Default app settings
 const DEFAULT_SETTINGS = {
-  appDisplayName: 'PlanaClientV2.0',
+  appDisplayName: 'Transparent AI Client',
   appOpacity: 1.0,
   alwaysOnTop: false,
   injectResizers: true,
@@ -578,7 +578,7 @@ function httpRequest(targetUrl, options = {}) {
         path: `${parsed.pathname || '/'}` + (parsed.search || ''),
         timeout: options.timeout || HTTP_TIMEOUT_MS,
         headers: Object.assign({
-          'User-Agent': 'PlanaClient/2.0 (+https://github.com/brianw/plana)',
+          'User-Agent': 'TransparentAIClient/2.0 (+https://github.com/brianw/plana)',
           Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/*;q=0.8,*/*;q=0.8',
           'Accept-Encoding': 'identity',
           Connection: 'close'

@@ -83,7 +83,7 @@ const paletteEditTags = document.getElementById('paletteEditTags');
 const paletteEditFolder = document.getElementById('paletteEditFolder');
 const paletteEditPriority = document.getElementById('paletteEditPriority');
 
-const DEFAULT_APP_NAME = 'PlanaClientV2.0';
+const DEFAULT_APP_NAME = 'Transparent AI Client';
 
 function applyAppDisplayName(name) {
   const trimmed = typeof name === 'string' ? name.trim() : '';

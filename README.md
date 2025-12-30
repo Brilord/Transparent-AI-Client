@@ -1,6 +1,6 @@
-# PlanaClientV2.0
+# Transparent AI Client
 
-A minimal Electron application (PlanaClientV2.0) with a transparent, glass-style UI for storing and managing website links.
+A minimal Electron application (Transparent AI Client) with a transparent, glass-style UI for storing and managing website links.
 
 ## Features
 
@@ -9,7 +9,7 @@ A minimal Electron application (PlanaClientV2.0) with a transparent, glass-style
 - 💾 Local persistent storage using JSON
 - 🖱️ Click links to open them inside transparent app windows
 - ⌨️ Keyboard and mouse controls for precise window movement and resizing
-- 🗂️ Custom storage picker so you can point Plana at any `links.json` file, edit it manually, or keep it inside a synced folder.
+- 🗂️ Custom storage picker so you can point Transparent AI Client at any `links.json` file, edit it manually, or keep it inside a synced folder.
 - 🏷️ Tag links, filter by tag chips, and bulk-apply tags to keep large libraries organized.
 - 🧰 Manage every entry inline with edit, open-in-browser, copy, pin/unpin, and favorite toggles without leaving the catalog.
 
@@ -72,7 +72,7 @@ To create distributable builds (Windows installer and portable exe):
 npm run build:win
 ```
 
-Build artifacts are written to the `dist/` folder (installer and portable executable).
+Build artifacts are written to the `transparent-ai-client-dist/` folder (installer and portable executable).
 
 ## macOS build
 
@@ -97,7 +97,7 @@ Or use the included GitHub Actions workflow which runs on macOS and uploads buil
 
 ### Linux build
 
-You can build Linux artifacts (AppImage and deb) using electron-builder. Builds should run on a Linux machine or CI runner. The included GitHub Actions workflow will run on ubuntu-latest and upload the `dist/` folder when the workflow completes.
+You can build Linux artifacts (AppImage and deb) using electron-builder. Builds should run on a Linux machine or CI runner. The included GitHub Actions workflow will run on ubuntu-latest and upload the `transparent-ai-client-dist/` folder when the workflow completes.
 
 To build locally on Linux:
 
@@ -158,7 +158,7 @@ This app provides both mouse and keyboard controls for frameless windows.
  - Reset main window bounds: `Ctrl + Alt + R` (main window only).
  - Snap link window to left third: `Alt + 6` (link windows only).
  - Snap link window to right third: `Alt + 9` (link windows only).
- - Dragging a window near a screen edge lets the operating system snap it, just like any other application—Plana no longer adds extra snap layouts.
+ - Dragging a window near a screen edge lets the operating system snap it, just like any other application—Transparent AI Client no longer adds extra snap layouts.
 
 ## Link Windows (External Pages)
 
@@ -172,9 +172,9 @@ This app provides both mouse and keyboard controls for frameless windows.
 ```powershell
 npm run build:win
 ```
-- Outputs will be placed in `dist/`.
+- Outputs will be placed in `transparent-ai-client-dist/`.
 
-If the build fails, check `dist/builder-effective-config.yaml` for the resolved configuration and ensure your environment can download the Electron runtime.
+If the build fails, check `transparent-ai-client-dist/builder-effective-config.yaml` for the resolved configuration and ensure your environment can download the Electron runtime.
 
 ## Troubleshooting
 

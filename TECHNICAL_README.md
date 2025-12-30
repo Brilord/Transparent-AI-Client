@@ -1,4 +1,4 @@
-﻿# Technical README - PlanaClientV2.0
+﻿# Technical README - Transparent AI Client
 
 An in-depth look at how this Electron link manager is structured, how data moves through it, and what the key functions do.
 
@@ -89,7 +89,7 @@ Imports merge by `id`; duplicates are skipped. Favorites toggle via `toggle-favo
 
 | Handler or Function | Purpose |
 | --- | --- |
-| `ipcMain.handle('get/set-window-bounds')`, `get-window-work-area`, `move-window`, `toggle-maximize` (`main.js:210-292`) | Support mouse/keyboard resizing and moving for frameless windows. Bounds snap to display work areas via the OS; Plana only adjusts width/height/position incrementally. |
+| `ipcMain.handle('get/set-window-bounds')`, `get-window-work-area`, `move-window`, `toggle-maximize` (`main.js:210-292`) | Support mouse/keyboard resizing and moving for frameless windows. Bounds snap to display work areas via the OS; Transparent AI Client only adjusts width/height/position incrementally. |
 | `ipcMain.handle('get-links'...'manual-backup')` (`main.js:322-419`) | CRUD, export/import, and backup of the link catalog. |
 | `ipcMain.handle('open-link')` -> `openLinkWindow()` (`main.js:420-605`) | Opens an external BrowserWindow, applies opacity, saves bounds, and tracks metadata in `linkWindowMeta`. |
 | `ipcMain.handle('set-app-opacity')` with `applyOpacityToLinkWindows()` (`main.js:614-644`, `21-33`) | Global opacity pipeline with easing to keep link windows legible (minimum 0.68). |
@@ -146,7 +146,7 @@ Imports merge by `id`; duplicates are skipped. Favorites toggle via `toggle-favo
 
 - `npm start` runs Electron normally.
 - `npm run dev` runs with remote debugging enabled.
-- `npm run build:win`, `build:mac`, `build:linux`, `build:portable` run electron-builder targets defined in `package.json:24-45` (NSIS + portable exe, DMG/ZIP, AppImage/deb). Artifacts land in `dist/`.
+- `npm run build:win`, `build:mac`, `build:linux`, `build:portable` run electron-builder targets defined in `package.json:24-45` (NSIS + portable exe, DMG/ZIP, AppImage/deb). Artifacts land in `transparent-ai-client-dist/`.
 - Icons live in `assets/icons/...`; `build.directories.buildResources` points to `assets` so installer art is bundled automatically.
 
 ---
