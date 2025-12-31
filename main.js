@@ -301,6 +301,7 @@ const DEFAULT_SETTINGS = {
   appDisplayName: 'Transparent AI Client',
   appOpacity: 1.0,
   alwaysOnTop: false,
+  nativeTransparency: false,
   injectResizers: true,
   linkSessionMode: 'shared',
   persistSettings: true,
@@ -1155,13 +1156,14 @@ function getDefaultMainWindowBounds(win) {
 }
 
 function createWindow() {
+  const useNativeTransparency = !!appSettings.nativeTransparency;
   mainWindow = new BrowserWindow({
     width: DEFAULT_MAIN_WINDOW_WIDTH,
     height: DEFAULT_MAIN_WINDOW_HEIGHT,
     center: true,
-    transparent: false,
-    frame: true,
-    backgroundColor: '#111111',
+    transparent: useNativeTransparency,
+    frame: !useNativeTransparency,
+    backgroundColor: useNativeTransparency ? '#00000000' : '#111111',
     autoHideMenuBar: true,
     alwaysOnTop: !!appSettings.alwaysOnTop,
     resizable: true,
@@ -1207,14 +1209,15 @@ function openChatWindow() {
     chatWindow.focus();
     return true;
   }
+  const useNativeTransparency = !!appSettings.nativeTransparency;
   chatWindow = new BrowserWindow({
     width: 1200,
     height: 820,
     minWidth: 720,
     minHeight: 520,
-    transparent: false,
-    frame: true,
-    backgroundColor: '#0b1018',
+    transparent: useNativeTransparency,
+    frame: !useNativeTransparency,
+    backgroundColor: useNativeTransparency ? '#00000000' : '#0b1018',
     autoHideMenuBar: true,
     alwaysOnTop: !!appSettings.alwaysOnTop,
     resizable: true,
@@ -1836,14 +1839,15 @@ function openLinkWindow(idOrUrl, maybeUrl, options = {}) {
   };
   if (sessionPartition) webPreferences.partition = sessionPartition;
 
+  const useNativeTransparency = !!appSettings.nativeTransparency;
   let winOpts = {
     width: 1000,
     height: 800,
-    transparent: false,
-    frame: true,
+    transparent: useNativeTransparency,
+    frame: !useNativeTransparency,
     resizable: true,
     movable: true,
-    backgroundColor: '#111111',
+    backgroundColor: useNativeTransparency ? '#00000000' : '#111111',
     autoHideMenuBar: true,
     alwaysOnTop: !!appSettings.alwaysOnTop,
     webPreferences

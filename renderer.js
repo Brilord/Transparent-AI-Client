@@ -44,6 +44,7 @@ const helpPanel = document.getElementById('helpPanel');
 const helpCloseBtn = document.getElementById('helpCloseBtn');
 const opacityRange = document.getElementById('opacityRange');
 const opacityVal = document.getElementById('opacityVal');
+const nativeTransparencyChk = document.getElementById('nativeTransparencyChk');
 const alwaysOnTopChk = document.getElementById('alwaysOnTopChk');
 const injectResizersChk = document.getElementById('injectResizersChk');
 const linkSessionModeSelect = document.getElementById('linkSessionMode');
@@ -2055,6 +2056,9 @@ async function initSettingsUI() {
 
     // Set UI states
     if (typeof s.alwaysOnTop === 'boolean') alwaysOnTopChk.checked = s.alwaysOnTop;
+    if (typeof s.nativeTransparency === 'boolean' && nativeTransparencyChk) {
+      nativeTransparencyChk.checked = s.nativeTransparency;
+    }
     if (typeof s.injectResizers === 'boolean') {
       injectResizersChk.checked = s.injectResizers;
       applyResizerVisibility(!!s.injectResizers);
@@ -2091,6 +2095,12 @@ async function initSettingsUI() {
     }
 
     // Wire up change listeners
+    if (nativeTransparencyChk) {
+      nativeTransparencyChk.addEventListener('change', async (e) => {
+        await window.electron.setSetting('nativeTransparency', !!e.target.checked);
+      });
+    }
+
     alwaysOnTopChk.addEventListener('change', async (e) => {
       await window.electron.setSetting('alwaysOnTop', !!e.target.checked);
     });
@@ -2195,6 +2205,7 @@ async function initSettingsUI() {
         opacityVal.innerText = Math.round(newSettings.appOpacity * 100) + '%';
           applyBackgroundVisuals(newSettings.appOpacity);
         alwaysOnTopChk.checked = newSettings.alwaysOnTop;
+        if (nativeTransparencyChk) nativeTransparencyChk.checked = !!newSettings.nativeTransparency;
         injectResizersChk.checked = newSettings.injectResizers;
         applyResizerVisibility(!!newSettings.injectResizers);
         if (linkSessionModeSelect) linkSessionModeSelect.value = newSettings.linkSessionMode || 'shared';
@@ -2223,6 +2234,9 @@ async function initSettingsUI() {
             applyBackgroundVisuals(value);
           }
           if (key === 'alwaysOnTop') alwaysOnTopChk.checked = !!value;
+          if (key === 'nativeTransparency' && nativeTransparencyChk) {
+            nativeTransparencyChk.checked = !!value;
+          }
           if (key === 'injectResizers') {
             injectResizersChk.checked = !!value;
             applyResizerVisibility(!!value);

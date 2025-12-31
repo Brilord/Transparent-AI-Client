@@ -523,6 +523,56 @@ html.plana-readability-intensive ::placeholder {
 
 let readabilityStylesMounted = false;
 let pendingOpacityValue = null;
+let nativeTransparencyEnabled = false;
+
+const TRANSPARENT_STYLE_ID = 'plana-link-transparent-style';
+const TRANSPARENT_STYLE_CONTENT = `
+html, body {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+body::before,
+body::after,
+html::before,
+html::after {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+  opacity: 1 !important;
+}
+* {
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+*:before,
+*:after,
+*::before,
+*::after {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+canvas,
+video {
+  background: transparent !important;
+}
+[style*="background"],
+[style*="background-color"],
+[style*="background-image"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+}
+body *:not(svg):not(svg *) {
+  backdrop-filter: none !important;
+}
+`;
 
 function tryMountReadabilityStyles() {
   if (readabilityStylesMounted) return true;
@@ -547,6 +597,14 @@ function tryMountReadabilityStyles() {
 
 function applyReadabilityVisuals(rawOpacity) {
   if (!document || !document.documentElement) return;
+  if (nativeTransparencyEnabled) {
+    const docEl = document.documentElement;
+    docEl.classList.remove('plana-readability', 'plana-readability-intensive');
+    docEl.style.removeProperty('--plana-link-overlay-alpha');
+    docEl.style.removeProperty('--plana-link-blur');
+    docEl.style.removeProperty('--plana-link-base-font-scale');
+    return;
+  }
   let numeric = typeof rawOpacity === 'number' ? rawOpacity : parseFloat(rawOpacity);
   if (isNaN(numeric)) numeric = 1;
   const clamped = Math.max(0, Math.min(1, numeric));
@@ -571,8 +629,28 @@ function applyReadabilityVisuals(rawOpacity) {
 
 function handleOpacityUpdate(value) {
   pendingOpacityValue = value;
+  if (nativeTransparencyEnabled) {
+    applyReadabilityVisuals(value);
+    return;
+  }
   if (!tryMountReadabilityStyles()) return;
   applyReadabilityVisuals(value);
+}
+
+function applyLinkTransparency(enabled) {
+  if (!document || !document.head) return;
+  const shouldEnable = !!enabled;
+  nativeTransparencyEnabled = shouldEnable;
+  const existing = document.getElementById(TRANSPARENT_STYLE_ID);
+  if (!shouldEnable) {
+    if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+    return;
+  }
+  if (existing) return;
+  const styleEl = document.createElement('style');
+  styleEl.id = TRANSPARENT_STYLE_ID;
+  styleEl.textContent = TRANSPARENT_STYLE_CONTENT;
+  document.head.appendChild(styleEl);
 }
 
 const ensureReadabilityReady = () => {
@@ -592,11 +670,27 @@ ipcRenderer.on('app-opacity-changed', (_event, value) => {
   handleOpacityUpdate(value);
 });
 
+ipcRenderer.on('setting-changed', (_event, key, value) => {
+  if (key === 'nativeTransparency') {
+    applyLinkTransparency(!!value);
+    handleOpacityUpdate(pendingOpacityValue);
+  }
+});
+
 (async () => {
   try {
     const currentOpacity = await ipcRenderer.invoke('get-app-opacity');
     handleOpacityUpdate(currentOpacity);
   } catch (err) {
     // ignore inability to fetch opacity
+  }
+})();
+
+(async () => {
+  try {
+    const enabled = await ipcRenderer.invoke('get-setting', 'nativeTransparency');
+    applyLinkTransparency(!!enabled);
+  } catch (err) {
+    // ignore
   }
 })();
