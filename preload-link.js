@@ -524,6 +524,7 @@ html.plana-readability-intensive ::placeholder {
 let readabilityStylesMounted = false;
 let pendingOpacityValue = null;
 let nativeTransparencyEnabled = false;
+let pendingTransparencyValue = null;
 
 const TRANSPARENT_STYLE_ID = 'plana-link-transparent-style';
 const TRANSPARENT_STYLE_CONTENT = `
@@ -638,9 +639,10 @@ function handleOpacityUpdate(value) {
 }
 
 function applyLinkTransparency(enabled) {
-  if (!document || !document.head) return;
   const shouldEnable = !!enabled;
   nativeTransparencyEnabled = shouldEnable;
+  pendingTransparencyValue = shouldEnable;
+  if (!document || !document.head) return;
   const existing = document.getElementById(TRANSPARENT_STYLE_ID);
   if (!shouldEnable) {
     if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
@@ -653,6 +655,12 @@ function applyLinkTransparency(enabled) {
   document.head.appendChild(styleEl);
 }
 
+function ensureLinkTransparencyReady() {
+  if (!document || !document.head) return;
+  if (pendingTransparencyValue === null || pendingTransparencyValue === undefined) return;
+  applyLinkTransparency(pendingTransparencyValue);
+}
+
 const ensureReadabilityReady = () => {
   if (!tryMountReadabilityStyles()) return;
   if (pendingOpacityValue !== null && pendingOpacityValue !== undefined) {
@@ -661,9 +669,13 @@ const ensureReadabilityReady = () => {
 };
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', ensureReadabilityReady, { once: true });
+  document.addEventListener('DOMContentLoaded', () => {
+    ensureReadabilityReady();
+    ensureLinkTransparencyReady();
+  }, { once: true });
 } else {
   ensureReadabilityReady();
+  ensureLinkTransparencyReady();
 }
 
 ipcRenderer.on('app-opacity-changed', (_event, value) => {

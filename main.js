@@ -276,6 +276,7 @@ function normalizeTags(input) {
 }
 
 function getLinkWindowOpacity(baseOpacity) {
+  if (appSettings && appSettings.nativeTransparency) return 1;
   let normalized = typeof baseOpacity === 'number' ? baseOpacity : parseFloat(baseOpacity);
   if (isNaN(normalized)) normalized = 1;
   normalized = Math.max(0, Math.min(1, normalized));
@@ -1879,7 +1880,8 @@ function openLinkWindow(idOrUrl, maybeUrl, options = {}) {
 
   try {
     if (typeof linkWindow.setOpacity === 'function') {
-      linkWindow.setOpacity(getLinkWindowOpacity(appOpacity));
+      const targetOpacity = appSettings.nativeTransparency ? 1 : getLinkWindowOpacity(appOpacity);
+      linkWindow.setOpacity(targetOpacity);
     }
   } catch (err) {
     // ignore opacity failures on unsupported platforms
@@ -2343,6 +2345,10 @@ ipcMain.handle('set-setting', (event, key, value) => {
         }
         try { applyOpacityToLinkWindows(); } catch (e) {}
       }
+    }
+
+    if (key === 'nativeTransparency') {
+      try { applyOpacityToLinkWindows(); } catch (e) {}
     }
 
     if (key === 'launchOnStartup') {
