@@ -102,6 +102,7 @@ const chooseLinksFileBtn = document.getElementById('chooseLinksFileBtn');
 const resetLinksFileBtn = document.getElementById('resetLinksFileBtn');
 const openLinksFileBtn = document.getElementById('openLinksFileBtn');
 const telemetryChk = document.getElementById('telemetryChk');
+const developerModeChk = document.getElementById('developerModeChk');
 const backgroundImagePathEl = document.getElementById('backgroundImagePath');
 const chooseBackgroundBtn = document.getElementById('chooseBackgroundBtn');
 const resetBackgroundBtn = document.getElementById('resetBackgroundBtn');
@@ -112,6 +113,8 @@ const clearDataCollectionBtn = document.getElementById('clearDataCollectionBtn')
 const collapsibleSections = Array.from(document.querySelectorAll('[data-collapsible]'));
 const collapseStateKey = 'plana:collapsedSections';
 let collapseState = {};
+let initialRenderReported = false;
+let developerModeEnabled = false;
 
 function loadCollapseState() {
   try {
@@ -2062,6 +2065,10 @@ async function initSettingsUI() {
     }
     if (typeof s.persistSettings === 'boolean') persistSettingsChk.checked = s.persistSettings;
     if (typeof s.launchOnStartup === 'boolean') launchOnStartupChk.checked = s.launchOnStartup;
+    if (typeof s.developerMode === 'boolean') {
+      developerModeEnabled = s.developerMode;
+      if (developerModeChk) developerModeChk.checked = s.developerMode;
+    }
 
     if (appNameSaveBtn && appNameInput) {
       appNameSaveBtn.addEventListener('click', async () => {
@@ -2107,6 +2114,14 @@ async function initSettingsUI() {
     launchOnStartupChk.addEventListener('change', async (e) => {
       await window.electron.setSetting('launchOnStartup', !!e.target.checked);
     });
+
+    if (developerModeChk) {
+      developerModeChk.addEventListener('change', async (e) => {
+        const enabled = !!e.target.checked;
+        developerModeEnabled = enabled;
+        await window.electron.setSetting('developerMode', enabled);
+      });
+    }
 
     // Folder sync UI
     const useFolderSyncChk = document.getElementById('useFolderSyncChk');
@@ -2186,6 +2201,8 @@ async function initSettingsUI() {
         persistSettingsChk.checked = newSettings.persistSettings;
         // reflect new boolean settings into UI
         launchOnStartupChk.checked = !!newSettings.launchOnStartup;
+        if (developerModeChk) developerModeChk.checked = !!newSettings.developerMode;
+        developerModeEnabled = !!newSettings.developerMode;
         updateLinksFileDisplay(newSettings.customDataFile || null);
         if (telemetryChk) telemetryChk.checked = !!newSettings.telemetryEnabled;
         updateDataCollectionStatus(!!newSettings.telemetryEnabled);
@@ -2215,6 +2232,10 @@ async function initSettingsUI() {
           }
           if (key === 'persistSettings') persistSettingsChk.checked = !!value;
           if (key === 'launchOnStartup') launchOnStartupChk.checked = !!value;
+          if (key === 'developerMode') {
+            developerModeEnabled = !!value;
+            if (developerModeChk) developerModeChk.checked = !!value;
+          }
           if (key === 'customDataFile') {
             updateLinksFileDisplay(value || null);
             loadLinks();
@@ -2322,7 +2343,9 @@ resizers.forEach(resizer => {
 // Keyboard resize now handled in preload for consistent behavior across windows
 
 async function loadLinks() {
+  const fetchStart = performance.now();
   const links = await window.electron.getLinks();
+  const fetchMs = performance.now() - fetchStart;
   if (Array.isArray(links)) {
     currentLinks = links.slice().sort((a, b) => {
       const av = typeof a.sortOrder === 'number' ? a.sortOrder : (a.createdAt ? Date.parse(a.createdAt) : 0);
@@ -2332,10 +2355,20 @@ async function loadLinks() {
   } else {
     currentLinks = [];
   }
+  if (developerModeEnabled && window.electron && typeof window.electron.reportPerfEvent === 'function') {
+    window.electron.reportPerfEvent('links-fetch', {
+      ms: Number(fetchMs.toFixed(2)),
+      count: currentLinks.length
+    });
+  }
   renderTagFilters();
   renderLinks();
   renderQuickAccess();
   if (isCommandPaletteOpen()) updateCommandPaletteResults();
+  if (!initialRenderReported && window.electron && typeof window.electron.reportRendererReady === 'function') {
+    initialRenderReported = true;
+    window.electron.reportRendererReady(performance.now());
+  }
 }
 
 async function addLink() {
@@ -2387,11 +2420,22 @@ async function deleteLink(id) {
 }
 
 function renderLinks() {
+  const renderStart = performance.now();
   linksList.innerHTML = '';
 
   const filtered = getFilteredLinks();
   if (!filtered || filtered.length === 0) {
     emptyState.style.display = 'flex';
+    if (developerModeEnabled && window.electron && typeof window.electron.reportPerfEvent === 'function') {
+      const renderMs = performance.now() - renderStart;
+      window.electron.reportPerfEvent('render-links', {
+        ms: Number(renderMs.toFixed(2)),
+        filtered: 0,
+        total: currentLinks.length,
+        queryLength: searchQuery.length,
+        grouping: groupingMode
+      });
+    }
     return;
   }
 
@@ -2426,6 +2470,17 @@ function renderLinks() {
       items.forEach((link) => {
         linksList.appendChild(buildLinkElement(link, { groupKey }));
       });
+    });
+  }
+
+  if (developerModeEnabled && window.electron && typeof window.electron.reportPerfEvent === 'function') {
+    const renderMs = performance.now() - renderStart;
+    window.electron.reportPerfEvent('render-links', {
+      ms: Number(renderMs.toFixed(2)),
+      filtered: filtered.length,
+      total: currentLinks.length,
+      queryLength: searchQuery.length,
+      grouping: groupingMode
     });
   }
 }

@@ -6,6 +6,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --remote-debugging-port=9222",
+    "bench:startup": "PERF_BENCH=1 electron .",
     "build": "electron-builder",
     "build:win": "electron-builder --win",
     "build:win:ci": "electron-builder --win --publish always",
@@ -39,8 +40,12 @@
       "main.js",
       "preload.js",
       "preload-link.js",
+      "preload-perf.js",
       "renderer.js",
       "index.html",
+      "perf.html",
+      "perf.js",
+      "perf.css",
       "styles.css",
       "node_modules/**/*"
     ],

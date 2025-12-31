@@ -67,6 +67,21 @@ For development with debugging:
 npm run dev
 ```
 
+## Benchmarking (startup + first render)
+
+Run the app with perf logging enabled:
+```bash
+npm run bench:startup
+```
+
+You will see `[perf]` logs in the terminal, including:
+- app ready
+- main window `ready-to-show`
+- main window `did-finish-load`
+- renderer first render
+
+On Windows, run `set PERF_BENCH=1 && electron .` instead.
+
 To create distributable builds (Windows installer and portable exe):
 ```powershell
 npm ci
@@ -193,4 +208,3 @@ See `LICENSE`.
 
 git tag v1.0.0
 git push origin v1.0.0
-

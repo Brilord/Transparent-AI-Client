@@ -4,6 +4,132 @@ const fs = require('fs');
 const http = require('http');
 const https = require('https');
 
+const PERF_BENCH = process.env.PERF_BENCH === '1';
+const perfStart = PERF_BENCH ? process.hrtime.bigint() : null;
+const perfSessionStart = process.hrtime.bigint();
+const perfSessionStartWall = Date.now();
+const perfEvents = [];
+let perfWindow = null;
+let perfStatsTimer = null;
+let perfCpuLast = null;
+let perfCpuLastAt = null;
+
+function logPerf(label, startNs = perfStart) {
+  if (!PERF_BENCH || !startNs) return;
+  const elapsedMs = Number(process.hrtime.bigint() - startNs) / 1e6;
+  console.log(`[perf] ${label}: ${elapsedMs.toFixed(2)} ms`);
+}
+
+function perfElapsedMs() {
+  return Number(process.hrtime.bigint() - perfSessionStart) / 1e6;
+}
+
+function summarizeUrl(rawUrl) {
+  if (!rawUrl) return 'unknown';
+  try {
+    const parsed = new URL(rawUrl);
+    return parsed.hostname || 'unknown';
+  } catch (err) {
+    return 'unknown';
+  }
+}
+
+function pushPerfEvent(label, payload = null, source = 'main') {
+  const entry = {
+    id: `perf-${Date.now()}-${perfEvents.length + 1}`,
+    ts: new Date().toISOString(),
+    label,
+    elapsedMs: Number(perfElapsedMs().toFixed(2)),
+    source,
+    payload
+  };
+  perfEvents.push(entry);
+  if (perfEvents.length > 500) perfEvents.shift();
+  if (perfWindow && !perfWindow.isDestroyed()) {
+    try { perfWindow.webContents.send('perf-event', entry); } catch (err) {}
+  }
+}
+
+function startPerfStatsTimer() {
+  if (perfStatsTimer) return;
+  perfCpuLast = null;
+  perfCpuLastAt = null;
+  perfStatsTimer = setInterval(async () => {
+    if (!perfWindow || perfWindow.isDestroyed()) return;
+    const now = Date.now();
+    const cpuUsage = process.getCPUUsage();
+    let cpuPercent = null;
+    if (perfCpuLast && perfCpuLastAt) {
+      const userDiff = cpuUsage.user - perfCpuLast.user;
+      const sysDiff = cpuUsage.system - perfCpuLast.system;
+      const elapsedMicros = Math.max(1, (now - perfCpuLastAt) * 1000);
+      cpuPercent = ((userDiff + sysDiff) / elapsedMicros) * 100;
+    }
+    perfCpuLast = cpuUsage;
+    perfCpuLastAt = now;
+
+    let memInfo = null;
+    try {
+      memInfo = process.memoryUsage();
+    } catch (err) {}
+
+    const stats = {
+      ts: new Date().toISOString(),
+      uptimeMs: now - perfSessionStartWall,
+      cpuPercent: cpuPercent === null ? null : Number(cpuPercent.toFixed(1)),
+      rssMB: memInfo ? Number((memInfo.rss / 1024 / 1024).toFixed(1)) : null,
+      heapUsedMB: memInfo ? Number((memInfo.heapUsed / 1024 / 1024).toFixed(1)) : null,
+      events: perfEvents.length
+    };
+    try { perfWindow.webContents.send('perf-stats', stats); } catch (err) {}
+  }, 1000);
+}
+
+function stopPerfStatsTimer() {
+  if (!perfStatsTimer) return;
+  clearInterval(perfStatsTimer);
+  perfStatsTimer = null;
+}
+
+function openPerfWindow() {
+  if (perfWindow && !perfWindow.isDestroyed()) {
+    try { perfWindow.focus(); } catch (err) {}
+    return;
+  }
+  perfWindow = new BrowserWindow({
+    width: 520,
+    height: 720,
+    minWidth: 420,
+    minHeight: 520,
+    transparent: false,
+    frame: true,
+    backgroundColor: '#0f1216',
+    autoHideMenuBar: true,
+    alwaysOnTop: !!appSettings.alwaysOnTop,
+    resizable: true,
+    movable: true,
+    icon: path.join(__dirname, 'assets', 'icons', 'png', '512x512.png'),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload-perf.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      enableRemoteModule: false
+    }
+  });
+
+  perfWindow.loadFile('perf.html');
+  perfWindow.on('closed', () => {
+    perfWindow = null;
+    stopPerfStatsTimer();
+  });
+  startPerfStatsTimer();
+}
+
+function closePerfWindow() {
+  if (!perfWindow || perfWindow.isDestroyed()) return;
+  try { perfWindow.close(); } catch (err) {}
+}
+
 let mainWindow;
 let chatWindow;
 let appOpacity = 1.0; // global app opacity applied to all windows
@@ -185,6 +311,8 @@ const DEFAULT_SETTINGS = {
   syncFolder: null,
   // Telemetry opt-in
   telemetryEnabled: false,
+  // Developer tools
+  developerMode: false,
   // Launch behavior
   launchOnStartup: false,
   // Last opened links (to restore on next launch)
@@ -1052,7 +1180,13 @@ function createWindow() {
     mainWindow.webContents.on('did-finish-load', () => {
       try { mainWindow.webContents.send('app-opacity-changed', appOpacity); } catch (e) {}
       try { emitTelemetryStateSnapshot('window-ready'); } catch (err) {}
+      logPerf('main-window did-finish-load');
+      pushPerfEvent('main-window did-finish-load');
     });
+  if (PERF_BENCH) {
+    mainWindow.once('ready-to-show', () => logPerf('main-window ready-to-show'));
+  }
+  mainWindow.once('ready-to-show', () => pushPerfEvent('main-window ready-to-show'));
 
   mainWindow.loadFile('index.html');
 
@@ -1193,11 +1327,14 @@ app.on('ready', () => {
   try { loadSettings(); } catch (err) { /* ignore */ }
   try { applyTelemetryState(!!appSettings.telemetryEnabled); } catch (err) {}
   if (typeof appSettings.appOpacity === 'number') appOpacity = appSettings.appOpacity;
+  logPerf('app ready');
+  pushPerfEvent('app ready');
   createWindow();
   // Restore the last opened link (if any) after the main window is ready
   try { reopenLastLinksIfAvailable(); } catch (err) {}
   try { ensureBackgroundWorkersRunning(); } catch (err) {}
   try { initAutoUpdater(); } catch (err) {}
+  if (appSettings.developerMode) openPerfWindow();
 });
 
 app.on('window-all-closed', function () {
@@ -1723,6 +1860,18 @@ function openLinkWindow(idOrUrl, maybeUrl, options = {}) {
   recordLinkOpen(id, url);
 
   let linkWindow = new BrowserWindow(winOpts);
+  const linkOpenStart = PERF_BENCH ? process.hrtime.bigint() : null;
+  const linkLabel = summarizeUrl(url);
+  if (PERF_BENCH && linkOpenStart) {
+    linkWindow.once('ready-to-show', () => logPerf(`link-window ready-to-show (${url})`, linkOpenStart));
+    linkWindow.webContents.once('did-finish-load', () => logPerf(`link-window did-finish-load (${url})`, linkOpenStart));
+  }
+  linkWindow.once('ready-to-show', () => {
+    pushPerfEvent('link-window ready-to-show', { url: linkLabel });
+  });
+  linkWindow.webContents.once('did-finish-load', () => {
+    pushPerfEvent('link-window did-finish-load', { url: linkLabel });
+  });
 
   try {
     if (typeof linkWindow.setOpacity === 'function') {
@@ -1886,6 +2035,29 @@ function openWorkspaceById(workspaceId) {
 
 ipcMain.handle('open-link', (event, idOrUrl, maybeUrl, options) => {
   return openLinkWindow(idOrUrl, maybeUrl, options);
+});
+
+ipcMain.on('perf:renderer-ready', (event, sinceMs) => {
+  if (PERF_BENCH) {
+    logPerf('renderer-ready (ipc)');
+    if (typeof sinceMs === 'number' && !Number.isNaN(sinceMs)) {
+      console.log(`[perf] renderer-ready (renderer): ${sinceMs.toFixed(2)} ms`);
+    }
+  }
+  if (typeof sinceMs === 'number' && !Number.isNaN(sinceMs)) {
+    pushPerfEvent('renderer-ready', { ms: Number(sinceMs.toFixed(2)) }, 'renderer');
+  } else {
+    pushPerfEvent('renderer-ready', null, 'renderer');
+  }
+});
+
+ipcMain.on('perf:event', (event, payload) => {
+  if (!payload || !payload.type) return;
+  pushPerfEvent(payload.type, payload.payload || null, 'renderer');
+});
+
+ipcMain.handle('perf-history', () => {
+  return perfEvents.slice();
 });
 
 ipcMain.handle('link-go-back', (event) => {
@@ -2138,6 +2310,7 @@ ipcMain.handle('set-setting', (event, key, value) => {
       // update main window
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setAlwaysOnTop(!!value);
       if (chatWindow && !chatWindow.isDestroyed()) chatWindow.setAlwaysOnTop(!!value);
+      if (perfWindow && !perfWindow.isDestroyed()) perfWindow.setAlwaysOnTop(!!value);
       // update link windows
       for (const win of linkWindows) {
         if (win && !win.isDestroyed()) win.setAlwaysOnTop(!!value);
@@ -2174,6 +2347,11 @@ ipcMain.handle('set-setting', (event, key, value) => {
 
     if (key === 'telemetryEnabled') {
       applyTelemetryState(!!value);
+    }
+
+    if (key === 'developerMode') {
+      if (value) openPerfWindow();
+      else closePerfWindow();
     }
   } catch (err) { /* ignore */ }
 
@@ -2218,6 +2396,11 @@ ipcMain.handle('reset-settings', () => {
       mainWindow.webContents.send('app-opacity-changed', appOpacity);
     } catch (e) {}
   }
+  if (perfWindow && !perfWindow.isDestroyed()) {
+    try {
+      perfWindow.setAlwaysOnTop(appSettings.alwaysOnTop);
+    } catch (e) {}
+  }
   for (const win of linkWindows) {
     if (!win || win.isDestroyed()) continue;
     try {
@@ -2231,6 +2414,7 @@ ipcMain.handle('reset-settings', () => {
     try { w.webContents.send('settings-reset', appSettings); } catch (e) {}
   });
   try { notifyLinksChanged(); } catch (e) {}
+  closePerfWindow();
 
   return appSettings;
 });

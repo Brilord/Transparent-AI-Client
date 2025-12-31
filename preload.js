@@ -60,7 +60,9 @@ contextBridge.exposeInMainWorld('electron', {
   resetSettings: () => ipcRenderer.invoke('reset-settings'),
   onDataCollectionEvent: (cb) => {
     ipcRenderer.on('data-collection-event', (evt, payload) => cb(payload));
-  }
+  },
+  reportRendererReady: (sinceMs) => ipcRenderer.send('perf:renderer-ready', sinceMs),
+  reportPerfEvent: (type, payload) => ipcRenderer.send('perf:event', { type, payload })
 });
 
 // Window management helpers

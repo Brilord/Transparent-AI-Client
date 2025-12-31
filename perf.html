@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Developer Performance Monitor</title>
+    <link rel="stylesheet" href="perf.css" />
+    <script defer src="perf.js"></script>
+  </head>
+  <body>
+    <div class="perf-shell">
+      <header class="perf-header">
+        <div>
+          <div class="perf-title">Developer Monitor</div>
+          <div class="perf-subtitle">Startup + responsiveness timeline</div>
+        </div>
+        <div class="perf-badge">Live</div>
+      </header>
+
+      <section class="perf-stats">
+        <div class="perf-stat">
+          <div class="perf-stat-label">Uptime</div>
+          <div id="perfUptime" class="perf-stat-value">--</div>
+        </div>
+        <div class="perf-stat">
+          <div class="perf-stat-label">CPU</div>
+          <div id="perfCpu" class="perf-stat-value">--</div>
+        </div>
+        <div class="perf-stat">
+          <div class="perf-stat-label">Memory</div>
+          <div id="perfMemory" class="perf-stat-value">--</div>
+        </div>
+        <div class="perf-stat">
+          <div class="perf-stat-label">Events</div>
+          <div id="perfEvents" class="perf-stat-value">0</div>
+        </div>
+      </section>
+
+      <section class="perf-log">
+        <div class="perf-log-header">
+          <div class="perf-log-title">Event log</div>
+          <button id="perfClearBtn" class="perf-clear-btn" type="button">Clear</button>
+        </div>
+        <div id="perfLog" class="perf-log-list"></div>
+      </section>
+    </div>
+  </body>
+</html>
