@@ -2277,6 +2277,11 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     closeCommandPalette();
   }
+  if (e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey && (e.key === 'h' || e.key === 'H')) {
+    e.preventDefault();
+    toggleHelpOverlay();
+    return;
+  }
 
   const isCtrlAlt = e.ctrlKey && e.altKey && !e.shiftKey && !e.metaKey;
   if (!isCtrlAlt || isEditableTarget(e.target) || isCommandPaletteOpen()) return;
@@ -2284,11 +2289,6 @@ document.addEventListener('keydown', (e) => {
   if (key === 'o') {
     e.preventDefault();
     toggleSettingsPanel();
-    return;
-  }
-  if (key === 'h') {
-    e.preventDefault();
-    toggleHelpOverlay();
     return;
   }
   if (key === 'f') {

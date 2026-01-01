@@ -175,7 +175,7 @@ This app provides both mouse and keyboard controls for frameless windows.
  - Focus search: `Ctrl + Alt + F` (main window).
  - Focus capture URL: `Ctrl + Alt + L` (main window).
  - Toggle Options panel: `Ctrl + Alt + O` (main window).
- - Toggle Help: `Ctrl + Alt + H` (main window).
+ - Toggle Help: `Ctrl + H` (main window).
  - Toggle always-on-top: `Ctrl + Alt + T` (all windows).
  - Toggle resizer injection: `Ctrl + Alt + I` (main window).
  - Adjust opacity: `Ctrl + Alt + [` / `Ctrl + Alt + ]` (all windows).
