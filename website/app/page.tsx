@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import exampleOperation from "../example-operation.png";
 
 type Lang = "en" | "ko";
@@ -264,10 +264,27 @@ function getLangParam(value: string | null): Lang {
   return value === "ko" ? "ko" : "en";
 }
 
+function detectBrowserLang(): Lang {
+  if (typeof navigator === "undefined") return "en";
+  const language = (navigator.languages && navigator.languages.length)
+    ? navigator.languages[0]
+    : navigator.language;
+  return language && language.toLowerCase().startsWith("ko") ? "ko" : "en";
+}
+
 export default function Home() {
   const searchParams = useSearchParams();
-  const lang = getLangParam(searchParams.get("lang"));
+  const router = useRouter();
+  const hasLangParam = searchParams.get("lang") !== null;
+  const [lang, setLang] = useState<Lang>(() => getLangParam(searchParams.get("lang")));
   const t: Copy = copy[lang];
+
+  useEffect(() => {
+    if (hasLangParam) return;
+    const detected = detectBrowserLang();
+    if (detected !== lang) setLang(detected);
+    router.replace(`?lang=${detected}`, { scroll: false });
+  }, [hasLangParam, lang, router]);
 
   useEffect(() => {
     document.documentElement.lang = lang;
