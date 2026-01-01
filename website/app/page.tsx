@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import exampleOperation from "../example-operation.png";
 import exampleOperation2 from "../example-operation2.png";
 
-type Lang = "en" | "ko";
+type Lang = "en" | "ko" | "ja";
 
 type Copy = {
   nav: {
@@ -15,6 +15,7 @@ type Copy = {
     features: string;
     workflow: string;
     shortcuts: string;
+    contact: string;
     cta: string;
     langLabel: string;
   };
@@ -57,6 +58,11 @@ type Copy = {
     lead: string;
     items: { title: string; keys: string; }[];
   };
+  contact: {
+    heading: string;
+    lead: string;
+    items: { title: string; body: string; href: string; }[];
+  };
   cta: {
     heading: string;
     lead: string;
@@ -70,136 +76,157 @@ type Copy = {
 };
 
 const enCopy: Copy = {
-    nav: {
-      logo: "Transparent Link Client",
-      example: "Example",
-      features: "Features",
-      workflow: "Workflow",
-      shortcuts: "Shortcuts",
-      cta: "Get the app",
-      langLabel: "Language"
-    },
-    hero: {
-      eyebrow: "A transparent browser window for a link client",
-      title:
-        "Keep every tab in reach without the clutter. This is a transparent browser window for a link client that turns links into a calm workspace.",
-      lead:
-        "A desktop link vault with tags, folders, notes, and workspaces. Capture fast, launch windows instantly, and drive everything with keyboard shortcuts.",
-      primaryAction: "Download for desktop",
-      secondaryAction: "Explore features",
-      metaCards: ["Local JSON storage", "Fuzzy search and tags", "Workspace snapshots"]
-    },
-    demo: {
-      eyebrow: "Example",
-      caption:
-        "Example of Transparent AI Client running a link library with floating windows.",
-      imageAlt:
-        "Example of the Transparent AI Client workflow showing transparent windows and saved links."
-    },
-    demoTwo: {
-      eyebrow: "Example 2",
-      caption:
-        "Another example of Transparent AI Client running a multi-window workspace.",
-      imageAlt:
-        "Second example of the Transparent AI Client showing another window layout."
-    },
-    floating: {
-      title: "Command palette",
-      body: "Search links, edit, and launch in seconds.",
-      pills: ["Ctrl + K", "Fuzzy", "Tags"]
-    },
-    features: {
-      heading: "Built for focus, not browser chaos",
-      lead:
-        "This client keeps your research, dashboards, and references close without hiding behind a crowded tab bar.",
-      items: [
-        {
-          title: "Glass UI and transparency",
-          body:
-            "Frameless windows with adjustable opacity keep your workspace light, calm, and always readable."
-        },
-        {
-          title: "Fast capture flows",
-          body:
-            "Paste URLs, pull from the clipboard, or drag and drop to capture context instantly."
-        },
-        {
-          title: "Tags, folders, and priorities",
-          body:
-            "Organize by tag chips, folder groups, and priority lanes to keep projects sorted."
-        },
-        {
-          title: "Workspaces and recents",
-          body:
-            "Save window layouts, restore them later, and jump to recent or frequent links."
-        },
-        {
-          title: "Command palette control",
-          body:
-            "Search, edit, and launch from the keyboard with the built-in palette and shortcuts."
-        },
-        {
-          title: "Precision window tools",
-          body:
-            "Resize and move with mouse or keys, including snapping and reset commands."
-        }
-      ]
-    },
-    workflow: {
-      heading: "One flow from capture to launch",
-      lead:
-        "The client stores everything locally and keeps every action close to the cursor so you never lose momentum.",
-      steps: [
-        {
-          number: "01",
-          title: "Capture with context",
-          body: "Add tags, folder, priority, and notes so every link carries its purpose."
-        },
-        {
-          number: "02",
-          title: "Launch glass windows",
-          body:
-            "Open links in transparent windows that stay on top without hijacking your workspace."
-        },
-        {
-          number: "03",
-          title: "Save the layout",
-          body:
-            "Snapshot a workspace and restore it later with the same window layout."
-        }
-      ],
-      panel: {
-        title: "Options and controls",
-        items: [
-          "Adjust transparency for every open window.",
-          "Always on top mode for focused research.",
-          "Inject resizers into web pages when allowed.",
-          "Switch between shared, per-link, or incognito sessions.",
-          "Choose any links.json storage folder."
-        ]
+  nav: {
+    logo: "Transparent Link Client",
+    example: "Example",
+    features: "Features",
+    workflow: "Workflow",
+    shortcuts: "Shortcuts",
+    contact: "Contact",
+    cta: "Get the app",
+    langLabel: "Language"
+  },
+  hero: {
+    eyebrow: "A transparent browser window for a link client",
+    title:
+      "Keep every tab in reach without the clutter. This is a transparent browser window for a link client that turns links into a calm workspace.",
+    lead:
+      "A desktop link vault with tags, folders, notes, and workspaces. Capture fast, launch windows instantly, and drive everything with keyboard shortcuts.",
+    primaryAction: "Download for desktop",
+    secondaryAction: "Explore features",
+    metaCards: ["Local JSON storage", "Fuzzy search and tags", "Workspace snapshots"]
+  },
+  demo: {
+    eyebrow: "Example",
+    caption:
+      "Example of Transparent AI Client running a link library with floating windows.",
+    imageAlt:
+      "Example of the Transparent AI Client workflow showing transparent windows and saved links."
+  },
+  demoTwo: {
+    eyebrow: "Example 2",
+    caption:
+      "Another example of Transparent AI Client running a multi-window workspace.",
+    imageAlt:
+      "Second example of the Transparent AI Client showing another window layout."
+  },
+  floating: {
+    title: "Command palette",
+    body: "Search links, edit, and launch in seconds.",
+    pills: ["Ctrl + K", "Fuzzy", "Tags"]
+  },
+  features: {
+    heading: "Built for focus, not browser chaos",
+    lead:
+      "This client keeps your research, dashboards, and references close without hiding behind a crowded tab bar.",
+    items: [
+      {
+        title: "Transparent glass windows",
+        body:
+          "Opacity slider, always-on-top, and injected resizers keep your workspace calm."
+      },
+      {
+        title: "Capture from anywhere",
+        body:
+          "Clipboard detection, drag-and-drop, and a quick capture form save links fast."
+      },
+      {
+        title: "Tags, folders, notes, priorities",
+        body:
+          "Organize with tag chips, folder groups, notes, and priority lanes."
+      },
+      {
+        title: "Metadata + health checks",
+        body:
+          "Auto-fetch titles, descriptions, favicons, and periodic link status."
+      },
+      {
+        title: "Workspaces + layouts",
+        body: "Save and restore window positions across sessions."
+      },
+      {
+        title: "Import, export, and sync",
+        body:
+          "JSON/CSV import-export, custom storage paths, and folder sync."
+      },
+      {
+        title: "Keyboard control + snapping",
+        body:
+          "Command palette, window shortcuts, and snap-to-edge controls."
       }
-    },
-    shortcuts: {
-      heading: "Keyboard-ready from day one",
-      lead: "These shortcuts keep your hands on the keys.",
+    ]
+  },
+  workflow: {
+    heading: "One flow from capture to launch",
+    lead:
+      "The client stores everything locally and keeps every action close to the cursor so you never lose momentum.",
+    steps: [
+      {
+        number: "01",
+        title: "Capture with context",
+        body: "Add tags, folder, priority, and notes so every link carries its purpose."
+      },
+      {
+        number: "02",
+        title: "Launch glass windows",
+        body:
+          "Open links in transparent windows that stay on top without hijacking your workspace."
+      },
+      {
+        number: "03",
+        title: "Save the layout",
+        body:
+          "Snapshot a workspace and restore it later with the same window layout."
+      }
+    ],
+    panel: {
+      title: "Options and controls",
       items: [
-        { title: "Resize window", keys: "Ctrl + Alt + Arrows" },
-        { title: "Move window", keys: "Ctrl + Alt + Shift + Arrows" },
-        { title: "Open command palette", keys: "Ctrl + K" },
-        { title: "Center window", keys: "Ctrl + Alt + C" }
+        "Adjust transparency for every open window.",
+        "Always on top mode for focused research.",
+        "Inject resizers into web pages when allowed.",
+        "Switch between shared, per-link, or incognito sessions.",
+        "Choose a custom storage path or sync a folder."
       ]
-    },
-    cta: {
-      heading: "Ready to run a calmer link workspace?",
-      lead:
-        "This transparent link client runs on Windows, macOS, and Linux. Export JSON or CSV and keep everything portable.",
-      primary: "Download latest build",
-      secondary: "View documentation"
-    },
-    footer: {
-      brand: "Transparent Link Client",
-      tagline: "Transparent, local-first link control."
     }
+  },
+  shortcuts: {
+    heading: "Keyboard-ready from day one",
+    lead: "These shortcuts keep your hands on the keys.",
+    items: [
+      { title: "Resize window", keys: "Ctrl + Alt + Arrows" },
+      { title: "Move window", keys: "Ctrl + Alt + Shift + Arrows" },
+      { title: "Open command palette", keys: "Ctrl + K" },
+      { title: "Center window", keys: "Ctrl + Alt + C" }
+    ]
+  },
+  contact: {
+    heading: "Reach the developer",
+    lead: "Have feedback, bugs, or partnerships? Reach out below.",
+    items: [
+      {
+        title: "GitHub Issues",
+        body: "Report bugs or request features.",
+        href: "https://github.com/Brilord/PlanaV2.0/issues"
+      },
+      {
+        title: "GitHub Discussions",
+        body: "Ask questions or share workflows.",
+        href: "https://github.com/Brilord/PlanaV2.0/discussions"
+      }
+    ]
+  },
+  cta: {
+    heading: "Ready to run a calmer link workspace?",
+    lead:
+      "This transparent link client runs on Windows, macOS, and Linux. Export JSON or CSV and keep everything portable.",
+    primary: "Download latest build",
+    secondary: "View documentation"
+  },
+  footer: {
+    brand: "Transparent Link Client",
+    tagline: "Transparent, local-first link control."
+  }
 };
 
 const koCopy: Copy = {
@@ -209,6 +236,7 @@ const koCopy: Copy = {
     features: "특징",
     workflow: "워크플로",
     shortcuts: "단축키",
+    contact: "연락",
     cta: "앱 받기",
     langLabel: "언어"
   },
@@ -245,31 +273,38 @@ const koCopy: Copy = {
       "이 클라이언트는 연구, 대시보드, 레퍼런스를 탭 막대 뒤로 숨기지 않습니다.",
     items: [
       {
-        title: "유리 UI와 투명도",
+        title: "투명 유리 창",
         body:
-          "프레임리스 창과 조절 가능한 불투명도로 가볍고 차분한 공간을 유지합니다."
+          "투명도 슬라이더, 항상 위, 리사이저 주입으로 작업 공간을 차분하게 유지합니다."
       },
       {
-        title: "빠른 캡처 플로우",
+        title: "어디서나 캡처",
         body:
-          "URL 붙여넣기, 클립보드 가져오기, 드래그 앤 드롭으로 즉시 캡처합니다."
+          "클립보드 감지, 드래그 앤 드롭, 빠른 캡처 폼으로 링크를 즉시 저장합니다."
       },
       {
-        title: "태그, 폴더, 우선순위",
-        body: "태그 칩, 폴더 그룹, 우선순위 레인으로 정리합니다."
-      },
-      {
-        title: "워크스페이스와 최근 항목",
+        title: "태그, 폴더, 메모, 우선순위",
         body:
-          "창 레이아웃을 저장하고 복원해 최근/자주 쓰는 링크로 빠르게 이동합니다."
+          "태그 칩, 폴더 그룹, 메모, 우선순위 레인으로 정리합니다."
       },
       {
-        title: "명령 팔레트 제어",
-        body: "키보드로 검색, 편집, 실행합니다."
+        title: "메타데이터 + 상태 체크",
+        body:
+          "제목, 설명, 파비콘을 자동 수집하고 링크 상태를 주기적으로 확인합니다."
       },
       {
-        title: "정밀 창 도구",
-        body: "마우스나 키로 크기와 위치를 조정하고 스냅과 리셋도 지원합니다."
+        title: "워크스페이스 + 레이아웃",
+        body: "창 위치를 저장하고 다음에도 복원합니다."
+      },
+      {
+        title: "가져오기, 내보내기, 동기화",
+        body:
+          "JSON/CSV 가져오기·내보내기, 저장 경로 선택, 폴더 동기화를 지원합니다."
+      },
+      {
+        title: "키보드 제어 + 스냅",
+        body:
+          "명령 팔레트, 단축키, 화면 스냅으로 키보드 중심 제어를 제공합니다."
       }
     ]
   },
@@ -303,7 +338,7 @@ const koCopy: Copy = {
         "집중을 위한 항상 위 모드.",
         "허용된 페이지에 리사이저 주입.",
         "공유, 링크별, 시크릿 세션 전환.",
-        "links.json 저장 위치 선택."
+        "저장 경로를 바꾸거나 폴더 동기화."
       ]
     }
   },
@@ -315,6 +350,22 @@ const koCopy: Copy = {
       { title: "창 이동", keys: "Ctrl + Alt + Shift + Arrows" },
       { title: "명령 팔레트 열기", keys: "Ctrl + K" },
       { title: "창 가운데 정렬", keys: "Ctrl + Alt + C" }
+    ]
+  },
+  contact: {
+    heading: "개발자에게 연락",
+    lead: "피드백, 버그, 협업 제안은 아래 채널로 연락하세요.",
+    items: [
+      {
+        title: "GitHub Issues",
+        body: "버그 신고 또는 기능 요청.",
+        href: "https://github.com/Brilord/PlanaV2.0/issues"
+      },
+      {
+        title: "GitHub Discussions",
+        body: "질문이나 워크플로 공유.",
+        href: "https://github.com/Brilord/PlanaV2.0/discussions"
+      }
     ]
   },
   cta: {
@@ -330,13 +381,167 @@ const koCopy: Copy = {
   }
 };
 
-const copy: Record<Lang, Copy> = {
-  en: enCopy,
-  ko: koCopy
+const jaCopy: Copy = {
+  nav: {
+    logo: "透明リンククライアント",
+    example: "例",
+    features: "機能",
+    workflow: "ワークフロー",
+    shortcuts: "ショートカット",
+    contact: "連絡",
+    cta: "アプリを入手",
+    langLabel: "言語"
+  },
+  hero: {
+    eyebrow: "リンククライアントのための透明ブラウザウィンドウ",
+    title:
+      "タブの混雑を避け、すべてのリンクを手元に。透明リンククライアントが静かな作業空間を作ります。",
+    lead:
+      "タグ、フォルダ、メモ、ワークスペース付きのデスクトップリンク保管庫。素早くキャプチャし、即座にウィンドウを開き、キーボードで操作できます。",
+    primaryAction: "デスクトップ版をダウンロード",
+    secondaryAction: "機能を見る",
+    metaCards: ["ローカルJSON保存", "あいまい検索とタグ", "ワークスペーススナップショット"]
+  },
+  demo: {
+    eyebrow: "例",
+    caption:
+      "Transparent AI Clientがリンクライブラリとフローティングウィンドウを動かす例です。",
+    imageAlt:
+      "透明ウィンドウと保存済みリンクを示すTransparent AI Clientのワークフロー例。"
+  },
+  demoTwo: {
+    eyebrow: "例 2",
+    caption: "複数ウィンドウの作業空間を示す別の例です。",
+    imageAlt: "別のウィンドウ配置を示すTransparent AI Clientの2つ目の例。"
+  },
+  floating: {
+    title: "コマンドパレット",
+    body: "リンクを検索・編集し、すぐに起動できます。",
+    pills: ["Ctrl + K", "あいまい検索", "タグ"]
+  },
+  features: {
+    heading: "ブラウザの混雑より集中を",
+    lead:
+      "研究やダッシュボード、参考資料をタブの裏に隠しません。",
+    items: [
+      {
+        title: "透明ガラスウィンドウ",
+        body:
+          "透明度スライダー、常に最前面、リサイザー注入で落ち着いた作業空間に。"
+      },
+      {
+        title: "どこでもキャプチャ",
+        body:
+          "クリップボード検出、ドラッグ&ドロップ、クイック入力で素早く保存。"
+      },
+      {
+        title: "タグ・フォルダ・メモ・優先度",
+        body:
+          "タグチップ、フォルダ、メモ、優先度レーンで整理。"
+      },
+      {
+        title: "メタデータ&ヘルスチェック",
+        body:
+          "タイトル/説明/ファビコンを自動取得し、リンク状態を定期チェック。"
+      },
+      {
+        title: "ワークスペース&レイアウト",
+        body: "ウィンドウ配置を保存して復元。"
+      },
+      {
+        title: "インポート/エクスポート/同期",
+        body:
+          "JSON/CSVの入出力、保存パス変更、フォルダ同期。"
+      },
+      {
+        title: "キーボード操作&スナップ",
+        body:
+          "コマンドパレット、ショートカット、スナップ操作。"
+      }
+    ]
+  },
+  workflow: {
+    heading: "キャプチャから起動までの一本の流れ",
+    lead:
+      "すべてをローカルに保存し、操作をカーソル近くに保つことで集中を維持します。",
+    steps: [
+      {
+        number: "01",
+        title: "文脈と一緒にキャプチャ",
+        body: "タグ、フォルダ、優先度、メモで目的を残します。"
+      },
+      {
+        number: "02",
+        title: "ガラスウィンドウを起動",
+        body:
+          "透明ウィンドウで開き、作業空間を邪魔しません。"
+      },
+      {
+        number: "03",
+        title: "レイアウトを保存",
+        body:
+          "ワークスペースをスナップショットし、同じ配置で復元します。"
+      }
+    ],
+    panel: {
+      title: "オプションとコントロール",
+      items: [
+        "開いているすべてのウィンドウの透明度を調整。",
+        "集中用の常に最前面モード。",
+        "許可されたページにリサイザーを注入。",
+        "共有/リンク別/シークレットセッションの切替。",
+        "保存パス変更またはフォルダ同期。"
+      ]
+    }
+  },
+  shortcuts: {
+    heading: "初日からキーボード中心",
+    lead: "手をキーボードに置いたまま操作できます。",
+    items: [
+      { title: "ウィンドウサイズ調整", keys: "Ctrl + Alt + Arrows" },
+      { title: "ウィンドウ移動", keys: "Ctrl + Alt + Shift + Arrows" },
+      { title: "コマンドパレットを開く", keys: "Ctrl + K" },
+      { title: "ウィンドウを中央に", keys: "Ctrl + Alt + C" }
+    ]
+  },
+  contact: {
+    heading: "開発者に連絡",
+    lead: "フィードバック、バグ報告、相談は以下から。",
+    items: [
+      {
+        title: "GitHub Issues",
+        body: "バグ報告や機能リクエスト。",
+        href: "https://github.com/Brilord/PlanaV2.0/issues"
+      },
+      {
+        title: "GitHub Discussions",
+        body: "質問やワークフローの共有。",
+        href: "https://github.com/Brilord/PlanaV2.0/discussions"
+      }
+    ]
+  },
+  cta: {
+    heading: "落ち着いたリンク作業空間を始めませんか？",
+    lead:
+      "この透明リンククライアントはWindows、macOS、Linuxで動作します。JSONまたはCSVでエクスポートして持ち運べます。",
+    primary: "最新ビルドをダウンロード",
+    secondary: "ドキュメントを見る"
+  },
+  footer: {
+    brand: "Transparent Link Client",
+    tagline: "透明でローカルファーストなリンク管理。"
+  }
 };
 
+const copy: Record<Lang, Copy> = {
+  en: enCopy,
+  ko: koCopy,
+  ja: jaCopy
+};
 function getLangParam(value: string | null): Lang {
-  return value === "ko" ? "ko" : "en";
+  if (value === "ko") return "ko";
+  if (value === "ja") return "ja";
+  return "en";
 }
 
 function detectBrowserLang(): Lang {
@@ -344,7 +549,11 @@ function detectBrowserLang(): Lang {
   const language = (navigator.languages && navigator.languages.length)
     ? navigator.languages[0]
     : navigator.language;
-  return language && language.toLowerCase().startsWith("ko") ? "ko" : "en";
+  if (!language) return "en";
+  const normalized = language.toLowerCase();
+  if (normalized.startsWith("ko")) return "ko";
+  if (normalized.startsWith("ja")) return "ja";
+  return "en";
 }
 
 function HomeContent() {
@@ -376,6 +585,7 @@ function HomeContent() {
             <a href="#features">{t.nav.features}</a>
             <a href="#workflow">{t.nav.workflow}</a>
             <a href="#shortcuts">{t.nav.shortcuts}</a>
+            <a href="#contact">{t.nav.contact}</a>
             <a className="nav-cta" href="#download">
               {t.nav.cta}
             </a>
@@ -391,6 +601,12 @@ function HomeContent() {
                 href="?lang=ko"
               >
                 KO
+              </a>
+              <a
+                className={`lang-pill${lang === "ja" ? " active" : ""}`}
+                href="?lang=ja"
+              >
+                JA
               </a>
             </div>
           </div>
@@ -509,6 +725,27 @@ function HomeContent() {
               <div className="shortcut-title">{item.title}</div>
               <div className="shortcut-keys">{item.keys}</div>
             </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="contact" className="section contact">
+        <div className="section-heading">
+          <h2>{t.contact.heading}</h2>
+          <p>{t.contact.lead}</p>
+        </div>
+        <div className="contact-grid">
+          {t.contact.items.map((item) => (
+            <a
+              key={item.title}
+              className="contact-card"
+              href={item.href}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <div className="contact-title">{item.title}</div>
+              <p className="contact-body">{item.body}</p>
+            </a>
           ))}
         </div>
       </section>
