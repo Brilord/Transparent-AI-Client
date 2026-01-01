@@ -619,6 +619,9 @@ body {
     max-height: calc(100vh - 200px);
     overflow-y: auto;
     padding-right: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 .settings-panel .section-body::-webkit-scrollbar {
@@ -634,9 +637,48 @@ body {
     border-radius: 3px;
 }
 
-.setting-row { display: flex; flex-direction: column; gap: 6px; }
-.folder-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.setting-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(12, 16, 26, 0.35);
+}
+
+.setting-row > button {
+    align-self: flex-start;
+}
+
+.folder-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    width: 100%;
+}
+
+.folder-row .settings-input,
+.folder-row .sync-path {
+    flex: 1 1 160px;
+    min-width: 0;
+}
+
+.sync-path {
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.85);
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .range-row { display: flex; align-items: center; gap: 8px; }
+.range-row input[type="range"] { flex: 1; }
 .range-val { color: rgba(255,255,255,0.85); min-width: 44px; text-align: right; font-size: 13px; }
 .hint { color: rgba(255,255,255,0.45); font-size: 11px; }
 .inline-hint {
@@ -648,7 +690,8 @@ body {
 .settings-panel label { color: rgba(255,255,255,0.9); font-size: 13px; display: flex; align-items: center; gap: 8px; }
 .settings-panel input[type="checkbox"] { width: 14px; height: 14px; }
 .settings-select {
-    min-width: 190px;
+    width: 100%;
+    min-width: 0;
     padding: 8px 10px;
     border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0.2);
@@ -656,7 +699,7 @@ body {
     color: rgba(255, 255, 255, 0.9);
 }
 .settings-input {
-    min-width: 200px;
+    min-width: 0;
     padding: 8px 10px;
     border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0.2);
