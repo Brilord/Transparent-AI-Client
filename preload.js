@@ -78,6 +78,26 @@ contextBridge.exposeInMainWorld('windowActions', {
   toggleMaximize: () => ipcRenderer.invoke('toggle-maximize')
 });
 
+const snapWindowToCorner = async (corner) => {
+  const workArea = await ipcRenderer.invoke('get-window-work-area');
+  if (!workArea) return;
+  const width = Math.max(1, Math.round(workArea.width / 2));
+  const height = Math.max(1, Math.round(workArea.height / 2));
+  const rightX = workArea.x + workArea.width - width;
+  const bottomY = workArea.y + workArea.height - height;
+  let x = workArea.x;
+  let y = workArea.y;
+  if (corner.includes('right')) x = rightX;
+  if (corner.includes('bottom')) y = bottomY;
+  const bounds = {
+    x: Math.round(x),
+    y: Math.round(y),
+    width,
+    height
+  };
+  await ipcRenderer.invoke('set-window-bounds', bounds);
+};
+
 // Keybindings for main renderer window
 window.addEventListener('DOMContentLoaded', () => {
   const centerWindow = async () => {
@@ -121,6 +141,30 @@ window.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       await ipcRenderer.invoke('set-window-bounds', bounds);
       return;
+    }
+
+    // Snap corners: Alt+7/9/1/3
+    if (e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey) {
+      if (e.key === '7' || e.code === 'Digit7' || e.code === 'Numpad7') {
+        e.preventDefault();
+        await snapWindowToCorner('top-left');
+        return;
+      }
+      if (e.key === '9' || e.code === 'Digit9' || e.code === 'Numpad9') {
+        e.preventDefault();
+        await snapWindowToCorner('top-right');
+        return;
+      }
+      if (e.key === '1' || e.code === 'Digit1' || e.code === 'Numpad1') {
+        e.preventDefault();
+        await snapWindowToCorner('bottom-left');
+        return;
+      }
+      if (e.key === '3' || e.code === 'Digit3' || e.code === 'Numpad3') {
+        e.preventDefault();
+        await snapWindowToCorner('bottom-right');
+        return;
+      }
     }
 
     // Move: Ctrl+Alt+Shift + Arrow

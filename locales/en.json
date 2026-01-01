@@ -136,7 +136,7 @@
   "help.quickAccessTitle": "Quick access",
   "help.searchBody": "Search filters by title, URL, tags, and notes. Toggle fuzzy/exact. Tag chips filter the list; right-click a chip to pin it.",
   "help.searchTitle": "Search and tags",
-  "help.shortcutsBody": "Drag the top bar to move. Resize from edges (if resizers are enabled). Shortcuts: Alt+Left/Right (Windows/Linux) and Cmd+[ / Cmd+] (macOS) for back/forward in link windows, mouse back/forward buttons, Ctrl+Alt+Arrows resize, Ctrl+Alt+Shift+Arrows move, Ctrl+Alt+M maximize, Ctrl+Alt+C center, Ctrl+Alt+R reset window.",
+  "help.shortcutsBody": "Drag the top bar to move. Resize from edges (if resizers are enabled). Shortcuts: Ctrl/Cmd+K command palette; Ctrl+Alt+F search; Ctrl+Alt+L capture URL; Ctrl+Alt+O options; Ctrl+Alt+H help; Ctrl+Alt+T always on top; Ctrl+Alt+[ / ] opacity; Ctrl+Alt+Arrows resize; Ctrl+Alt+Shift+Arrows move; Ctrl+Alt+M maximize; Ctrl+Alt+C center; Ctrl+Alt+R reset (main window). Link windows: Alt+Left/Right (Windows/Linux) and Cmd+[ / Cmd+] (macOS) back/forward, Alt+R reload, Alt+B browser, Alt+C copy URL, Alt+S copy selection, mouse back/forward buttons.",
   "help.shortcutsTitle": "Window controls and shortcuts",
   "help.title": "Transparent AI Client help",
   "help.workspacesBody": "Save workspace captures currently open link windows and their positions. Open restores them; delete removes the workspace.",

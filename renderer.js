@@ -284,6 +284,78 @@ function initCollapsibleSections() {
 
 initCollapsibleSections();
 
+function isEditableTarget(target) {
+  if (!target) return false;
+  const tag = String(target.tagName || '').toUpperCase();
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  return !!target.isContentEditable;
+}
+
+function ensureSectionExpanded(id) {
+  const section = document.querySelector(`[data-collapsible="${id}"]`);
+  if (!section) return;
+  if (section.classList.contains('collapsed')) {
+    setSectionCollapsed(section, false, true);
+  }
+}
+
+function toggleSettingsPanel() {
+  if (!settingsPanel) return;
+  settingsPanel.classList.toggle('hidden');
+}
+
+function toggleHelpOverlay() {
+  if (!helpOverlay) return;
+  if (helpOverlay.classList.contains('hidden')) openHelp();
+  else closeHelp();
+}
+
+function focusCaptureInput() {
+  if (!urlInput) return;
+  ensureSectionExpanded('capture');
+  urlInput.focus();
+  if (typeof urlInput.select === 'function') urlInput.select();
+}
+
+function focusSearchInput() {
+  const input = document.getElementById('searchInput');
+  if (!input) return;
+  ensureSectionExpanded('links');
+  input.focus();
+  if (typeof input.select === 'function') input.select();
+}
+
+async function toggleSettingValue(key, checkbox) {
+  if (!window.electron || typeof window.electron.setSetting !== 'function') return;
+  let nextValue = null;
+  if (checkbox) {
+    nextValue = !checkbox.checked;
+    checkbox.checked = nextValue;
+  } else if (typeof window.electron.getSetting === 'function') {
+    try {
+      const current = await window.electron.getSetting(key);
+      nextValue = !current;
+    } catch (err) {
+      nextValue = null;
+    }
+  }
+  if (typeof nextValue === 'boolean') {
+    await window.electron.setSetting(key, nextValue);
+  }
+}
+
+async function adjustAppOpacity(delta) {
+  if (!window.electron || typeof window.electron.getAppOpacity !== 'function') return;
+  try {
+    const current = await window.electron.getAppOpacity();
+    if (typeof current !== 'number' || isNaN(current)) return;
+    const nextValue = Math.max(0, Math.min(1, current + delta));
+    await window.electron.setAppOpacity(nextValue);
+  } catch (err) {
+    // ignore
+  }
+}
+
 function applyBackgroundVisuals(rawValue) {
   try {
     const parsed = typeof rawValue === 'number' ? rawValue : parseFloat(rawValue);
@@ -2204,6 +2276,50 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && isCommandPaletteOpen()) {
     e.preventDefault();
     closeCommandPalette();
+  }
+
+  const isCtrlAlt = e.ctrlKey && e.altKey && !e.shiftKey && !e.metaKey;
+  if (!isCtrlAlt || isEditableTarget(e.target) || isCommandPaletteOpen()) return;
+  const key = String(e.key || '').toLowerCase();
+  if (key === 'o') {
+    e.preventDefault();
+    toggleSettingsPanel();
+    return;
+  }
+  if (key === 'h') {
+    e.preventDefault();
+    toggleHelpOverlay();
+    return;
+  }
+  if (key === 'f') {
+    e.preventDefault();
+    focusSearchInput();
+    return;
+  }
+  if (key === 'l') {
+    e.preventDefault();
+    focusCaptureInput();
+    return;
+  }
+  if (key === 't') {
+    e.preventDefault();
+    toggleSettingValue('alwaysOnTop', alwaysOnTopChk);
+    return;
+  }
+  if (key === 'i') {
+    e.preventDefault();
+    toggleSettingValue('injectResizers', injectResizersChk);
+    return;
+  }
+  if (e.key === '[' || e.code === 'BracketLeft') {
+    e.preventDefault();
+    adjustAppOpacity(-0.05);
+    return;
+  }
+  if (e.key === ']' || e.code === 'BracketRight') {
+    e.preventDefault();
+    adjustAppOpacity(0.05);
+    return;
   }
 });
 

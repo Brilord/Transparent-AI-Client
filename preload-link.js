@@ -13,6 +13,13 @@ const centerWindow = async () => {
   await ipcRenderer.invoke('set-window-bounds', { ...bounds, x, y, width, height });
 };
 
+const isEditableTarget = (target) => {
+  if (!target) return false;
+  const tag = String(target.tagName || '').toUpperCase();
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  return !!target.isContentEditable;
+};
+
 const snapWindowToThird = async (position) => {
   const workArea = await ipcRenderer.invoke('get-window-work-area');
   if (!workArea) return;
@@ -114,6 +121,32 @@ document.addEventListener('keydown', async (e) => {
       if (e.key === 'ArrowRight') {
         e.preventDefault();
         await ipcRenderer.invoke('link-go-forward');
+        return;
+      }
+    }
+
+    // Link actions: Alt+R/B/C/S (avoid hijacking form inputs)
+    if (e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey && !isEditableTarget(e.target)) {
+      if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        await ipcRenderer.invoke('link-reload');
+        return;
+      }
+      if (e.key === 'b' || e.key === 'B') {
+        e.preventDefault();
+        await ipcRenderer.invoke('link-open-external', location.href);
+        return;
+      }
+      if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault();
+        await ipcRenderer.invoke('link-copy-url', location.href);
+        return;
+      }
+      if (e.key === 's' || e.key === 'S') {
+        const selection = getSelectedText();
+        e.preventDefault();
+        if (!selection || !selection.trim()) return;
+        await ipcRenderer.invoke('link-copy-selection', selection);
         return;
       }
     }

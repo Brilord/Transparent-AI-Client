@@ -172,8 +172,16 @@ This app provides both mouse and keyboard controls for frameless windows.
  - Toggle maximize: `Ctrl + Alt + M` toggles maximize/restore.
  - Center window: `Ctrl + Alt + C`.
  - Reset main window bounds: `Ctrl + Alt + R` (main window only).
+ - Focus search: `Ctrl + Alt + F` (main window).
+ - Focus capture URL: `Ctrl + Alt + L` (main window).
+ - Toggle Options panel: `Ctrl + Alt + O` (main window).
+ - Toggle Help: `Ctrl + Alt + H` (main window).
+ - Toggle always-on-top: `Ctrl + Alt + T` (all windows).
+ - Toggle resizer injection: `Ctrl + Alt + I` (main window).
+ - Adjust opacity: `Ctrl + Alt + [` / `Ctrl + Alt + ]` (all windows).
  - Snap link window to left third: `Alt + 6` (link windows only).
  - Snap link window to right third: `Alt + 9` (link windows only).
+ - Link window actions: `Alt + R` reload, `Alt + B` open in browser, `Alt + C` copy URL, `Alt + S` copy selection.
  - Dragging a window near a screen edge lets the operating system snap it, just like any other application. Transparent AI Client no longer adds extra snap layouts.
 
 ## Link Windows (External Pages)

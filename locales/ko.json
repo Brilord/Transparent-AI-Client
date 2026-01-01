@@ -136,7 +136,7 @@
   "help.quickAccessTitle": "빠른 접근",
   "help.searchBody": "검색은 제목, URL, 태그, 메모를 기준으로 필터링합니다. 퍼지/정확 검색을 전환하세요. 태그 칩으로 목록을 필터링하고, 우클릭으로 고정할 수 있습니다.",
   "help.searchTitle": "검색과 태그",
-  "help.shortcutsBody": "상단 바를 드래그해 이동합니다. (리사이저가 활성화된 경우) 가장자리로 크기 조절. 단축키: Alt+Left/Right(Windows/Linux), Cmd+[ / Cmd+](macOS) 링크 창 뒤로/앞으로, 마우스 뒤/앞 버튼, Ctrl+Alt+화살표 크기 조절, Ctrl+Alt+Shift+화살표 이동, Ctrl+Alt+M 최대화, Ctrl+Alt+C 가운데 정렬, Ctrl+Alt+R 창 초기화.",
+  "help.shortcutsBody": "상단 바를 드래그해 이동합니다. (리사이저가 활성화된 경우) 가장자리로 크기 조절. 단축키: Ctrl/Cmd+K 팔레트, Ctrl+Alt+F 검색, Ctrl+Alt+L URL 입력, Ctrl+Alt+O 옵션, Ctrl+Alt+H 도움말, Ctrl+Alt+T 항상 위, Ctrl+Alt+[ / ] 투명도, Ctrl+Alt+화살표 크기 조절, Ctrl+Alt+Shift+화살표 이동, Ctrl+Alt+M 최대화, Ctrl+Alt+C 가운데 정렬, Ctrl+Alt+R 창 초기화(메인 창). 링크 창: Alt+Left/Right(Windows/Linux), Cmd+[ / Cmd+](macOS) 뒤로/앞으로, Alt+R 새로고침, Alt+B 브라우저 열기, Alt+C URL 복사, Alt+S 선택 텍스트 복사, 마우스 뒤/앞 버튼.",
   "help.shortcutsTitle": "창 제어 및 단축키",
   "help.title": "Transparent AI Client 도움말",
   "help.workspacesBody": "워크스페이스 저장은 현재 열린 링크 창과 위치를 기록합니다. 열기는 복원하고, 삭제는 제거합니다.",
