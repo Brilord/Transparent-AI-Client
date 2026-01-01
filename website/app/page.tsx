@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import exampleOperation from "../example-operation.png";
 import exampleOperation2 from "../example-operation2.png";
@@ -347,7 +347,7 @@ function detectBrowserLang(): Lang {
   return language && language.toLowerCase().startsWith("ko") ? "ko" : "en";
 }
 
-export default function Home() {
+function HomeContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const hasLangParam = searchParams.get("lang") !== null;
@@ -541,6 +541,14 @@ export default function Home() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="page" />}>
+      <HomeContent />
+    </Suspense>
   );
 }
 
