@@ -8,9 +8,68 @@ import exampleOperation2 from "../example-operation2.png";
 
 type Lang = "en" | "ko";
 
-type Copy = typeof copy.en;
+type Copy = {
+  nav: {
+    logo: string;
+    example: string;
+    features: string;
+    workflow: string;
+    shortcuts: string;
+    cta: string;
+    langLabel: string;
+  };
+  hero: {
+    eyebrow: string;
+    title: string;
+    lead: string;
+    primaryAction: string;
+    secondaryAction: string;
+    metaCards: string[];
+  };
+  demo: {
+    eyebrow: string;
+    caption: string;
+    imageAlt: string;
+  };
+  demoTwo: {
+    eyebrow: string;
+    caption: string;
+    imageAlt: string;
+  };
+  floating: {
+    title: string;
+    body: string;
+    pills: string[];
+  };
+  features: {
+    heading: string;
+    lead: string;
+    items: { title: string; body: string; }[];
+  };
+  workflow: {
+    heading: string;
+    lead: string;
+    steps: { number: string; title: string; body: string; }[];
+    panel: { title: string; items: string[]; };
+  };
+  shortcuts: {
+    heading: string;
+    lead: string;
+    items: { title: string; keys: string; }[];
+  };
+  cta: {
+    heading: string;
+    lead: string;
+    primary: string;
+    secondary: string;
+  };
+  footer: {
+    brand: string;
+    tagline: string;
+  };
+};
 
-const enCopy = {
+const enCopy: Copy = {
     nav: {
       logo: "Transparent Link Client",
       example: "Example",
@@ -141,9 +200,9 @@ const enCopy = {
       brand: "Transparent Link Client",
       tagline: "Transparent, local-first link control."
     }
-} as const;
+};
 
-const koCopy = {
+const koCopy: Copy = {
   nav: {
     logo: "투명 링크 클라이언트",
     example: "예시",
@@ -269,12 +328,12 @@ const koCopy = {
     brand: "Transparent Link Client",
     tagline: "투명한 로컬-퍼스트 링크 컨트롤."
   }
-} as const;
+};
 
-const copy = {
+const copy: Record<Lang, Copy> = {
   en: enCopy,
   ko: koCopy
-} as const;
+};
 
 function getLangParam(value: string | null): Lang {
   return value === "ko" ? "ko" : "en";
