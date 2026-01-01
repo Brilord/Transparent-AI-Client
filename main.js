@@ -1773,6 +1773,13 @@ ipcMain.handle('close-current-window', (event) => {
   return true;
 });
 
+ipcMain.handle('minimize-current-window', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win.isDestroyed()) return false;
+  win.minimize();
+  return true;
+});
+
 function recordLinkOpen(id, url) {
   try {
     const links = getLinksNormalized();

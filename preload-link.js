@@ -525,6 +525,7 @@ let readabilityStylesMounted = false;
 let pendingOpacityValue = null;
 let nativeTransparencyEnabled = false;
 let pendingTransparencyValue = null;
+let pendingWindowControlsValue = null;
 
 const TRANSPARENT_STYLE_ID = 'plana-link-transparent-style';
 const TRANSPARENT_STYLE_CONTENT = `
@@ -572,6 +573,60 @@ video {
 }
 body *:not(svg):not(svg *) {
   backdrop-filter: none !important;
+}
+`;
+
+const WINDOW_BAR_STYLE_ID = 'plana-link-windowbar-style';
+const WINDOW_BAR_ID = 'plana-link-windowbar';
+const WINDOW_BAR_STYLE_CONTENT = `
+#${WINDOW_BAR_ID} {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: rgba(12, 16, 24, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(12px) saturate(140%);
+  z-index: 2147483647;
+  -webkit-app-region: drag;
+  user-select: none;
+  font-family: "Segoe UI", sans-serif;
+  color: rgba(255, 255, 255, 0.85);
+  pointer-events: auto;
+}
+#${WINDOW_BAR_ID} .plana-bar-title {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+#${WINDOW_BAR_ID} .plana-bar-actions {
+  display: flex;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+#${WINDOW_BAR_ID} button {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  cursor: pointer;
+}
+#${WINDOW_BAR_ID} button:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+#${WINDOW_BAR_ID} button.plana-bar-close:hover {
+  background: rgba(255, 80, 80, 0.7);
+  border-color: rgba(255, 80, 80, 0.9);
 }
 `;
 
@@ -655,10 +710,73 @@ function applyLinkTransparency(enabled) {
   document.head.appendChild(styleEl);
 }
 
+function applyWindowControls(enabled) {
+  const shouldEnable = !!enabled;
+  pendingWindowControlsValue = shouldEnable;
+  if (!document || !document.head || !document.body) return;
+
+  const existingBar = document.getElementById(WINDOW_BAR_ID);
+  if (!shouldEnable) {
+    if (existingBar && existingBar.parentNode) existingBar.parentNode.removeChild(existingBar);
+    const existingStyle = document.getElementById(WINDOW_BAR_STYLE_ID);
+    if (existingStyle && existingStyle.parentNode) existingStyle.parentNode.removeChild(existingStyle);
+    return;
+  }
+
+  if (!document.getElementById(WINDOW_BAR_STYLE_ID)) {
+    const styleEl = document.createElement('style');
+    styleEl.id = WINDOW_BAR_STYLE_ID;
+    styleEl.textContent = WINDOW_BAR_STYLE_CONTENT;
+    document.head.appendChild(styleEl);
+  }
+
+  if (existingBar) return;
+  const bar = document.createElement('div');
+  bar.id = WINDOW_BAR_ID;
+  bar.innerHTML = `
+    <div class="plana-bar-title">Link Window</div>
+    <div class="plana-bar-actions">
+      <button class="plana-bar-min" title="Minimize">–</button>
+      <button class="plana-bar-max" title="Maximize">□</button>
+      <button class="plana-bar-close" title="Close">×</button>
+    </div>
+  `;
+
+  const minBtn = bar.querySelector('.plana-bar-min');
+  const maxBtn = bar.querySelector('.plana-bar-max');
+  const closeBtn = bar.querySelector('.plana-bar-close');
+  if (minBtn) {
+    minBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      await ipcRenderer.invoke('minimize-current-window');
+    });
+  }
+  if (maxBtn) {
+    maxBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      await ipcRenderer.invoke('toggle-maximize');
+    });
+  }
+  if (closeBtn) {
+    closeBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      await ipcRenderer.invoke('close-current-window');
+    });
+  }
+
+  document.body.appendChild(bar);
+}
+
 function ensureLinkTransparencyReady() {
   if (!document || !document.head) return;
   if (pendingTransparencyValue === null || pendingTransparencyValue === undefined) return;
   applyLinkTransparency(pendingTransparencyValue);
+}
+
+function ensureLinkWindowControlsReady() {
+  if (!document || !document.head || !document.body) return;
+  if (pendingWindowControlsValue === null || pendingWindowControlsValue === undefined) return;
+  applyWindowControls(pendingWindowControlsValue);
 }
 
 const ensureReadabilityReady = () => {
@@ -672,10 +790,12 @@ if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     ensureReadabilityReady();
     ensureLinkTransparencyReady();
+    ensureLinkWindowControlsReady();
   }, { once: true });
 } else {
   ensureReadabilityReady();
   ensureLinkTransparencyReady();
+  ensureLinkWindowControlsReady();
 }
 
 ipcRenderer.on('app-opacity-changed', (_event, value) => {
@@ -685,6 +805,7 @@ ipcRenderer.on('app-opacity-changed', (_event, value) => {
 ipcRenderer.on('setting-changed', (_event, key, value) => {
   if (key === 'nativeTransparency') {
     applyLinkTransparency(!!value);
+    applyWindowControls(!!value);
     handleOpacityUpdate(pendingOpacityValue);
   }
 });
@@ -702,6 +823,7 @@ ipcRenderer.on('setting-changed', (_event, key, value) => {
   try {
     const enabled = await ipcRenderer.invoke('get-setting', 'nativeTransparency');
     applyLinkTransparency(!!enabled);
+    applyWindowControls(!!enabled);
   } catch (err) {
     // ignore
   }

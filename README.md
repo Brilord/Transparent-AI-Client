@@ -4,35 +4,35 @@ A minimal Electron application (Transparent AI Client) with a transparent, glass
 
 ## Features
 
-- 🎨 Transparent glass-style UI (frameless, transparent windows)
-- 🔗 Add, view, and delete website links
-- 💾 Local persistent storage using JSON
-- 🖱️ Click links to open them inside transparent app windows
-- ⌨️ Keyboard and mouse controls for precise window movement and resizing
-- 🗂️ Custom storage picker so you can point Transparent AI Client at any `links.json` file, edit it manually, or keep it inside a synced folder.
-- 🏷️ Tag links, filter by tag chips, and bulk-apply tags to keep large libraries organized.
-- 🧰 Manage every entry inline with edit, open-in-browser, copy, pin/unpin, and favorite toggles without leaving the catalog.
+- Transparent glass-style UI (frameless, transparent windows)
+- Add, view, and delete website links
+- Local persistent storage using JSON
+- Click links to open them inside transparent app windows
+- Keyboard and mouse controls for precise window movement and resizing
+- Custom storage picker so you can point Transparent AI Client at any `links.json` file, edit it manually, or keep it inside a synced folder.
+- Tag links, filter by tag chips, and bulk-apply tags to keep large libraries organized.
+- Manage every entry inline with edit, open-in-browser, copy, pin/unpin, and favorite toggles without leaving the catalog.
 
 ### Options / Transparency
 
-- ⚙️ New Options tab: open the settings (gear) in the titlebar to reveal a "Window transparency" slider. This adjusts the opacity of the main window and any currently open link windows in real time.
+- New Options tab: open the settings (gear) in the titlebar to reveal a "Window transparency" slider. This adjusts the opacity of the main window and any currently open link windows in real time.
 Additional options in the same panel:
 
-- ✅ Always on top — keep the app and link windows above other apps.
-- 🔁 Persist settings — save option changes (opacity / always-on-top / resizer injection) across app restarts.
-- 🔧 Inject resizers — toggle whether the app attempts to insert invisible resizer handles into link windows (some websites block injection; if disabled use keyboard shortcuts for resizing instead).
-- ♻️ Reset to defaults — quickly reset all options to the app defaults.
+- Always on top - keep the app and link windows above other apps.
+- Persist settings - save option changes (opacity / always-on-top / resizer injection) across app restarts.
+- Inject resizers - toggle whether the app attempts to insert invisible resizer handles into link windows (some websites block injection; if disabled use keyboard shortcuts for resizing instead).
+- Reset to defaults - quickly reset all options to the app defaults.
   You can toggle each shortcut on/off from the Options panel.
 
 ### Tags & Quick Filters
 
 - Add comma-separated tags when creating or editing a link.
 - The toolbar shows quick tag chips so you can scope the list to a single workflow in one click.
-- Use the “Tag selected” bulk action to replace or clear the tags for any set of selected links.
+- Use the "Tag selected" bulk action to replace or clear the tags for any set of selected links.
 
 ### Inline Link Actions
 
-- Each card exposes “Open window”, “Open browser”, “Copy”, “Edit”, “Pin/Unpin”, “Fav/Unfav”, and “Delete” buttons.
+- Each card exposes "Open window", "Open browser", "Copy", "Edit", "Pin/Unpin", "Fav/Unfav", and "Delete" buttons.
 - Editing expands an inline form so you can update the title, URL, and tags without closing the main window.
 - Pinned links live in their own section at the top of the list so important dashboards are always within reach.
 
@@ -45,7 +45,7 @@ Additional options in the same panel:
 
 - Switch between fuzzy and exact search modes so typos or partial words still match. You can pin favorite tags (right-click on the chips) and even activate multiple tags at once for granular filtering.
 - Each saved URL now gathers metadata (title, description, favicon, theme color) and periodically runs HEAD checks to flag redirects or broken links. Badges on every card surface the latest status, and inline buttons let you requeue metadata or health refreshes instantly.
-- Capture more context with folder, priority, and notes fields. Group the catalog by folder or tag, and drag cards within a group or the pinned section to reorder them—order persists across app restarts.
+- Capture more context with folder, priority, and notes fields. Group the catalog by folder or tag, and drag cards within a group or the pinned section to reorder them-order persists across app restarts.
 - Clipboard detection, drag-and-drop capture, and the mini form let you stash new links without manual typing. The app also supports JSON **and** CSV import/export so backups slot neatly into spreadsheets or other machines.
 
 ## Installation
@@ -159,7 +159,7 @@ Links are stored in the user's application data directory:
 - Windows: `%APPDATA%/electron-link-storage/links.json`
 - macOS: `~/Library/Application Support/electron-link-storage/links.json`
 - Linux: `~/.config/electron-link-storage/links.json`
-Prefer a different location? Use the Options → “Links storage JSON” controls to choose any other file (and open it quickly for manual editing) without leaving the app.
+Prefer a different location? Use the Options "Links storage JSON" controls to choose any other file (and open it quickly for manual editing) without leaving the app.
 
 ## Window Behavior & Shortcuts
 
@@ -174,7 +174,7 @@ This app provides both mouse and keyboard controls for frameless windows.
  - Reset main window bounds: `Ctrl + Alt + R` (main window only).
  - Snap link window to left third: `Alt + 6` (link windows only).
  - Snap link window to right third: `Alt + 9` (link windows only).
- - Dragging a window near a screen edge lets the operating system snap it, just like any other application—Transparent AI Client no longer adds extra snap layouts.
+ - Dragging a window near a screen edge lets the operating system snap it, just like any other application. Transparent AI Client no longer adds extra snap layouts.
 
 ## Link Windows (External Pages)
 
@@ -201,10 +201,3 @@ If the build fails, check `transparent-ai-client-dist/builder-effective-config.y
 ## License
 
 See `LICENSE`.
-
-
-
-
-
-git tag v1.0.0
-git push origin v1.0.0
