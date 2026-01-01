@@ -43,6 +43,7 @@
       "preload-perf.js",
       "renderer.js",
       "index.html",
+      "locales/**",
       "perf.html",
       "perf.js",
       "perf.css",

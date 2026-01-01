@@ -154,6 +154,7 @@ const HTTP_TIMEOUT_MS = 12000;
 const DEFAULT_PRIORITY = 'normal';
 const ALLOWED_PRIORITIES = new Set(['low', 'normal', 'high']);
 const LINK_SESSION_MODES = new Set(['shared', 'per-link', 'incognito']);
+const SUPPORTED_LANGUAGES = new Set(['en', 'ko']);
 const SAFE_LINK_SCHEMES = new Set(['http:', 'https:']);
 const LINK_WINDOW_CSP = "default-src * data: blob: 'unsafe-inline' 'unsafe-eval'; object-src 'none'; base-uri 'self'";
 
@@ -305,6 +306,7 @@ const DEFAULT_SETTINGS = {
   nativeTransparency: false,
   injectResizers: true,
   linkSessionMode: 'shared',
+  language: 'en',
   persistSettings: true,
   customDataFile: null,
   backgroundImagePath: null,
@@ -403,6 +405,11 @@ function normalizePriority(value) {
 function normalizeLinkSessionMode(value) {
   const normalized = String(value || '').toLowerCase();
   return LINK_SESSION_MODES.has(normalized) ? normalized : DEFAULT_SETTINGS.linkSessionMode;
+}
+
+function normalizeLanguage(value) {
+  const normalized = String(value || '').toLowerCase();
+  return SUPPORTED_LANGUAGES.has(normalized) ? normalized : DEFAULT_SETTINGS.language;
 }
 
 function getLinkSessionPartition(mode, linkId) {
@@ -2217,6 +2224,7 @@ function loadSettings() {
     const parsed = JSON.parse(raw || '{}');
     appSettings = Object.assign({}, DEFAULT_SETTINGS, parsed);
     appSettings.linkSessionMode = normalizeLinkSessionMode(appSettings.linkSessionMode);
+    appSettings.language = normalizeLanguage(appSettings.language);
     // reflect appOpacity from settings
     if (typeof appSettings.appOpacity === 'number') appOpacity = appSettings.appOpacity;
     // Normalize last opened links (support legacy single object)
@@ -2285,6 +2293,18 @@ ipcMain.handle('get-all-settings', () => {
   return appSettings;
 });
 
+ipcMain.handle('read-locale', (event, lang) => {
+  try {
+    const normalized = normalizeLanguage(lang);
+    const file = path.join(__dirname, 'locales', `${normalized}.json`);
+    if (!fs.existsSync(file)) return null;
+    const raw = fs.readFileSync(file, 'utf8');
+    return JSON.parse(raw || '{}');
+  } catch (err) {
+    return null;
+  }
+});
+
 ipcMain.handle('set-setting', (event, key, value) => {
   if (!key) return false;
   let nextValue = value;
@@ -2312,6 +2332,9 @@ ipcMain.handle('set-setting', (event, key, value) => {
   }
   if (key === 'linkSessionMode') {
     nextValue = normalizeLinkSessionMode(value);
+  }
+  if (key === 'language') {
+    nextValue = normalizeLanguage(value);
   }
   appSettings[key] = nextValue;
   // Persist settings if enabled

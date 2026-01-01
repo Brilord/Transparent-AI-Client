@@ -12,9 +12,9 @@
             <h1 id="appTitle">Transparent AI Client</h1>
             <div class="window-controls">
                 <button id="settingsBtn" class="control-btn settings-btn">⚙</button>
-                <button id="helpBtn" class="control-btn help-btn" title="Help">?</button>
-                <button id="selfChatBtn" class="control-btn chat-btn" title="Chat rooms">Chat</button>
-                <button id="resetBtn" class="control-btn reset-btn" title="Reset window">R</button>
+                <button id="helpBtn" class="control-btn help-btn" title="Help" data-i18n-title="controls.helpTitle">?</button>
+                <button id="selfChatBtn" class="control-btn chat-btn" title="Chat rooms" data-i18n-title="chat.title" data-i18n="chat.button">Chat</button>
+                <button id="resetBtn" class="control-btn reset-btn" title="Reset window" data-i18n-title="controls.resetTitle">R</button>
                 <button id="minimizeBtn" class="control-btn minimize-btn">−</button>
                 <button id="closeBtn" class="control-btn close-btn">×</button>
             </div>
@@ -23,26 +23,29 @@
         <div class="content">
             <div class="input-section collapsible" data-collapsible="capture">
                 <div class="section-header">
-                    <span class="section-title">Capture</span>
+                    <span class="section-title" data-i18n="section.capture">Capture</span>
                     <button type="button" class="section-toggle" aria-expanded="true" aria-controls="captureSectionBody">Collapse</button>
                 </div>
                 <div id="captureSectionBody" class="section-body">
                     <input 
                     type="url" 
                     id="urlInput" 
-                    placeholder="Enter website URL..." 
+                    placeholder="Enter website URL..."
+                    data-i18n-placeholder="placeholders.url"
                     class="url-input"
                 >
                 <input 
                     type="text" 
                     id="titleInput" 
-                    placeholder="Title (optional)" 
+                    placeholder="Title (optional)"
+                    data-i18n-placeholder="placeholders.titleOptional"
                     class="title-input"
                 >
                 <input
                     type="text"
                     id="tagsInput"
                     placeholder="Tags (comma separated)"
+                    data-i18n-placeholder="placeholders.tagsComma"
                     class="tags-input"
                 >
                 <div class="capture-row">
@@ -50,30 +53,32 @@
                         type="text"
                         id="folderInput"
                         placeholder="Folder (optional)"
+                        data-i18n-placeholder="placeholders.folderOptional"
                         class="folder-input"
                     >
                     <select id="prioritySelect" class="priority-select">
-                        <option value="normal" selected>Priority: Normal</option>
-                        <option value="high">Priority: High</option>
-                        <option value="low">Priority: Low</option>
+                        <option value="normal" selected data-i18n="priority.normalOption">Priority: Normal</option>
+                        <option value="high" data-i18n="priority.highOption">Priority: High</option>
+                        <option value="low" data-i18n="priority.lowOption">Priority: Low</option>
                     </select>
                 </div>
                 <textarea
                     id="notesInput"
                     class="notes-input"
                     placeholder="Notes / context (optional)"
+                    data-i18n-placeholder="placeholders.notesOptional"
                     rows="2"
                 ></textarea>
-                <button id="addBtn" class="add-btn">Add Link</button>
-                <small class="hint inline-hint">Tags help organize and power quick filters (comma separated).</small>
+                <button id="addBtn" class="add-btn" data-i18n="actions.addLink">Add Link</button>
+                <small class="hint inline-hint" data-i18n="hints.tagsComma">Tags help organize and power quick filters (comma separated).</small>
                 <div id="clipboardBanner" class="clipboard-banner hidden">
                     <div class="clipboard-text">
-                        <strong>Clipboard link detected</strong>
+                        <strong data-i18n="clipboard.detected">Clipboard link detected</strong>
                         <span id="clipboardBannerValue"></span>
                     </div>
                     <div class="clipboard-actions">
-                        <button id="useClipboardLinkBtn" class="small-btn">Use link</button>
-                        <button id="dismissClipboardBannerBtn" class="small-btn ghost">Dismiss</button>
+                        <button id="useClipboardLinkBtn" class="small-btn" data-i18n="clipboard.useLink">Use link</button>
+                        <button id="dismissClipboardBannerBtn" class="small-btn ghost" data-i18n="actions.dismiss">Dismiss</button>
                     </div>
                 </div>
             </div>
@@ -81,58 +86,92 @@
 
             <div class="links-section collapsible" data-collapsible="links">
                 <div class="section-header">
-                    <span class="section-title">Links</span>
+                    <span class="section-title" data-i18n="section.links">Links</span>
                     <button type="button" class="section-toggle" aria-expanded="true" aria-controls="linksSectionBody">Collapse</button>
                 </div>
                 <div id="linksSectionBody" class="section-body">
-                    <div class="links-toolbar">
+                <div class="links-toolbar">
                     <div class="search-group">
-                        <input id="searchInput" type="search" placeholder="Search links..." class="search-input">
-                        <button id="searchModeToggle" class="small-btn subtle">Fuzzy search</button>
+                        <input id="searchInput" type="search" placeholder="Search links..." class="search-input" data-i18n-placeholder="placeholders.searchLinks">
+                        <button id="searchModeToggle" class="small-btn subtle" data-i18n="actions.fuzzySearch">Fuzzy search</button>
                         <select id="groupingSelect" class="grouping-select">
-                            <option value="none">No grouping</option>
-                            <option value="folder">Group by folder</option>
-                            <option value="tag">Group by tag</option>
+                            <option value="none" data-i18n="group.none">No grouping</option>
+                            <option value="folder" data-i18n="group.folder">Group by folder</option>
+                            <option value="tag" data-i18n="group.tag">Group by tag</option>
                         </select>
                     </div>
+                    <div class="links-status">
+                        <div class="quick-stats" id="quickStats">
+                            <span class="stat-chip"><span data-i18n="stats.total">Total</span> <strong id="totalCount">0</strong></span>
+                            <span class="stat-chip"><span data-i18n="stats.pinned">Pinned</span> <strong id="pinnedCount">0</strong></span>
+                            <span class="stat-chip"><span data-i18n="stats.favorites">Favorites</span> <strong id="favoriteCount">0</strong></span>
+                        </div>
+                        <div class="refresh-indicators" id="refreshIndicators">
+                            <div class="refresh-indicator" id="metadataIndicator">
+                                <span class="indicator-dot"></span>
+                                <span class="indicator-label" data-i18n="metadata.label">Metadata</span>
+                                <span class="indicator-status" id="metadataIndicatorStatus" data-i18n="status.idle">Idle</span>
+                            </div>
+                            <div class="refresh-indicator" id="healthIndicator">
+                                <span class="indicator-dot"></span>
+                                <span class="indicator-label" data-i18n="health.label">Health</span>
+                                <span class="indicator-status" id="healthIndicatorStatus" data-i18n="status.idle">Idle</span>
+                            </div>
+                        </div>
+                    </div>
                     <div class="bulk-actions">
-                        <button id="exportBtn" class="small-btn">Export JSON</button>
-                        <button id="importBtn" class="small-btn">Import JSON</button>
-                        <button id="exportCsvBtn" class="small-btn">Export CSV</button>
-                        <button id="importCsvBtn" class="small-btn">Import CSV</button>
-                        <button id="backupBtn" class="small-btn">Backup</button>
-                        <button id="bulkTagBtn" class="small-btn">Tag selected</button>
-                        <button id="deleteSelectedBtn" class="small-btn danger">Delete selected</button>
+                        <button id="exportBtn" class="small-btn" data-i18n="actions.exportJson">Export JSON</button>
+                        <button id="importBtn" class="small-btn" data-i18n="actions.importJson">Import JSON</button>
+                        <button id="exportCsvBtn" class="small-btn" data-i18n="actions.exportCsv">Export CSV</button>
+                        <button id="importCsvBtn" class="small-btn" data-i18n="actions.importCsv">Import CSV</button>
+                        <button id="backupBtn" class="small-btn" data-i18n="actions.backup">Backup</button>
+                        <button id="bulkTagBtn" class="small-btn" data-i18n="actions.tagSelected">Tag selected</button>
+                        <button id="deleteSelectedBtn" class="small-btn danger" data-i18n="actions.deleteSelected">Delete selected</button>
                     </div>
                 </div>
-                <div class="workspace-row">
-                    <div class="workspace-label">Workspaces</div>
-                    <div id="workspaceList" class="workspace-list"></div>
-                    <button id="saveWorkspaceBtn" class="small-btn">Save workspace</button>
-                </div>
-                <div id="quickAccess" class="quick-access">
-                    <div class="quick-access-section">
-                        <div class="quick-access-title">Recents</div>
-                        <div id="recentLinks" class="quick-access-grid"></div>
-                        <div id="recentEmpty" class="quick-access-empty">No recent links yet</div>
+                <div class="workspace-section collapsible" data-collapsible="workspaces">
+                    <div class="section-header">
+                        <span class="section-title" data-i18n="section.workspaces">Workspaces</span>
+                        <button type="button" class="section-toggle" aria-expanded="true" aria-controls="workspacesSectionBody">Collapse</button>
                     </div>
-                    <div class="quick-access-section">
-                        <div class="quick-access-title">Frequently used</div>
-                        <div id="frequentLinks" class="quick-access-grid"></div>
-                        <div id="frequentEmpty" class="quick-access-empty">No frequent links yet</div>
+                    <div id="workspacesSectionBody" class="section-body">
+                        <div class="workspace-row">
+                            <div id="workspaceList" class="workspace-list"></div>
+                            <button id="saveWorkspaceBtn" class="small-btn" data-i18n="actions.saveWorkspace">Save workspace</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="quick-access-wrapper collapsible" data-collapsible="quick-access">
+                    <div class="section-header">
+                        <span class="section-title" data-i18n="section.quickAccess">Quick access</span>
+                        <button type="button" class="section-toggle" aria-expanded="true" aria-controls="quickAccessBody">Collapse</button>
+                    </div>
+                    <div id="quickAccessBody" class="section-body">
+                        <div id="quickAccess" class="quick-access">
+                            <div class="quick-access-section">
+                                <div class="quick-access-title" data-i18n="quickAccess.recents">Recents</div>
+                                <div id="recentLinks" class="quick-access-grid"></div>
+                                <div id="recentEmpty" class="quick-access-empty" data-i18n="quickAccess.recentEmpty">No recent links yet</div>
+                            </div>
+                            <div class="quick-access-section">
+                                <div class="quick-access-title" data-i18n="quickAccess.frequent">Frequently used</div>
+                                <div id="frequentLinks" class="quick-access-grid"></div>
+                                <div id="frequentEmpty" class="quick-access-empty" data-i18n="quickAccess.frequentEmpty">No frequent links yet</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="tag-filters-row">
-                    <span class="tag-filters-label">Quick tag filters:</span>
+                    <span class="tag-filters-label" data-i18n="tags.quickFilters">Quick tag filters:</span>
                     <div id="tagFilters" class="tag-filters">
-                        <span class="tag-chip muted">No tags yet</span>
+                        <span class="tag-chip muted" data-i18n="tags.none">No tags yet</span>
                     </div>
-                    <button id="clearTagFiltersBtn" class="small-btn subtle">Clear filter</button>
+                    <button id="clearTagFiltersBtn" class="small-btn subtle" data-i18n="actions.clearFilter">Clear filter</button>
                 </div>
                 <div id="linksList" class="links-list"></div>
                 <div id="emptyState" class="empty-state">
-                    <p>No links stored yet</p>
-                    <p class="hint">Add a link above to get started</p>
+                    <p data-i18n="links.emptyTitle">No links stored yet</p>
+                    <p class="hint" data-i18n="links.emptyHint">Add a link above to get started</p>
                 </div>
             </div>
             </div>
@@ -140,122 +179,131 @@
             <!-- Settings Panel (hidden by default) -->
             <div id="settingsPanel" class="settings-panel hidden collapsible" data-collapsible="settings">
                 <div class="section-header">
-                    <h3>Options</h3>
+                    <h3 data-i18n="section.settings">Options</h3>
                     <button type="button" class="section-toggle" aria-expanded="true" aria-controls="settingsSectionBody">Collapse</button>
                 </div>
                 <div id="settingsSectionBody" class="section-body">
                     <div class="setting-row">
-                        <label for="appNameInput">App name</label>
+                        <label for="appNameInput" data-i18n="settings.appNameLabel">App name</label>
                         <div class="folder-row">
-                            <input id="appNameInput" type="text" class="settings-input" placeholder="Transparent AI Client">
-                            <button id="appNameSaveBtn" class="small-btn" type="button">Save</button>
-                            <button id="appNameResetBtn" class="small-btn subtle" type="button">Reset</button>
+                            <input id="appNameInput" type="text" class="settings-input" placeholder="Transparent AI Client" data-i18n-placeholder="settings.appNamePlaceholder">
+                            <button id="appNameSaveBtn" class="small-btn" type="button" data-i18n="actions.save">Save</button>
+                            <button id="appNameResetBtn" class="small-btn subtle" type="button" data-i18n="actions.reset">Reset</button>
                         </div>
-                        <small class="hint">Shown in the title bar of the main window.</small>
+                        <small class="hint" data-i18n="settings.appNameHint">Shown in the title bar of the main window.</small>
                     </div>
 
                     <div class="setting-row">
-                        <label for="opacityRange">Window transparency</label>
+                        <label for="languageSelect" data-i18n="settings.languageLabel">Language</label>
+                        <select id="languageSelect" class="settings-select">
+                            <option value="en" data-i18n="language.english">English</option>
+                            <option value="ko" data-i18n="language.korean">Korean</option>
+                        </select>
+                        <small class="hint" data-i18n="settings.languageHint">Changes the UI language (translation support may be limited).</small>
+                    </div>
+
+                    <div class="setting-row">
+                        <label for="opacityRange" data-i18n="settings.opacityLabel">Window transparency</label>
                         <div class="range-row">
                             <input id="opacityRange" type="range" min="0" max="1" step="0.01" value="1">
                             <div id="opacityVal" class="range-val">100%</div>
                         </div>
-                        <small class="hint">Adjust transparency for all currently open windows</small>
+                        <small class="hint" data-i18n="settings.opacityHint">Adjust transparency for all currently open windows</small>
                     </div>
 
                     <div class="setting-row">
-                        <label><input id="nativeTransparencyChk" type="checkbox"> Native transparent windows</label>
-                        <small class="hint">Uses Electron native transparency; restart required to apply</small>
+                        <label><input id="nativeTransparencyChk" type="checkbox"> <span data-i18n="settings.nativeTransparency">Native transparent windows</span></label>
+                        <small class="hint" data-i18n="settings.nativeTransparencyHint">Uses Electron native transparency; restart required to apply</small>
                     </div>
 
                     <div class="setting-row">
-                        <label><input id="alwaysOnTopChk" type="checkbox"> Always on top (all windows)</label>
-                        <small class="hint">When enabled windows will be kept above other apps</small>
+                        <label><input id="alwaysOnTopChk" type="checkbox"> <span data-i18n="settings.alwaysOnTop">Always on top (all windows)</span></label>
+                        <small class="hint" data-i18n="settings.alwaysOnTopHint">When enabled windows will be kept above other apps</small>
                     </div>
 
                     <div class="setting-row">
-                        <label><input id="injectResizersChk" type="checkbox"> Inject resizer handles into opened link pages</label>
-                        <small class="hint">When disabled, injected resizers for external pages will not be added (use keyboard shortcuts instead)</small>
+                        <label><input id="injectResizersChk" type="checkbox"> <span data-i18n="settings.injectResizers">Inject resizer handles into opened link pages</span></label>
+                        <small class="hint" data-i18n="settings.injectResizersHint">When disabled, injected resizers for external pages will not be added (use keyboard shortcuts instead)</small>
                     </div>
 
                     <div class="setting-row">
-                        <label for="linkSessionMode">Link window session</label>
+                        <label for="linkSessionMode" data-i18n="settings.linkSessionLabel">Link window session</label>
                         <select id="linkSessionMode" class="settings-select">
-                            <option value="shared">Shared (default)</option>
-                            <option value="per-link">Per-link profile</option>
-                            <option value="incognito">Incognito (no saved cookies)</option>
+                            <option value="shared" data-i18n="settings.linkSessionShared">Shared (default)</option>
+                            <option value="per-link" data-i18n="settings.linkSessionPerLink">Per-link profile</option>
+                            <option value="incognito" data-i18n="settings.linkSessionIncognito">Incognito (no saved cookies)</option>
                         </select>
-                        <small class="hint">Controls whether link windows share cookies or keep separate logins.</small>
+                        <small class="hint" data-i18n="settings.linkSessionHint">Controls whether link windows share cookies or keep separate logins.</small>
                     </div>
 
                     <div class="setting-row">
-                        <label><input id="persistSettingsChk" type="checkbox"> Persist settings between launches</label>
-                        <small class="hint">Save your options so they persist across restarts</small>
+                        <label><input id="persistSettingsChk" type="checkbox"> <span data-i18n="settings.persistSettings">Persist settings between launches</span></label>
+                        <small class="hint" data-i18n="settings.persistSettingsHint">Save your options so they persist across restarts</small>
                     </div>
 
                     <div class="setting-row">
-                        <label><input id="launchOnStartupChk" type="checkbox"> Launch on system startup</label>
-                        <small class="hint">Automatically start Transparent AI Client when you sign in to your computer</small>
+                        <label><input id="launchOnStartupChk" type="checkbox"> <span data-i18n="settings.launchOnStartup">Launch on system startup</span></label>
+                        <small class="hint" data-i18n="settings.launchOnStartupHint">Automatically start Transparent AI Client when you sign in to your computer</small>
                     </div>
 
                     <div class="setting-row">
-                        <label><input id="useFolderSyncChk" type="checkbox"> Enable folder sync (save links to a synced folder)</label>
-                        <small class="hint">Store links.json in a folder synced by OneDrive/Google Drive. Choose a folder below.</small>
+                        <label><input id="useFolderSyncChk" type="checkbox"> <span data-i18n="settings.useFolderSync">Enable folder sync (save links to a synced folder)</span></label>
+                        <small class="hint" data-i18n="settings.useFolderSyncHint">Store links.json in a folder synced by OneDrive/Google Drive. Choose a folder below.</small>
                         <div class="folder-row">
-                            <div id="syncFolderPath" class="sync-path">Not set</div>
-                            <button id="chooseSyncFolderBtn" class="choose-folder-btn">Choose folder</button>
+                            <div id="syncFolderPath" class="sync-path" data-i18n="settings.syncPathNotSet">Not set</div>
+                            <button id="chooseSyncFolderBtn" class="choose-folder-btn" data-i18n="actions.chooseFolder">Choose folder</button>
                         </div>
                     </div>
 
                     <div class="setting-row">
-                        <label>Links storage JSON</label>
-                        <small class="hint">Point Transparent AI Client at a different links.json file or open the current file to edit it manually.</small>
+                        <label data-i18n="settings.linksStorageLabel">Links storage JSON</label>
+                        <small class="hint" data-i18n="settings.linksStorageHint">Point Transparent AI Client at a different links.json file or open the current file to edit it manually.</small>
                         <div class="folder-row">
-                            <div id="linksFilePath" class="sync-path">Default location</div>
-                            <button id="openLinksFileBtn" class="choose-folder-btn">Open file</button>
+                            <div id="linksFilePath" class="sync-path" data-i18n="settings.linksFileDefault">Default location</div>
+                            <button id="openLinksFileBtn" class="choose-folder-btn" data-i18n="actions.openFile">Open file</button>
                         </div>
                         <div class="folder-row">
-                            <button id="chooseLinksFileBtn" class="choose-folder-btn">Choose file</button>
-                            <button id="resetLinksFileBtn" class="choose-folder-btn">Use default</button>
-                        </div>
-                    </div>
-
-                    <div class="setting-row">
-                        <label>Custom background</label>
-                        <small class="hint">Pick an image to use behind the main window UI.</small>
-                        <div class="folder-row">
-                            <div id="backgroundImagePath" class="sync-path">Default background</div>
-                            <button id="chooseBackgroundBtn" class="choose-folder-btn">Choose image</button>
-                        </div>
-                        <div class="folder-row">
-                            <button id="resetBackgroundBtn" class="choose-folder-btn">Use default</button>
+                            <button id="chooseLinksFileBtn" class="choose-folder-btn" data-i18n="actions.chooseFile">Choose file</button>
+                            <button id="resetLinksFileBtn" class="choose-folder-btn" data-i18n="actions.useDefault">Use default</button>
                         </div>
                     </div>
 
                     <div class="setting-row">
-                        <button id="resetSettingsBtn" class="reset-btn">Reset to defaults</button>
+                        <label data-i18n="settings.backgroundLabel">Custom background</label>
+                        <small class="hint" data-i18n="settings.backgroundHint">Pick an image to use behind the main window UI.</small>
+                        <div class="folder-row">
+                            <div id="backgroundImagePath" class="sync-path" data-i18n="settings.backgroundDefault">Default background</div>
+                            <button id="chooseBackgroundBtn" class="choose-folder-btn" data-i18n="actions.chooseImage">Choose image</button>
+                        </div>
+                        <div class="folder-row">
+                            <button id="resetBackgroundBtn" class="choose-folder-btn" data-i18n="actions.useDefault">Use default</button>
+                        </div>
                     </div>
 
                     <div class="setting-row">
-                        <label><input id="telemetryChk" type="checkbox"> Enable crash reporting (anonymous, opt-in)</label>
-                        <small class="hint">Help improve the app by sending anonymous crash reports. Data is opt-in and can be revoked anytime.</small>
+                        <button id="resetSettingsBtn" class="reset-btn" data-i18n="actions.resetDefaults">Reset to defaults</button>
                     </div>
 
                     <div class="setting-row">
-                        <label><input id="developerModeChk" type="checkbox"> Developer mode (auto-open performance monitor)</label>
-                        <small class="hint">Shows a live window with startup timings and responsiveness metrics.</small>
+                        <label><input id="telemetryChk" type="checkbox"> <span data-i18n="settings.telemetry">Enable crash reporting (anonymous, opt-in)</span></label>
+                        <small class="hint" data-i18n="settings.telemetryHint">Help improve the app by sending anonymous crash reports. Data is opt-in and can be revoked anytime.</small>
+                    </div>
+
+                    <div class="setting-row">
+                        <label><input id="developerModeChk" type="checkbox"> <span data-i18n="settings.developerMode">Developer mode (auto-open performance monitor)</span></label>
+                        <small class="hint" data-i18n="settings.developerModeHint">Shows a live window with startup timings and responsiveness metrics.</small>
                     </div>
 
                     <div class="setting-row data-collection-row">
                         <div class="data-collection-header">
-                            <span class="data-collection-title">Data collection debugger</span>
-                            <button id="clearDataCollectionBtn" class="small-btn subtle" type="button">Clear</button>
+                            <span class="data-collection-title" data-i18n="dataCollection.title">Data collection debugger</span>
+                            <button id="clearDataCollectionBtn" class="small-btn subtle" type="button" data-i18n="actions.clear">Clear</button>
                         </div>
-                        <div id="dataCollectionStatus" class="data-collection-status hint">Logging off. Enable crash reporting to capture outgoing data.</div>
+                        <div id="dataCollectionStatus" class="data-collection-status hint" data-i18n="dataCollection.statusOff">Logging off. Enable crash reporting to capture outgoing data.</div>
                         <div id="dataCollectionLog" class="data-collection-log">
-                            <div id="dataCollectionEmpty" class="data-collection-empty">No data collection events yet.</div>
+                            <div id="dataCollectionEmpty" class="data-collection-empty" data-i18n="dataCollection.none">No data collection events yet.</div>
                         </div>
-                        <small class="hint">Shows outgoing requests and crash-report configuration while telemetry is enabled.</small>
+                        <small class="hint" data-i18n="dataCollection.hint">Shows outgoing requests and crash-report configuration while telemetry is enabled.</small>
                     </div>
                 </div>
             </div>
@@ -266,48 +314,48 @@
         <div id="selfChatPanel" class="chat-panel simple-chat" role="dialog" aria-modal="true" aria-labelledby="selfChatTitle">
             <div class="chat-sidebar">
                 <div class="chat-sidebar-header">
-                    <div id="selfChatTitle" class="chat-server-name">Chat rooms</div>
-                    <button id="selfChatNewChannelBtn" class="small-btn" type="button">New room</button>
+                    <div id="selfChatTitle" class="chat-server-name" data-i18n="chat.title">Chat rooms</div>
+                    <button id="selfChatNewChannelBtn" class="small-btn" type="button" data-i18n="chat.newRoom">New room</button>
                 </div>
                 <div id="selfChatRoomForm" class="chat-room-form hidden">
-                    <input id="selfChatRoomNameInput" class="chat-room-name-input" type="text" placeholder="Room name">
+                    <input id="selfChatRoomNameInput" class="chat-room-name-input" type="text" placeholder="Room name" data-i18n-placeholder="chat.roomNamePlaceholder">
                     <div class="chat-room-form-actions">
-                        <button id="selfChatRoomCreateBtn" class="small-btn" type="button">Create</button>
-                        <button id="selfChatRoomCancelBtn" class="small-btn ghost" type="button">Cancel</button>
+                        <button id="selfChatRoomCreateBtn" class="small-btn" type="button" data-i18n="actions.create">Create</button>
+                        <button id="selfChatRoomCancelBtn" class="small-btn ghost" type="button" data-i18n="actions.cancel">Cancel</button>
                     </div>
                 </div>
                 <div class="chat-sidebar-tools">
-                    <input id="selfChatChannelSearch" class="chat-channel-search" type="search" placeholder="Find a room">
+                    <input id="selfChatChannelSearch" class="chat-channel-search" type="search" placeholder="Find a room" data-i18n-placeholder="chat.searchPlaceholder">
                 </div>
                 <div class="chat-channel-wrap">
-                    <div class="chat-channel-label">Rooms</div>
+                    <div class="chat-channel-label" data-i18n="chat.roomsLabel">Rooms</div>
                     <div id="selfChatChannelList" class="chat-channel-list"></div>
                 </div>
             </div>
             <div class="chat-main">
                 <div class="chat-main-header">
                     <div class="chat-channel-header">
-                        <div id="selfChatChannelTitle" class="chat-channel-title">Room</div>
-                        <div id="selfChatChannelTopic" class="chat-channel-topic">Pick a room to start.</div>
+                        <div id="selfChatChannelTitle" class="chat-channel-title" data-i18n="chat.roomTitle">Room</div>
+                        <div id="selfChatChannelTopic" class="chat-channel-topic" data-i18n="chat.pickRoom">Pick a room to start.</div>
                     </div>
                     <div class="chat-main-actions">
-                        <button id="selfChatRenameChannelBtn" class="small-btn subtle" type="button">Rename</button>
-                        <button id="selfChatClearBtn" class="small-btn ghost" type="button">Clear</button>
-                        <button id="selfChatDeleteChannelBtn" class="small-btn danger" type="button">Delete</button>
-                        <button id="selfChatCloseBtn" class="small-btn ghost" type="button" title="Close">Close</button>
+                        <button id="selfChatRenameChannelBtn" class="small-btn subtle" type="button" data-i18n="actions.rename">Rename</button>
+                        <button id="selfChatClearBtn" class="small-btn ghost" type="button" data-i18n="actions.clear">Clear</button>
+                        <button id="selfChatDeleteChannelBtn" class="small-btn danger" type="button" data-i18n="actions.delete">Delete</button>
+                        <button id="selfChatCloseBtn" class="small-btn ghost" type="button" title="Close" data-i18n-title="actions.close" data-i18n="actions.close">Close</button>
                     </div>
                 </div>
                 <div id="selfChatMessages" class="chat-messages"></div>
                 <div class="chat-composer">
-                    <textarea id="selfChatInput" class="chat-input" rows="2" placeholder="Write a message or paste an image..."></textarea>
+                    <textarea id="selfChatInput" class="chat-input" rows="2" placeholder="Write a message or paste an image..." data-i18n-placeholder="chat.inputPlaceholder"></textarea>
                     <div class="chat-composer-actions">
                         <input id="selfChatImageInput" class="chat-image-input" type="file" accept="image/*" multiple>
-                        <button id="selfChatAddImageBtn" class="small-btn ghost chat-image-btn" type="button">Image</button>
-                        <button id="selfChatSendBtn" class="small-btn chat-send-btn" type="button">Send</button>
+                        <button id="selfChatAddImageBtn" class="small-btn ghost chat-image-btn" type="button" data-i18n="chat.imageButton">Image</button>
+                        <button id="selfChatSendBtn" class="small-btn chat-send-btn" type="button" data-i18n="actions.send">Send</button>
                     </div>
                 </div>
                 <div id="selfChatAttachmentPreview" class="chat-attachment-preview hidden" aria-live="polite"></div>
-                <small class="hint chat-hint">Enter to send, Shift+Enter for new line. Paste or attach images (max 2MB).</small>
+                <small class="hint chat-hint" data-i18n="chat.hint">Enter to send, Shift+Enter for new line. Paste or attach images (max 2MB).</small>
             </div>
         </div>
     </div>
@@ -315,41 +363,41 @@
     <div id="helpOverlay" class="help-overlay hidden" aria-hidden="true">
         <div id="helpPanel" class="help-panel" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
             <div class="help-header">
-                <h3 id="helpTitle">Transparent AI Client help</h3>
-                <button id="helpCloseBtn" class="control-btn help-close-btn" type="button" title="Close">X</button>
+                <h3 id="helpTitle" data-i18n="help.title">Transparent AI Client help</h3>
+                <button id="helpCloseBtn" class="control-btn help-close-btn" type="button" title="Close" data-i18n-title="actions.close">X</button>
             </div>
             <div class="help-body">
                 <div class="help-section">
-                    <div class="help-section-title">Capture</div>
-                    <p>Add a link with URL, optional title, tags, folder, priority, and notes. Use drag-and-drop or the clipboard banner to capture faster.</p>
+                    <div class="help-section-title" data-i18n="help.captureTitle">Capture</div>
+                    <p data-i18n="help.captureBody">Add a link with URL, optional title, tags, folder, priority, and notes. Use drag-and-drop or the clipboard banner to capture faster.</p>
                 </div>
                 <div class="help-section">
-                    <div class="help-section-title">Links list</div>
-                    <p>Click a card to open its window. Use inline actions for open in browser, copy, edit, pin, favorite, or delete.</p>
+                    <div class="help-section-title" data-i18n="help.linksTitle">Links list</div>
+                    <p data-i18n="help.linksBody">Click a card to open its window. Use inline actions for open in browser, copy, edit, pin, favorite, or delete.</p>
                 </div>
                 <div class="help-section">
-                    <div class="help-section-title">Search and tags</div>
-                    <p>Search filters by title, URL, tags, and notes. Toggle fuzzy/exact. Tag chips filter the list; right-click a chip to pin it.</p>
+                    <div class="help-section-title" data-i18n="help.searchTitle">Search and tags</div>
+                    <p data-i18n="help.searchBody">Search filters by title, URL, tags, and notes. Toggle fuzzy/exact. Tag chips filter the list; right-click a chip to pin it.</p>
                 </div>
                 <div class="help-section">
-                    <div class="help-section-title">Quick access</div>
-                    <p>Recents shows recently opened links. Frequently used ranks links by open count.</p>
+                    <div class="help-section-title" data-i18n="help.quickAccessTitle">Quick access</div>
+                    <p data-i18n="help.quickAccessBody">Recents shows recently opened links. Frequently used ranks links by open count.</p>
                 </div>
                 <div class="help-section">
-                    <div class="help-section-title">Workspaces</div>
-                    <p>Save workspace captures currently open link windows and their positions. Open restores them; delete removes the workspace.</p>
+                    <div class="help-section-title" data-i18n="help.workspacesTitle">Workspaces</div>
+                    <p data-i18n="help.workspacesBody">Save workspace captures currently open link windows and their positions. Open restores them; delete removes the workspace.</p>
                 </div>
                 <div class="help-section">
-                    <div class="help-section-title">Command palette</div>
-                    <p>Press Ctrl/Cmd+K to open the palette. Type to search, Enter to open, use action buttons, Esc to close.</p>
+                    <div class="help-section-title" data-i18n="help.paletteTitle">Command palette</div>
+                    <p data-i18n="help.paletteBody">Press Ctrl/Cmd+K to open the palette. Type to search, Enter to open, use action buttons, Esc to close.</p>
                 </div>
                 <div class="help-section">
-                    <div class="help-section-title">Options</div>
-                    <p>Use the gear for transparency, always-on-top, resizer injection, persistence, launch on startup, folder sync, storage file, background, reset, and telemetry.</p>
+                    <div class="help-section-title" data-i18n="help.optionsTitle">Options</div>
+                    <p data-i18n="help.optionsBody">Use the gear for transparency, always-on-top, resizer injection, persistence, launch on startup, folder sync, storage file, background, reset, and telemetry.</p>
                 </div>
                 <div class="help-section">
-                    <div class="help-section-title">Window controls and shortcuts</div>
-                    <p>Drag the top bar to move. Resize from edges (if resizers are enabled). Shortcuts: Alt+Left/Right (Windows/Linux) and Cmd+[ / Cmd+] (macOS) for back/forward in link windows, mouse back/forward buttons, Ctrl+Alt+Arrows resize, Ctrl+Alt+Shift+Arrows move, Ctrl+Alt+M maximize, Ctrl+Alt+C center, Ctrl+Alt+R reset window.</p>
+                    <div class="help-section-title" data-i18n="help.shortcutsTitle">Window controls and shortcuts</div>
+                    <p data-i18n="help.shortcutsBody">Drag the top bar to move. Resize from edges (if resizers are enabled). Shortcuts: Alt+Left/Right (Windows/Linux) and Cmd+[ / Cmd+] (macOS) for back/forward in link windows, mouse back/forward buttons, Ctrl+Alt+Arrows resize, Ctrl+Alt+Shift+Arrows move, Ctrl+Alt+M maximize, Ctrl+Alt+C center, Ctrl+Alt+R reset window.</p>
                 </div>
             </div>
         </div>
@@ -358,31 +406,31 @@
     <div id="commandPaletteOverlay" class="command-palette-overlay hidden" aria-hidden="true">
         <div id="commandPalettePanel" class="command-palette" role="dialog" aria-modal="true" aria-labelledby="commandPaletteTitle">
             <div class="command-palette-header">
-                <div id="commandPaletteTitle" class="command-palette-title">Command palette</div>
-                <button id="commandPaletteCloseBtn" class="control-btn palette-close-btn" type="button" title="Close">X</button>
+                <div id="commandPaletteTitle" class="command-palette-title" data-i18n="palette.title">Command palette</div>
+                <button id="commandPaletteCloseBtn" class="control-btn palette-close-btn" type="button" title="Close" data-i18n-title="actions.close">X</button>
             </div>
-            <input id="commandPaletteInput" class="command-palette-input" type="search" placeholder="Search links or type to filter">
-            <div class="command-palette-hint">Enter to open. Up/Down to navigate. Esc to close.</div>
+            <input id="commandPaletteInput" class="command-palette-input" type="search" placeholder="Search links or type to filter" data-i18n-placeholder="placeholders.paletteSearch">
+            <div class="command-palette-hint" data-i18n="palette.hint">Enter to open. Up/Down to navigate. Esc to close.</div>
             <div id="commandPaletteResults" class="command-palette-results"></div>
             <div id="commandPaletteEditor" class="command-palette-editor hidden">
-                <div class="command-palette-editor-title">Edit link</div>
+                <div class="command-palette-editor-title" data-i18n="palette.editTitle">Edit link</div>
                 <div class="command-palette-editor-grid">
-                    <label>Title<input id="paletteEditTitle" type="text" class="command-palette-field"></label>
-                    <label>URL<input id="paletteEditUrl" type="text" class="command-palette-field"></label>
-                    <label>Tags<input id="paletteEditTags" type="text" class="command-palette-field" placeholder="Comma separated"></label>
-                    <label>Folder<input id="paletteEditFolder" type="text" class="command-palette-field" placeholder="Folder name"></label>
-                    <label>Priority
+                    <label><span data-i18n="fields.title">Title</span><input id="paletteEditTitle" type="text" class="command-palette-field"></label>
+                    <label><span data-i18n="fields.url">URL</span><input id="paletteEditUrl" type="text" class="command-palette-field"></label>
+                    <label><span data-i18n="fields.tags">Tags</span><input id="paletteEditTags" type="text" class="command-palette-field" placeholder="Comma separated" data-i18n-placeholder="placeholders.commaSeparated"></label>
+                    <label><span data-i18n="fields.folder">Folder</span><input id="paletteEditFolder" type="text" class="command-palette-field" placeholder="Folder name" data-i18n-placeholder="placeholders.folderName"></label>
+                    <label><span data-i18n="fields.priority">Priority</span>
                         <select id="paletteEditPriority" class="command-palette-field">
-                            <option value="high">High</option>
-                            <option value="normal">Normal</option>
-                            <option value="low">Low</option>
+                            <option value="high" data-i18n="priority.high">High</option>
+                            <option value="normal" data-i18n="priority.normal">Normal</option>
+                            <option value="low" data-i18n="priority.low">Low</option>
                         </select>
                     </label>
-                    <label class="command-palette-notes">Notes<textarea id="paletteEditNotes" class="command-palette-field" rows="2" placeholder="Notes"></textarea></label>
+                    <label class="command-palette-notes"><span data-i18n="fields.notes">Notes</span><textarea id="paletteEditNotes" class="command-palette-field" rows="2" placeholder="Notes" data-i18n-placeholder="placeholders.notes"></textarea></label>
                 </div>
                 <div class="command-palette-editor-actions">
-                    <button id="paletteEditSaveBtn" class="small-btn">Save changes</button>
-                    <button id="paletteEditCancelBtn" class="small-btn ghost">Cancel</button>
+                    <button id="paletteEditSaveBtn" class="small-btn" data-i18n="actions.saveChanges">Save changes</button>
+                    <button id="paletteEditCancelBtn" class="small-btn ghost" data-i18n="actions.cancel">Cancel</button>
                 </div>
             </div>
         </div>
@@ -390,8 +438,8 @@
 
     <div id="dropOverlay" class="drop-overlay hidden">
         <div class="drop-overlay-inner">
-            <p>Drop links to capture</p>
-            <p class="hint">We’ll auto-fetch metadata & health</p>
+            <p data-i18n="drop.title">Drop links to capture</p>
+            <p class="hint" data-i18n="drop.hint">We’ll auto-fetch metadata & health</p>
         </div>
     </div>
 

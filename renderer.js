@@ -12,6 +12,7 @@ const appTitleEl = document.getElementById('appTitle');
 const appNameInput = document.getElementById('appNameInput');
 const appNameSaveBtn = document.getElementById('appNameSaveBtn');
 const appNameResetBtn = document.getElementById('appNameResetBtn');
+const languageSelect = document.getElementById('languageSelect');
 const selfChatBtn = document.getElementById('selfChatBtn');
 const selfChatOverlay = document.getElementById('selfChatOverlay');
 const selfChatPanel = document.getElementById('selfChatPanel');
@@ -64,6 +65,14 @@ const useClipboardLinkBtn = document.getElementById('useClipboardLinkBtn');
 const dismissClipboardBannerBtn = document.getElementById('dismissClipboardBannerBtn');
 const searchModeToggle = document.getElementById('searchModeToggle');
 const groupingSelect = document.getElementById('groupingSelect');
+const quickStatsEl = document.getElementById('quickStats');
+const totalCountEl = document.getElementById('totalCount');
+const pinnedCountEl = document.getElementById('pinnedCount');
+const favoriteCountEl = document.getElementById('favoriteCount');
+const metadataIndicator = document.getElementById('metadataIndicator');
+const metadataIndicatorStatus = document.getElementById('metadataIndicatorStatus');
+const healthIndicator = document.getElementById('healthIndicator');
+const healthIndicatorStatus = document.getElementById('healthIndicatorStatus');
 const workspaceList = document.getElementById('workspaceList');
 const saveWorkspaceBtn = document.getElementById('saveWorkspaceBtn');
 const quickAccessEl = document.getElementById('quickAccess');
@@ -85,6 +94,102 @@ const paletteEditFolder = document.getElementById('paletteEditFolder');
 const paletteEditPriority = document.getElementById('paletteEditPriority');
 
 const DEFAULT_APP_NAME = 'Transparent AI Client';
+const DEFAULT_LANGUAGE = 'en';
+const LOCALE_PATH = 'locales';
+const LOCALE_FALLBACK = {
+  'collapsible.collapse': 'Collapse',
+  'collapsible.expand': 'Expand',
+  'actions.fuzzySearch': 'Fuzzy search',
+  'actions.exactSearch': 'Exact search'
+};
+let activeLanguage = DEFAULT_LANGUAGE;
+let localeFallback = Object.assign({}, LOCALE_FALLBACK);
+let localeStrings = Object.assign({}, LOCALE_FALLBACK);
+const localeCache = new Map();
+
+function normalizeLanguageCode(value) {
+  const normalized = typeof value === 'string' ? value.toLowerCase() : DEFAULT_LANGUAGE;
+  return normalized === 'ko' ? 'ko' : 'en';
+}
+
+function formatMessage(template, vars) {
+  if (!vars) return template;
+  return template.replace(/\{(\w+)\}/g, (match, key) => {
+    if (!Object.prototype.hasOwnProperty.call(vars, key)) return match;
+    return String(vars[key]);
+  });
+}
+
+function t(key, vars) {
+  const template = localeStrings[key] || localeFallback[key] || key;
+  return formatMessage(template, vars);
+}
+
+async function fetchLocale(lang) {
+  const normalized = normalizeLanguageCode(lang);
+  if (localeCache.has(normalized)) return localeCache.get(normalized);
+  try {
+    if (window.electron && typeof window.electron.readLocale === 'function') {
+      const data = await window.electron.readLocale(normalized);
+      if (data && typeof data === 'object') {
+        localeCache.set(normalized, data);
+        return data;
+      }
+    }
+  } catch (err) {}
+  try {
+    const url = new URL(`${LOCALE_PATH}/${normalized}.json`, window.location.href);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Locale fetch failed');
+    const data = await response.json();
+    localeCache.set(normalized, data);
+    return data;
+  } catch (err) {
+    return null;
+  }
+}
+
+function applyTranslations() {
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    const key = el.getAttribute('data-i18n');
+    if (!key) return;
+    el.textContent = t(key);
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (!key || !('placeholder' in el)) return;
+    el.placeholder = t(key);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+    const key = el.getAttribute('data-i18n-title');
+    if (!key) return;
+    el.title = t(key);
+  });
+}
+
+function refreshCollapsibleLabels() {
+  collapsibleSections.forEach((section) => {
+    if (!section) return;
+    setSectionCollapsed(section, section.classList.contains('collapsed'), false);
+  });
+}
+
+async function setLanguage(lang) {
+  const normalized = normalizeLanguageCode(lang);
+  activeLanguage = normalized;
+  const fallback = await fetchLocale(DEFAULT_LANGUAGE);
+  if (fallback) localeFallback = Object.assign({}, fallback);
+  const current = normalized === DEFAULT_LANGUAGE ? fallback : await fetchLocale(normalized);
+  localeStrings = Object.assign({}, localeFallback, current || {});
+  applyTranslations();
+  refreshCollapsibleLabels();
+  applyLanguageSelection(normalized);
+  syncSearchModeLabel();
+  try { renderTagFilters(); } catch (err) {}
+  try { renderLinks(); } catch (err) {}
+  try { renderQuickAccess(); } catch (err) {}
+  try { renderQuickStats(); } catch (err) {}
+}
 
 function applyAppDisplayName(name) {
   const trimmed = typeof name === 'string' ? name.trim() : '';
@@ -93,6 +198,16 @@ function applyAppDisplayName(name) {
   document.title = resolved;
   if (appNameInput && document.activeElement !== appNameInput) {
     appNameInput.value = resolved;
+  }
+}
+
+function applyLanguageSelection(value) {
+  const normalized = normalizeLanguageCode(value);
+  if (document.documentElement) {
+    document.documentElement.lang = normalized;
+  }
+  if (languageSelect && document.activeElement !== languageSelect) {
+    languageSelect.value = normalized;
   }
 }
 const paletteEditNotes = document.getElementById('paletteEditNotes');
@@ -138,7 +253,7 @@ function setSectionCollapsed(section, collapsed, persist = true) {
   const toggle = section.querySelector('.section-toggle');
   if (toggle) {
     toggle.setAttribute('aria-expanded', String(!collapsed));
-    toggle.textContent = collapsed ? 'Expand' : 'Collapse';
+    toggle.textContent = collapsed ? t('collapsible.expand') : t('collapsible.collapse');
   }
   if (!persist) return;
   const id = section.getAttribute('data-collapsible');
@@ -198,9 +313,6 @@ function applyBackgroundVisuals(rawValue) {
   } catch (err) {}
 }
 
-// Load links on startup
-loadLinks();
-
 let currentLinks = [];
 let searchQuery = '';
 const activeTagFilters = new Set();
@@ -214,15 +326,26 @@ let workspaces = [];
 let paletteResults = [];
 let paletteSelection = 0;
 let paletteEditingId = null;
+let metadataActivityUntil = 0;
+let healthActivityUntil = 0;
+let lastMetadataStamp = 0;
+let lastHealthStamp = 0;
+let refreshIndicatorTimer = null;
+
+function syncSearchModeLabel() {
+  if (!searchModeToggle) return;
+  searchModeToggle.textContent = searchMode === 'fuzzy' ? t('actions.fuzzySearch') : t('actions.exactSearch');
+  searchModeToggle.classList.toggle('active', searchMode === 'fuzzy');
+}
 
 function updateLinksFileDisplay(customPath) {
   if (!linksFilePathEl) return;
   if (customPath && customPath.trim()) {
     linksFilePathEl.textContent = customPath.trim();
   } else if (defaultLinksPath) {
-    linksFilePathEl.textContent = `Default (${defaultLinksPath})`;
+    linksFilePathEl.textContent = t('settings.linksFileDefaultWithPath', { path: defaultLinksPath });
   } else {
-    linksFilePathEl.textContent = 'Default location';
+    linksFilePathEl.textContent = t('settings.linksFileDefault');
   }
 }
 
@@ -289,10 +412,10 @@ function formatRelativeTime(ts) {
   const parsed = Date.parse(ts);
   if (isNaN(parsed)) return '';
   const deltaMs = Date.now() - parsed;
-  if (deltaMs < 60000) return 'just now';
-  if (deltaMs < 3600000) return `${Math.floor(deltaMs / 60000)}m ago`;
-  if (deltaMs < 86400000) return `${Math.floor(deltaMs / 3600000)}h ago`;
-  if (deltaMs < 86400000 * 7) return `${Math.floor(deltaMs / 86400000)}d ago`;
+  if (deltaMs < 60000) return t('time.justNow');
+  if (deltaMs < 3600000) return t('time.minutesAgo', { count: Math.floor(deltaMs / 60000) });
+  if (deltaMs < 86400000) return t('time.hoursAgo', { count: Math.floor(deltaMs / 3600000) });
+  if (deltaMs < 86400000 * 7) return t('time.daysAgo', { count: Math.floor(deltaMs / 86400000) });
   return new Date(parsed).toLocaleDateString();
 }
 
@@ -337,7 +460,7 @@ function buildQuickAccessCard(link, metaText) {
 
   const openBtn = document.createElement('button');
   openBtn.className = 'action-btn';
-  openBtn.textContent = 'Open';
+  openBtn.textContent = t('actions.open');
   openBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     recordLocalOpen(link.id);
@@ -351,7 +474,7 @@ function buildQuickAccessCard(link, metaText) {
 
   const pinBtn = document.createElement('button');
   pinBtn.className = 'action-btn ghost';
-  pinBtn.textContent = link.pinned ? 'Unpin' : 'Pin';
+  pinBtn.textContent = link.pinned ? t('actions.unpin') : t('actions.pin');
   pinBtn.addEventListener('click', async (e) => {
     e.stopPropagation();
     await window.electron.setLinkPinned(link.id, !link.pinned);
@@ -374,7 +497,7 @@ function renderQuickAccess() {
 
   if (recents.length) {
     recents.forEach((link) => {
-      const meta = link.lastOpenedAt ? `Last opened ${formatRelativeTime(link.lastOpenedAt)}` : '';
+      const meta = link.lastOpenedAt ? t('quickAccess.lastOpened', { time: formatRelativeTime(link.lastOpenedAt) }) : '';
       recentLinksEl.appendChild(buildQuickAccessCard(link, meta));
     });
     if (recentEmptyEl) recentEmptyEl.style.display = 'none';
@@ -384,13 +507,130 @@ function renderQuickAccess() {
 
   if (frequent.length) {
     frequent.forEach((link) => {
-      const meta = `Opened ${link.openCount || 0}x`;
+      const meta = t('quickAccess.openedCount', { count: link.openCount || 0 });
       frequentLinksEl.appendChild(buildQuickAccessCard(link, meta));
     });
     if (frequentEmptyEl) frequentEmptyEl.style.display = 'none';
   } else if (frequentEmptyEl) {
     frequentEmptyEl.style.display = 'block';
   }
+}
+
+function renderQuickStats() {
+  if (!quickStatsEl || !totalCountEl || !pinnedCountEl || !favoriteCountEl) return;
+  const total = currentLinks.length;
+  const pinned = currentLinks.filter((link) => !!link.pinned).length;
+  const favorites = currentLinks.filter((link) => !!link.favorite).length;
+  totalCountEl.textContent = String(total);
+  pinnedCountEl.textContent = String(pinned);
+  favoriteCountEl.textContent = String(favorites);
+}
+
+function findLatestTimestamp(getter) {
+  let latestMs = 0;
+  let latestIso = '';
+  currentLinks.forEach((link) => {
+    const iso = getter(link);
+    if (!iso) return;
+    const parsed = Date.parse(iso);
+    if (!isNaN(parsed) && parsed > latestMs) {
+      latestMs = parsed;
+      latestIso = iso;
+    }
+  });
+  return { latestMs, latestIso };
+}
+
+function updateIndicator(indicatorEl, statusEl, options) {
+  if (!indicatorEl || !statusEl) return;
+  const { active, statusText, title } = options;
+  indicatorEl.classList.toggle('active', !!active);
+  statusEl.textContent = statusText;
+  if (title) indicatorEl.title = title;
+}
+
+function updateRefreshIndicators() {
+  if (!metadataIndicator || !metadataIndicatorStatus || !healthIndicator || !healthIndicatorStatus) return;
+  const now = Date.now();
+  const { latestMs: latestMetaMs, latestIso: latestMetaIso } = findLatestTimestamp(
+    (link) => link && link.metadata && link.metadata.lastFetchedAt
+  );
+  const { latestMs: latestHealthMs, latestIso: latestHealthIso } = findLatestTimestamp(
+    (link) => link && link.health && link.health.checkedAt
+  );
+
+  let metaQueued = false;
+  let healthQueued = false;
+  currentLinks.forEach((link) => {
+    const metaNext = link && link.metadata && link.metadata.nextRetryAt;
+    const healthNext = link && link.health && link.health.nextRetryAt;
+    if (metaNext) {
+      const ts = Date.parse(metaNext);
+      if (!isNaN(ts) && ts > now) metaQueued = true;
+    }
+    if (healthNext) {
+      const ts = Date.parse(healthNext);
+      if (!isNaN(ts) && ts > now) healthQueued = true;
+    }
+  });
+
+  if (latestMetaMs && latestMetaMs > lastMetadataStamp) {
+    lastMetadataStamp = latestMetaMs;
+    metadataActivityUntil = Math.max(metadataActivityUntil, now + 6000);
+  }
+  if (latestHealthMs && latestHealthMs > lastHealthStamp) {
+    lastHealthStamp = latestHealthMs;
+    healthActivityUntil = Math.max(healthActivityUntil, now + 6000);
+  }
+
+  const metadataActive = metaQueued || metadataActivityUntil > now;
+  const healthActive = healthQueued || healthActivityUntil > now;
+
+  const metaStatusIdle = latestMetaIso
+    ? t('metadata.updated', { time: formatRelativeTime(latestMetaIso) })
+    : t('status.notYet');
+  const healthStatusIdle = latestHealthIso
+    ? t('metadata.updated', { time: formatRelativeTime(latestHealthIso) })
+    : t('status.notYet');
+  const metaStatus = metaQueued ? t('status.queued') : (metadataActive ? t('status.refreshing') : metaStatusIdle);
+  const healthStatus = healthQueued ? t('status.queued') : (healthActive ? t('status.refreshing') : healthStatusIdle);
+
+  updateIndicator(metadataIndicator, metadataIndicatorStatus, {
+    active: metadataActive,
+    statusText: metaStatus,
+    title: latestMetaIso
+      ? t('metadata.indicatorTitleWithLast', { status: metaStatus, time: new Date(latestMetaIso).toLocaleString() })
+      : t('metadata.indicatorTitle', { status: metaStatus })
+  });
+  updateIndicator(healthIndicator, healthIndicatorStatus, {
+    active: healthActive,
+    statusText: healthStatus,
+    title: latestHealthIso
+      ? t('health.indicatorTitleWithLast', { status: healthStatus, time: new Date(latestHealthIso).toLocaleString() })
+      : t('health.indicatorTitle', { status: healthStatus })
+  });
+
+  if (metadataActive || healthActive) {
+    if (!refreshIndicatorTimer) {
+      refreshIndicatorTimer = setInterval(() => {
+        updateRefreshIndicators();
+        if (metadataActivityUntil <= Date.now() && healthActivityUntil <= Date.now()) {
+          clearInterval(refreshIndicatorTimer);
+          refreshIndicatorTimer = null;
+        }
+      }, 1000);
+    }
+  }
+}
+
+function bumpRefreshActivity(kind, ms = 4000) {
+  const until = Date.now() + ms;
+  if (kind === 'metadata') {
+    metadataActivityUntil = Math.max(metadataActivityUntil, until);
+  } else if (kind === 'health') {
+    healthActivityUntil = Math.max(healthActivityUntil, until);
+  }
+  updateRefreshIndicators();
 }
 
 function recordLocalOpen(linkId) {
@@ -407,7 +647,7 @@ function recordLocalOpen(linkId) {
 function normalizeWorkspaces(raw) {
   if (!Array.isArray(raw)) return [];
   return raw.map((entry, idx) => {
-    const name = entry && entry.name ? String(entry.name).trim() : `Workspace ${idx + 1}`;
+    const name = entry && entry.name ? String(entry.name).trim() : t('workspaces.defaultName', { index: idx + 1 });
     const id = entry && entry.id ? entry.id : Date.now() + idx;
     const items = Array.isArray(entry && entry.items) ? entry.items : [];
     return {
@@ -434,7 +674,7 @@ function renderWorkspaces() {
   if (!workspaces.length) {
     const empty = document.createElement('span');
     empty.className = 'tag-chip muted';
-    empty.textContent = 'No workspaces yet';
+    empty.textContent = t('workspaces.none');
     workspaceList.appendChild(empty);
     return;
   }
@@ -447,7 +687,7 @@ function renderWorkspaces() {
     chip.appendChild(name);
 
     const openBtn = document.createElement('button');
-    openBtn.textContent = 'Open';
+    openBtn.textContent = t('actions.open');
     openBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       await window.electron.openWorkspace(workspace.id);
@@ -459,10 +699,10 @@ function renderWorkspaces() {
     chip.appendChild(openBtn);
 
     const deleteBtn = document.createElement('button');
-    deleteBtn.textContent = 'Delete';
+    deleteBtn.textContent = t('actions.delete');
     deleteBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (!confirm(`Delete workspace "${workspace.name}"?`)) return;
+      if (!confirm(t('confirm.deleteWorkspace', { name: workspace.name }))) return;
       workspaces = workspaces.filter((entry) => entry.id !== workspace.id);
       await window.electron.setSetting('workspaces', workspaces);
       renderWorkspaces();
@@ -488,16 +728,16 @@ async function saveWorkspaceFromOpenWindows() {
   if (!window.electron || typeof window.electron.getOpenLinkWindows !== 'function') return;
   const openWindows = await window.electron.getOpenLinkWindows();
   if (!Array.isArray(openWindows) || openWindows.length === 0) {
-    alert('No open link windows to save.');
+    alert(t('alerts.noOpenWindows'));
     return;
   }
-  const name = prompt('Workspace name');
+  const name = prompt(t('prompts.workspaceName'));
   if (!name) return;
   const trimmed = name.trim();
   if (!trimmed) return;
   const existingIdx = workspaces.findIndex((entry) => entry.name.toLowerCase() === trimmed.toLowerCase());
   if (existingIdx !== -1) {
-    const ok = confirm(`Replace workspace "${workspaces[existingIdx].name}"?`);
+    const ok = confirm(t('confirm.replaceWorkspace', { name: workspaces[existingIdx].name }));
     if (!ok) return;
   }
 
@@ -766,7 +1006,7 @@ function renderSelfChatRooms() {
   if (!selfChatState || !selfChatState.rooms.length) {
     const empty = document.createElement('div');
     empty.className = 'chat-empty';
-    empty.textContent = 'No rooms yet.';
+    empty.textContent = t('chat.roomsNone');
     selfChatChannelList.appendChild(empty);
     return;
   }
@@ -777,7 +1017,7 @@ function renderSelfChatRooms() {
   if (!rooms.length) {
     const empty = document.createElement('div');
     empty.className = 'chat-empty';
-    empty.textContent = 'No rooms match that search.';
+    empty.textContent = t('chat.roomsNoMatch');
     selfChatChannelList.appendChild(empty);
     return;
   }
@@ -815,15 +1055,15 @@ function renderSelfChatRooms() {
 function renderSelfChatHeader() {
   const room = getActiveRoom();
   if (selfChatChannelTitle) {
-    selfChatChannelTitle.textContent = room ? room.name : 'Room';
+    selfChatChannelTitle.textContent = room ? room.name : t('chat.roomTitle');
   }
   if (selfChatChannelTopic) {
     if (!room) {
-      selfChatChannelTopic.textContent = 'Pick a room to start.';
+      selfChatChannelTopic.textContent = t('chat.pickRoom');
       return;
     }
     const messageCount = room.messages.length;
-    let updatedLabel = 'No updates yet';
+    let updatedLabel = t('chat.noUpdates');
     if (room.updatedAt) {
       const relative = formatRelativeTime(room.updatedAt);
       updatedLabel = relative ? `Updated ${relative}` : 'Updated recently';
@@ -838,7 +1078,9 @@ function renderSelfChatEntries() {
   if (!room || !room.messages.length) {
     const empty = document.createElement('div');
     empty.className = 'chat-empty';
-    empty.textContent = room ? `No messages in ${room.name} yet.` : 'Select a room to get started.';
+    empty.textContent = room
+      ? t('chat.noMessagesInRoom', { name: room.name })
+      : t('chat.selectRoom');
     selfChatMessages.replaceChildren(empty);
     return;
   }
@@ -849,7 +1091,7 @@ function renderSelfChatEntries() {
 
     const avatar = document.createElement('div');
     avatar.className = 'chat-avatar';
-    avatar.textContent = 'Y';
+    avatar.textContent = t('chat.youInitial');
     row.appendChild(avatar);
 
     const body = document.createElement('div');
@@ -860,7 +1102,7 @@ function renderSelfChatEntries() {
 
     const author = document.createElement('span');
     author.className = 'chat-message-author';
-    author.textContent = 'You';
+    author.textContent = t('chat.youLabel');
     meta.appendChild(author);
 
     const time = formatSelfChatTime(entry.ts);
@@ -938,7 +1180,7 @@ function clearSelfChatAttachments() {
 function openSelfChatRoomForm() {
   if (!selfChatRoomForm) return;
   if (selfChatState && selfChatState.rooms.length >= selfChatMaxRooms) {
-    alert('Max rooms reached.');
+    alert(t('alerts.maxRooms'));
     return;
   }
   selfChatRoomForm.classList.remove('hidden');
@@ -958,12 +1200,12 @@ function submitSelfChatRoomForm() {
   if (!selfChatState || !selfChatRoomNameInput) return;
   const trimmed = selfChatRoomNameInput.value.trim();
   if (!trimmed) {
-    alert('Room name required.');
+    alert(t('alerts.roomNameRequired'));
     selfChatRoomNameInput.focus();
     return;
   }
   if (selfChatState.rooms.length >= selfChatMaxRooms) {
-    alert('Max rooms reached.');
+    alert(t('alerts.maxRooms'));
     return;
   }
   const room = createRoom(trimmed);
@@ -1029,11 +1271,11 @@ function addSelfChatEntry(text, images = []) {
 function appendPendingImage(file) {
   if (!file || !file.type || !file.type.startsWith('image/')) return;
   if (selfChatPendingImages.length >= selfChatMaxImagesPerMessage) {
-    alert('Max images per message reached.');
+    alert(t('alerts.maxImages'));
     return;
   }
   if (file.size > selfChatMaxImageBytes) {
-    alert('Image too large. Use files under 2MB.');
+    alert(t('alerts.imageTooLarge'));
     return;
   }
   const reader = new FileReader();
@@ -1174,7 +1416,7 @@ async function initSelfChat() {
     selfChatRenameChannelBtn.addEventListener('click', () => {
       const room = getActiveRoom();
       if (!room) return;
-      const name = prompt('Rename room', room.name);
+      const name = prompt(t('prompts.renameRoom'), room.name);
       if (name === null) return;
       const trimmed = name.trim();
       if (trimmed) room.name = trimmed;
@@ -1190,10 +1432,10 @@ async function initSelfChat() {
       const room = getActiveRoom();
       if (!room) return;
       if (selfChatState.rooms.length <= 1) {
-        alert('Keep at least one room.');
+        alert(t('alerts.keepOneRoom'));
         return;
       }
-      if (!confirm(`Delete room "${room.name}"?`)) return;
+      if (!confirm(t('confirm.deleteRoom', { name: room.name }))) return;
       selfChatState.rooms = selfChatState.rooms.filter((entry) => entry.id !== room.id);
       selfChatState.activeRoomId = selfChatState.rooms[0].id;
       selfChatRoomFilter = '';
@@ -1207,7 +1449,7 @@ async function initSelfChat() {
     selfChatClearBtn.addEventListener('click', () => {
       const room = getActiveRoom();
       if (!room) return;
-      if (!confirm(`Clear all messages in ${room.name}?`)) return;
+      if (!confirm(t('confirm.clearRoom', { name: room.name }))) return;
       room.messages = [];
       room.updatedAt = null;
       renderSelfChat();
@@ -1338,8 +1580,8 @@ function updateDataCollectionStatus(enabled) {
   dataCollectionEnabled = !!enabled;
   if (dataCollectionStatus) {
     dataCollectionStatus.textContent = dataCollectionEnabled
-      ? 'Logging on. Outgoing collection events will appear below.'
-      : 'Logging off. Enable crash reporting to capture outgoing data.';
+      ? t('dataCollection.statusOn')
+      : t('dataCollection.statusOff');
     dataCollectionStatus.classList.toggle('active', dataCollectionEnabled);
   }
   if (dataCollectionLog) {
@@ -1356,21 +1598,23 @@ function formatDataCollectionTime(ts) {
 }
 
 function buildDataCollectionSummary(entry) {
-  if (!entry || !entry.kind) return 'Data collection event';
+  if (!entry || !entry.kind) return t('dataCollection.event');
   if (entry.kind === 'telemetry-state') {
-    return entry.enabled ? 'Telemetry enabled' : 'Telemetry disabled';
+    return entry.enabled ? t('dataCollection.telemetryEnabled') : t('dataCollection.telemetryDisabled');
   }
   if (entry.kind === 'network-request') {
-    const purpose = entry.purpose ? ` (${entry.purpose})` : '';
+    const purpose = entry.purpose ? t('dataCollection.networkPurpose', { purpose: entry.purpose }) : '';
     return `${entry.method || 'GET'} ${entry.url || ''}${purpose}`.trim();
   }
   if (entry.kind === 'network-response') {
-    const status = entry.statusCode ? `HTTP ${entry.statusCode}` : 'Response';
-    const duration = typeof entry.durationMs === 'number' ? ` in ${entry.durationMs}ms` : '';
+    const status = entry.statusCode ? t('health.httpStatus', { code: entry.statusCode }) : t('dataCollection.response');
+    const duration = typeof entry.durationMs === 'number'
+      ? t('dataCollection.responseTime', { ms: entry.durationMs })
+      : '';
     return `${status}${duration}`.trim();
   }
   if (entry.kind === 'network-error') {
-    return entry.message ? `Error: ${entry.message}` : 'Network error';
+    return entry.message ? t('dataCollection.networkErrorWithMessage', { message: entry.message }) : t('dataCollection.networkError');
   }
   return entry.kind;
 }
@@ -1462,7 +1706,7 @@ function renderDataCollectionLog() {
     } else {
       const empty = document.createElement('div');
       empty.className = 'data-collection-empty';
-      empty.textContent = 'No data collection events yet.';
+      empty.textContent = t('dataCollection.none');
       dataCollectionLog.replaceChildren(empty);
     }
     return;
@@ -1534,7 +1778,7 @@ function renderTagFilters() {
     activeTagFilters.clear();
     const emptyChip = document.createElement('span');
     emptyChip.className = 'tag-chip muted';
-    emptyChip.textContent = 'No tags yet';
+    emptyChip.textContent = t('tags.none');
     tagFiltersEl.appendChild(emptyChip);
     if (clearTagFiltersBtn) clearTagFiltersBtn.disabled = true;
     return;
@@ -1573,7 +1817,7 @@ function renderTagFilters() {
       const isPinned = normalizedPinned.has(tag.toLowerCase());
       button.className = `tag-chip selectable${isActive ? ' active' : ''}${isPinned ? ' pinned' : ''}`;
       button.dataset.tag = tag;
-      button.title = isPinned ? 'Pinned tag • right-click to unpin' : 'Right-click to pin';
+      button.title = isPinned ? t('tags.pinnedHint') : t('tags.pinHint');
       button.innerHTML = `<span class="tag-chip-label">${escapeHtml(tag)}<span class="tag-count">${count}</span></span>` + (isPinned ? '<span class="tag-pin">★</span>' : '');
       button.addEventListener('click', () => {
         if (activeTagFilters.has(tag)) activeTagFilters.delete(tag);
@@ -1591,7 +1835,7 @@ function renderTagFilters() {
     tagFiltersEl.appendChild(section);
   };
 
-  renderSection(pinnedList.length ? 'Pinned tags' : null, pinnedList);
+  renderSection(pinnedList.length ? t('tags.pinnedSection') : null, pinnedList);
   renderSection('All tags', regularList);
   if (clearTagFiltersBtn) clearTagFiltersBtn.disabled = activeTagFilters.size === 0;
 }
@@ -1702,7 +1946,7 @@ function renderCommandPaletteResults() {
   if (!paletteResults.length) {
     const empty = document.createElement('div');
     empty.className = 'palette-empty';
-    empty.textContent = 'No matching links';
+    empty.textContent = t('links.noMatches');
     commandPaletteResults.appendChild(empty);
     return;
   }
@@ -1728,7 +1972,7 @@ function renderCommandPaletteResults() {
 
     const openBtn = document.createElement('button');
     openBtn.className = 'palette-action';
-    openBtn.textContent = 'Open';
+    openBtn.textContent = t('actions.open');
     openBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       recordLocalOpen(link.id);
@@ -1742,7 +1986,7 @@ function renderCommandPaletteResults() {
 
     const editBtn = document.createElement('button');
     editBtn.className = 'palette-action';
-    editBtn.textContent = 'Edit';
+    editBtn.textContent = t('actions.edit');
     editBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       openPaletteEditor(link);
@@ -1750,10 +1994,10 @@ function renderCommandPaletteResults() {
 
     const tagBtn = document.createElement('button');
     tagBtn.className = 'palette-action';
-    tagBtn.textContent = 'Tag';
+    tagBtn.textContent = t('actions.tag');
     tagBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      const value = prompt('Tags (comma separated)', formatTagsForInput(link.tags));
+      const value = prompt(t('placeholders.tagsComma'), formatTagsForInput(link.tags));
       if (value === null) return;
       const tags = normalizeTagsInput(value);
       await window.electron.updateLink({ id: link.id, tags });
@@ -1832,7 +2076,7 @@ async function savePaletteEdit() {
     priority: paletteEditPriority ? paletteEditPriority.value : 'normal'
   };
   if (!payload.url) {
-    alert('URL is required');
+    alert(t('alerts.urlRequired'));
     return;
   }
   const ok = await window.electron.updateLink(payload);
@@ -2039,7 +2283,11 @@ async function initSettingsUI() {
   try {
     if (!window.electron || typeof window.electron.getAllSettings !== 'function') return;
     const s = await window.electron.getAllSettings();
-    if (!s) return;
+    if (!s) {
+      await setLanguage(DEFAULT_LANGUAGE);
+      await loadLinks();
+      return;
+    }
 
     if (Array.isArray(s.pinnedTags)) pinnedTags = s.pinnedTags.slice();
     try {
@@ -2048,6 +2296,7 @@ async function initSettingsUI() {
     updateLinksFileDisplay(s.customDataFile || null);
     applyCustomBackground(s.backgroundImagePath || null);
     applyAppDisplayName(s.appDisplayName || DEFAULT_APP_NAME);
+    await setLanguage(s.language || DEFAULT_LANGUAGE);
     if (groupingSelect) {
       groupingMode = typeof s.groupingPreference === 'string' ? s.groupingPreference : 'none';
       groupingSelect.value = groupingMode;
@@ -2073,6 +2322,8 @@ async function initSettingsUI() {
       developerModeEnabled = s.developerMode;
       if (developerModeChk) developerModeChk.checked = s.developerMode;
     }
+
+    await loadLinks();
 
     if (appNameSaveBtn && appNameInput) {
       appNameSaveBtn.addEventListener('click', async () => {
@@ -2117,6 +2368,14 @@ async function initSettingsUI() {
       });
     }
 
+    if (languageSelect) {
+      languageSelect.addEventListener('change', async (e) => {
+        const nextLang = e.target.value;
+        await setLanguage(nextLang);
+        await window.electron.setSetting('language', normalizeLanguageCode(nextLang));
+      });
+    }
+
     persistSettingsChk.addEventListener('change', async (e) => {
       await window.electron.setSetting('persistSettings', !!e.target.checked);
     });
@@ -2142,7 +2401,7 @@ async function initSettingsUI() {
       const useSync = await window.electron.getSetting('useFolderSync');
       const folder = await window.electron.getSyncFolder();
       if (typeof useSync === 'boolean') useFolderSyncChk.checked = useSync;
-      syncFolderPath.innerText = folder || 'Not set';
+      syncFolderPath.innerText = folder || t('settings.syncPathNotSet');
     } catch (err) { /* ignore */ }
 
     useFolderSyncChk.addEventListener('change', async (e) => {
@@ -2197,7 +2456,7 @@ async function initSettingsUI() {
     }
 
     resetSettingsBtn.addEventListener('click', async () => {
-      if (!confirm('Reset settings to defaults?')) return;
+      if (!confirm(t('confirm.resetSettings'))) return;
       const newSettings = await window.electron.resetSettings();
         if (newSettings) {
         // update UI to reflect defaults
@@ -2210,6 +2469,7 @@ async function initSettingsUI() {
         applyResizerVisibility(!!newSettings.injectResizers);
         if (linkSessionModeSelect) linkSessionModeSelect.value = newSettings.linkSessionMode || 'shared';
         persistSettingsChk.checked = newSettings.persistSettings;
+        await setLanguage(newSettings.language || DEFAULT_LANGUAGE);
         // reflect new boolean settings into UI
         launchOnStartupChk.checked = !!newSettings.launchOnStartup;
         if (developerModeChk) developerModeChk.checked = !!newSettings.developerMode;
@@ -2243,6 +2503,9 @@ async function initSettingsUI() {
           }
           if (key === 'linkSessionMode' && linkSessionModeSelect) {
             linkSessionModeSelect.value = value || 'shared';
+          }
+          if (key === 'language') {
+            setLanguage(value || DEFAULT_LANGUAGE);
           }
           if (key === 'persistSettings') persistSettingsChk.checked = !!value;
           if (key === 'launchOnStartup') launchOnStartupChk.checked = !!value;
@@ -2285,11 +2548,13 @@ async function initSettingsUI() {
   }
 }
 
-initSettingsUI();
-initDataCollectionDebugger();
-initSelfChat();
-initHelp();
-loadWorkspaces();
+(async () => {
+  await initSettingsUI();
+  initDataCollectionDebugger();
+  initSelfChat();
+  initHelp();
+  loadWorkspaces();
+})();
 
 // Resizers
 const resizers = Array.from(document.querySelectorAll('.resizer'));
@@ -2378,6 +2643,8 @@ async function loadLinks() {
   renderTagFilters();
   renderLinks();
   renderQuickAccess();
+  renderQuickStats();
+  updateRefreshIndicators();
   if (isCommandPaletteOpen()) updateCommandPaletteResults();
   if (!initialRenderReported && window.electron && typeof window.electron.reportRendererReady === 'function') {
     initialRenderReported = true;
@@ -2394,7 +2661,7 @@ async function addLink() {
   const priority = prioritySelect ? prioritySelect.value : 'normal';
 
   if (!url) {
-    alert('Please enter a URL');
+    alert(t('alerts.enterUrl'));
     return;
   }
 
@@ -2402,7 +2669,7 @@ async function addLink() {
     // Validate URL
     new URL(url);
   } catch (error) {
-    alert('Please enter a valid URL');
+    alert(t('alerts.invalidUrl'));
     return;
   }
 
@@ -2427,7 +2694,7 @@ async function addLink() {
 }
 
 async function deleteLink(id) {
-  if (confirm('Delete this link?')) {
+  if (confirm(t('confirm.deleteLink'))) {
     await window.electron.deleteLink(id);
     loadLinks();
   }
@@ -2461,7 +2728,7 @@ function renderLinks() {
   if (pinned.length) {
     const heading = document.createElement('div');
     heading.className = 'link-section-heading';
-    heading.textContent = 'Pinned';
+    heading.textContent = t('links.pinnedHeading');
     linksList.appendChild(heading);
     pinned.forEach((link) => linksList.appendChild(buildLinkElement(link, { groupKey: 'pinned' })));
   }
@@ -2478,7 +2745,7 @@ function renderLinks() {
       } else if (pinned.length) {
         const heading = document.createElement('div');
         heading.className = 'link-section-heading';
-        heading.textContent = 'All links';
+        heading.textContent = t('links.allHeading');
         linksList.appendChild(heading);
       }
       items.forEach((link) => {
@@ -2503,7 +2770,7 @@ function getGroupedEntries(links) {
   if (groupingMode === 'folder') {
     const groups = new Map();
     links.forEach((link) => {
-      const key = link.folder ? link.folder : 'No folder';
+      const key = link.folder ? link.folder : t('links.noFolder');
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(link);
     });
@@ -2516,7 +2783,7 @@ function getGroupedEntries(links) {
   if (groupingMode === 'tag') {
     const groups = new Map();
     links.forEach((link) => {
-      const key = (link.tags && link.tags.length) ? link.tags[0] : 'No tag';
+      const key = (link.tags && link.tags.length) ? link.tags[0] : t('links.noTag');
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(link);
     });
@@ -2545,9 +2812,11 @@ function buildLinkElement(link, options = {}) {
   const folderChip = link.folder ? `<span class="tag-chip folder-chip">${escapeHtml(link.folder)}</span>` : '';
   const tags = (link.tags && link.tags.length)
     ? link.tags.map((tag) => `<span class="tag-chip">${escapeHtml(tag)}</span>`).join('')
-    : '<span class="tag-chip muted">No tags</span>';
+    : `<span class="tag-chip muted">${escapeHtml(t('tags.none'))}</span>`;
   const metadataPreview = buildMetadataPreview(link);
-  const notesBlock = link.notes ? `<div class="link-notes"><span>Notes:</span> ${escapeHtml(link.notes)}</div>` : '';
+  const notesBlock = link.notes
+    ? `<div class="link-notes"><span>${escapeHtml(t('links.notesLabel'))}</span> ${escapeHtml(link.notes)}</div>`
+    : '';
   const favicon = link.metadata && link.metadata.favicon
     ? `<img src="${escapeHtml(link.metadata.favicon)}" alt="" class="link-favicon">`
     : '';
@@ -2555,8 +2824,8 @@ function buildLinkElement(link, options = {}) {
     ? `<div class="link-site">${escapeHtml(link.metadata.siteName)}</div>`
     : '';
   const badges = [
-    link.favorite ? '<span class="badge favorite-badge">Favorite</span>' : '',
-    link.pinned ? '<span class="badge pinned-badge">Pinned</span>' : '',
+    link.favorite ? `<span class="badge favorite-badge">${escapeHtml(t('links.favoriteBadge'))}</span>` : '',
+    link.pinned ? `<span class="badge pinned-badge">${escapeHtml(t('links.pinnedBadge'))}</span>` : '',
     buildPriorityBadge(link.priority),
     buildHealthBadge(link.health)
   ].filter(Boolean).join('');
@@ -2581,36 +2850,36 @@ function buildLinkElement(link, options = {}) {
         ${metadataPreview}
       </div>
       <div class="link-actions">
-        <button class="action-btn open-btn" data-id="${link.id}">Open window</button>
-        <button class="action-btn browser-btn" data-id="${link.id}">Open browser</button>
-        <button class="action-btn copy-btn" data-id="${link.id}">Copy</button>
-        <button class="action-btn edit-btn" data-id="${link.id}">Edit</button>
-        <button class="action-btn pin-btn" data-id="${link.id}">${link.pinned ? 'Unpin' : 'Pin'}</button>
-        <button class="action-btn fav-btn" data-id="${link.id}">${link.favorite ? 'Unfav' : 'Fav'}</button>
-        <button class="action-btn delete-btn danger" data-id="${link.id}">Delete</button>
+        <button class="action-btn open-btn" data-id="${link.id}">${escapeHtml(t('actions.openWindow'))}</button>
+        <button class="action-btn browser-btn" data-id="${link.id}">${escapeHtml(t('actions.openBrowser'))}</button>
+        <button class="action-btn copy-btn" data-id="${link.id}">${escapeHtml(t('actions.copy'))}</button>
+        <button class="action-btn edit-btn" data-id="${link.id}">${escapeHtml(t('actions.edit'))}</button>
+        <button class="action-btn pin-btn" data-id="${link.id}">${escapeHtml(link.pinned ? t('actions.unpin') : t('actions.pin'))}</button>
+        <button class="action-btn fav-btn" data-id="${link.id}">${escapeHtml(link.favorite ? t('actions.unfav') : t('actions.fav'))}</button>
+        <button class="action-btn delete-btn danger" data-id="${link.id}">${escapeHtml(t('actions.delete'))}</button>
       </div>
       <div class="link-meta-actions">
-        <button class="icon-btn refresh-meta-btn" data-id="${link.id}">Refresh meta</button>
-        <button class="icon-btn refresh-health-btn" data-id="${link.id}">Check health</button>
+        <button class="icon-btn refresh-meta-btn" data-id="${link.id}">${escapeHtml(t('metadata.refresh'))}</button>
+        <button class="icon-btn refresh-health-btn" data-id="${link.id}">${escapeHtml(t('health.check'))}</button>
       </div>
       <div class="link-edit hidden">
         <div class="edit-grid">
-          <label>Title<input type="text" class="edit-title"></label>
-          <label>URL<input type="text" class="edit-url"></label>
-          <label>Tags<input type="text" class="edit-tags" placeholder="Comma separated"></label>
-          <label>Folder<input type="text" class="edit-folder" placeholder="Folder name"></label>
-          <label>Priority
+          <label><span>${escapeHtml(t('fields.title'))}</span><input type="text" class="edit-title"></label>
+          <label><span>${escapeHtml(t('fields.url'))}</span><input type="text" class="edit-url"></label>
+          <label><span>${escapeHtml(t('fields.tags'))}</span><input type="text" class="edit-tags" placeholder="${escapeHtml(t('placeholders.commaSeparated'))}"></label>
+          <label><span>${escapeHtml(t('fields.folder'))}</span><input type="text" class="edit-folder" placeholder="${escapeHtml(t('placeholders.folderName'))}"></label>
+          <label><span>${escapeHtml(t('fields.priority'))}</span>
             <select class="edit-priority">
-              <option value="high">High</option>
-              <option value="normal">Normal</option>
-              <option value="low">Low</option>
+              <option value="high">${escapeHtml(t('priority.high'))}</option>
+              <option value="normal">${escapeHtml(t('priority.normal'))}</option>
+              <option value="low">${escapeHtml(t('priority.low'))}</option>
             </select>
           </label>
-          <label class="notes-label">Notes<textarea class="edit-notes" placeholder="Details, reminders..."></textarea></label>
+          <label class="notes-label"><span>${escapeHtml(t('fields.notes'))}</span><textarea class="edit-notes" placeholder="${escapeHtml(t('placeholders.notesDetails'))}"></textarea></label>
         </div>
         <div class="edit-actions">
-          <button class="action-btn save-edit-btn">Save</button>
-          <button class="action-btn ghost cancel-edit-btn">Cancel</button>
+          <button class="action-btn save-edit-btn">${escapeHtml(t('actions.save'))}</button>
+          <button class="action-btn ghost cancel-edit-btn">${escapeHtml(t('actions.cancel'))}</button>
         </div>
       </div>
     </div>
@@ -2655,7 +2924,7 @@ function buildLinkElement(link, options = {}) {
       e.stopPropagation();
       await window.electron.copyLink(link.url);
       const original = copyBtn.textContent;
-      copyBtn.textContent = 'Copied';
+      copyBtn.textContent = t('actions.copied');
       setTimeout(() => { copyBtn.textContent = original; }, 1200);
     });
   }
@@ -2664,7 +2933,7 @@ function buildLinkElement(link, options = {}) {
   if (deleteBtn) {
     deleteBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (!confirm('Delete this link?')) return;
+      if (!confirm(t('confirm.deleteLink'))) return;
       await window.electron.deleteLink(link.id);
       loadLinks();
     });
@@ -2756,7 +3025,7 @@ function buildLinkElement(link, options = {}) {
         priority: editPrioritySelect ? editPrioritySelect.value : link.priority
       };
       if (!updated.url) {
-        alert('URL is required');
+        alert(t('alerts.urlRequired'));
         return;
       }
       const ok = await window.electron.updateLink(updated);
@@ -2772,7 +3041,8 @@ function buildLinkElement(link, options = {}) {
       e.preventDefault();
       e.stopPropagation();
       const original = refreshMetaBtn.textContent;
-      refreshMetaBtn.textContent = 'Queued...';
+      refreshMetaBtn.textContent = t('metadata.queued');
+      bumpRefreshActivity('metadata', 5000);
       await window.electron.refreshLinkMetadata(link.id);
       setTimeout(() => { refreshMetaBtn.textContent = original; }, 800);
     });
@@ -2783,7 +3053,8 @@ function buildLinkElement(link, options = {}) {
       e.preventDefault();
       e.stopPropagation();
       const original = refreshHealthBtn.textContent;
-      refreshHealthBtn.textContent = 'Checking...';
+      refreshHealthBtn.textContent = t('health.checking');
+      bumpRefreshActivity('health', 5000);
       await window.electron.refreshLinkHealth(link.id);
       setTimeout(() => { refreshHealthBtn.textContent = original; }, 1000);
     });
@@ -2796,8 +3067,8 @@ function buildLinkElement(link, options = {}) {
 
 function buildPriorityBadge(priority) {
   const value = (priority || '').toLowerCase();
-  if (value === 'high') return '<span class="badge priority-badge priority-high">High priority</span>';
-  if (value === 'low') return '<span class="badge priority-badge priority-low">Low priority</span>';
+  if (value === 'high') return `<span class="badge priority-badge priority-high">${escapeHtml(t('priority.highBadge'))}</span>`;
+  if (value === 'low') return `<span class="badge priority-badge priority-low">${escapeHtml(t('priority.lowBadge'))}</span>`;
   return '';
 }
 
@@ -2821,39 +3092,39 @@ function safeColorValue(value) {
 }
 
 function describeHealth(health) {
-  if (!health) return 'Never checked';
-  const statusCode = health.statusCode ? `HTTP ${health.statusCode}` : '';
-  const latency = typeof health.latency === 'number' ? `${health.latency}ms` : '';
+  if (!health) return t('health.neverChecked');
+  const statusCode = health.statusCode ? t('health.httpStatus', { code: health.statusCode }) : '';
+  const latency = typeof health.latency === 'number' ? t('health.latency', { ms: health.latency }) : '';
   let checked = '';
   if (health.checkedAt) {
     try {
       const date = new Date(health.checkedAt);
-      checked = `Checked ${date.toLocaleString()}`;
+      checked = t('health.checkedAt', { time: date.toLocaleString() });
     } catch (err) {}
   }
-  return [statusCode, latency, checked, health.error].filter(Boolean).join(' • ') || 'Health status unknown';
+  return [statusCode, latency, checked, health.error].filter(Boolean).join(' • ') || t('health.unknown');
 }
 
 function buildHealthBadge(health) {
   if (!health) return '';
   const status = (health.status || 'unknown').toLowerCase();
-  let label = 'Unknown';
+  let label = t('health.unknownStatus');
   let className = 'health-unknown';
   if (status === 'ok') {
-    label = 'Healthy';
+    label = t('health.ok');
     className = 'health-ok';
   } else if (status === 'redirected') {
-    label = 'Redirects';
+    label = t('health.redirect');
     className = 'health-redirect';
   } else if (status === 'warning') {
-    label = 'Needs review';
+    label = t('health.warning');
     className = 'health-warning';
   } else if (status === 'error' || status === 'broken') {
-    label = 'Needs attention';
+    label = t('health.error');
     className = 'health-error';
   }
   const details = describeHealth(health);
-  return `<span class="badge health-badge ${className}" title="${escapeHtml(details)}">${label}</span>`;
+  return `<span class="badge health-badge ${className}" title="${escapeHtml(details)}">${escapeHtml(label)}</span>`;
 }
 
 const dragState = {
@@ -2932,10 +3203,6 @@ if (searchInput) {
 }
 
 if (searchModeToggle) {
-  const syncSearchModeLabel = () => {
-    searchModeToggle.textContent = searchMode === 'fuzzy' ? 'Fuzzy search' : 'Exact search';
-    searchModeToggle.classList.toggle('active', searchMode === 'fuzzy');
-  };
   syncSearchModeLabel();
   searchModeToggle.addEventListener('click', () => {
     searchMode = searchMode === 'fuzzy' ? 'exact' : 'fuzzy';
@@ -2964,10 +3231,10 @@ if (bulkTagBtn) {
   bulkTagBtn.addEventListener('click', async () => {
     const ids = getSelectedLinkIds();
     if (ids.length === 0) {
-      alert('No items selected');
+      alert(t('alerts.noItemsSelected'));
       return;
     }
-    const value = prompt('Enter comma-separated tags to apply to selected links. Leave blank to clear existing tags.');
+    const value = prompt(t('prompts.bulkTags'));
     if (value === null) return;
     const tags = normalizeTagsInput(value);
     await window.electron.bulkUpdateTags(ids, tags);
@@ -2985,27 +3252,27 @@ const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
 
 if (exportBtn) exportBtn.addEventListener('click', async () => {
   const path = await window.electron.exportLinks();
-  if (path) alert('Exported to: ' + path);
+  if (path) alert(t('alerts.exportedTo', { path }));
 });
 
 if (importBtn) importBtn.addEventListener('click', async () => {
   const ok = await window.electron.importLinks();
-  if (ok) { alert('Import complete'); loadLinks(); }
+  if (ok) { alert(t('alerts.importComplete')); loadLinks(); }
 });
 
 if (exportCsvBtn) exportCsvBtn.addEventListener('click', async () => {
   const path = await window.electron.exportLinksCsv();
-  if (path) alert('CSV exported to: ' + path);
+  if (path) alert(t('alerts.csvExportedTo', { path }));
 });
 
 if (importCsvBtn) importCsvBtn.addEventListener('click', async () => {
   const added = await window.electron.importLinksCsv();
-  if (added > 0) { alert(`Imported ${added} links from CSV`); loadLinks(); }
+  if (added > 0) { alert(t('alerts.csvImported', { count: added })); loadLinks(); }
 });
 
 if (backupBtn) backupBtn.addEventListener('click', async () => {
   const fp = await window.electron.manualBackup(5);
-  if (fp) alert('Backup saved: ' + fp);
+  if (fp) alert(t('alerts.backupSaved', { path: fp }));
 });
 
 if (saveWorkspaceBtn) {
@@ -3016,8 +3283,8 @@ if (saveWorkspaceBtn) {
 
 if (deleteSelectedBtn) deleteSelectedBtn.addEventListener('click', async () => {
   const checked = getSelectedLinkIds();
-  if (checked.length === 0) { alert('No items selected'); return; }
-  if (!confirm(`Delete ${checked.length} selected links?`)) return;
+  if (checked.length === 0) { alert(t('alerts.noItemsSelected')); return; }
+  if (!confirm(t('confirm.deleteSelected', { count: checked.length }))) return;
   await window.electron.bulkDelete(checked);
   loadLinks();
 });

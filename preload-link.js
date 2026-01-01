@@ -30,6 +30,26 @@ const snapWindowToThird = async (position) => {
   await ipcRenderer.invoke('set-window-bounds', bounds);
 };
 
+const snapWindowToCorner = async (corner) => {
+  const workArea = await ipcRenderer.invoke('get-window-work-area');
+  if (!workArea) return;
+  const width = Math.max(1, Math.round(workArea.width / 2));
+  const height = Math.max(1, Math.round(workArea.height / 2));
+  const rightX = workArea.x + workArea.width - width;
+  const bottomY = workArea.y + workArea.height - height;
+  let x = workArea.x;
+  let y = workArea.y;
+  if (corner.includes('right')) x = rightX;
+  if (corner.includes('bottom')) y = bottomY;
+  const bounds = {
+    x: Math.round(x),
+    y: Math.round(y),
+    width,
+    height
+  };
+  await ipcRenderer.invoke('set-window-bounds', bounds);
+};
+
 // Keyboard resize for link windows: Ctrl+Alt + Arrow keys
 document.addEventListener('keydown', async (e) => {
   if (!(e.ctrlKey && e.altKey)) return;
@@ -98,18 +118,42 @@ document.addEventListener('keydown', async (e) => {
       }
     }
 
-    // Snap left third: Alt+6
-    if (e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey && (e.key === '6' || e.code === 'Digit6' || e.code === 'Numpad6')) {
+    // Snap left third: Alt+4
+    if (e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey && (e.key === '4' || e.code === 'Digit4' || e.code === 'Numpad4')) {
       e.preventDefault();
       await snapWindowToThird('left');
       return;
     }
 
-    // Snap right third: Alt+9
-    if (e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey && (e.key === '9' || e.code === 'Digit9' || e.code === 'Numpad9')) {
+    // Snap right third: Alt+6
+    if (e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey && (e.key === '6' || e.code === 'Digit6' || e.code === 'Numpad6')) {
       e.preventDefault();
       await snapWindowToThird('right');
       return;
+    }
+
+    // Snap corners: Alt+7/9/1/3
+    if (e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey) {
+      if (e.key === '7' || e.code === 'Digit7' || e.code === 'Numpad7') {
+        e.preventDefault();
+        await snapWindowToCorner('top-left');
+        return;
+      }
+      if (e.key === '9' || e.code === 'Digit9' || e.code === 'Numpad9') {
+        e.preventDefault();
+        await snapWindowToCorner('top-right');
+        return;
+      }
+      if (e.key === '1' || e.code === 'Digit1' || e.code === 'Numpad1') {
+        e.preventDefault();
+        await snapWindowToCorner('bottom-left');
+        return;
+      }
+      if (e.key === '3' || e.code === 'Digit3' || e.code === 'Numpad3') {
+        e.preventDefault();
+        await snapWindowToCorner('bottom-right');
+        return;
+      }
     }
 
     // Move window: Ctrl+Alt+Shift + Arrow
@@ -525,7 +569,7 @@ let readabilityStylesMounted = false;
 let pendingOpacityValue = null;
 let nativeTransparencyEnabled = false;
 let pendingTransparencyValue = null;
-let pendingWindowControlsValue = null;
+let pendingWindowControlsValue = true;
 
 const TRANSPARENT_STYLE_ID = 'plana-link-transparent-style';
 const TRANSPARENT_STYLE_CONTENT = `
@@ -581,14 +625,14 @@ const WINDOW_BAR_ID = 'plana-link-windowbar';
 const WINDOW_BAR_STYLE_CONTENT = `
 #${WINDOW_BAR_ID} {
   position: fixed;
-  top: 12px;
-  left: 12px;
-  right: 12px;
-  height: 36px;
+  top: 10px;
+  right: 10px;
+  left: auto;
+  height: 32px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 6px 10px;
+  justify-content: flex-end;
+  padding: 4px 6px;
   border-radius: 12px;
   background: rgba(12, 16, 24, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -601,14 +645,11 @@ const WINDOW_BAR_STYLE_CONTENT = `
   pointer-events: auto;
 }
 #${WINDOW_BAR_ID} .plana-bar-title {
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  opacity: 0.7;
+  display: none;
 }
 #${WINDOW_BAR_ID} .plana-bar-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   -webkit-app-region: no-drag;
 }
 #${WINDOW_BAR_ID} button {
@@ -805,7 +846,7 @@ ipcRenderer.on('app-opacity-changed', (_event, value) => {
 ipcRenderer.on('setting-changed', (_event, key, value) => {
   if (key === 'nativeTransparency') {
     applyLinkTransparency(!!value);
-    applyWindowControls(!!value);
+    applyWindowControls(true);
     handleOpacityUpdate(pendingOpacityValue);
   }
 });
@@ -823,7 +864,7 @@ ipcRenderer.on('setting-changed', (_event, key, value) => {
   try {
     const enabled = await ipcRenderer.invoke('get-setting', 'nativeTransparency');
     applyLinkTransparency(!!enabled);
-    applyWindowControls(!!enabled);
+    applyWindowControls(true);
   } catch (err) {
     // ignore
   }

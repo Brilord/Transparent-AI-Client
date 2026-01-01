@@ -387,6 +387,92 @@ body {
     margin-bottom: 8px;
 }
 
+.links-status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.quick-stats {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.stat-chip {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.stat-chip strong {
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.95);
+    margin-left: 4px;
+}
+
+.refresh-indicators {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.refresh-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px dashed rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 10px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.refresh-indicator .indicator-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.35);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
+}
+
+.refresh-indicator .indicator-status {
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.refresh-indicator.active {
+    color: rgba(255, 255, 255, 0.9);
+    border-color: rgba(120, 200, 255, 0.4);
+    background: rgba(120, 200, 255, 0.08);
+}
+
+.refresh-indicator.active .indicator-dot {
+    background: rgba(120, 200, 255, 0.95);
+    box-shadow: 0 0 0 3px rgba(120, 200, 255, 0.2);
+    animation: indicatorPulse 1.2s ease-in-out infinite;
+}
+
+.refresh-indicator.active .indicator-status {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+@keyframes indicatorPulse {
+    0% { transform: scale(1); opacity: 0.65; }
+    50% { transform: scale(1.4); opacity: 1; }
+    100% { transform: scale(1); opacity: 0.65; }
+}
+
 .workspace-row {
     display: flex;
     flex-wrap: wrap;

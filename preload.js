@@ -53,6 +53,7 @@ contextBridge.exposeInMainWorld('electron', {
   // Generic settings API
   getSetting: (key) => ipcRenderer.invoke('get-setting', key),
   getAllSettings: () => ipcRenderer.invoke('get-all-settings'),
+  readLocale: (lang) => ipcRenderer.invoke('read-locale', lang),
   setSetting: (key, value) => ipcRenderer.invoke('set-setting', key, value),
   onSettingChanged: (cb) => {
     ipcRenderer.on('setting-changed', (evt, key, value) => cb(key, value));
