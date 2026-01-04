@@ -1424,7 +1424,7 @@ function openLayoutWindow() {
     }
   });
 
-  layoutWindow.loadFile('layout.html');
+  layoutWindow.loadFile(path.join(__dirname, 'layout.html'));
   layoutWindow.webContents.on('did-finish-load', () => {
     sendLayoutSnapshot(layoutWindow);
   });
