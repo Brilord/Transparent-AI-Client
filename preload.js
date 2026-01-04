@@ -13,14 +13,20 @@ contextBridge.exposeInMainWorld('electron', {
   openLinkWithId: (id, url) => ipcRenderer.invoke('open-link', id, url)
   ,
   openChatWindow: () => ipcRenderer.invoke('open-chat-window'),
+  openLayoutWindow: () => ipcRenderer.invoke('open-layout-window'),
   closeCurrentWindow: () => ipcRenderer.invoke('close-current-window'),
   getOpenLinkWindows: () => ipcRenderer.invoke('get-open-link-windows'),
   openWorkspace: (workspaceId) => ipcRenderer.invoke('open-workspace', workspaceId),
+  getFocusedWindow: () => ipcRenderer.invoke('get-focused-window'),
   // App-level settings
   getAppOpacity: () => ipcRenderer.invoke('get-app-opacity'),
   setAppOpacity: (value) => ipcRenderer.invoke('set-app-opacity', value),
   onAppOpacityChanged: (cb) => {
     ipcRenderer.on('app-opacity-changed', (evt, val) => cb(val));
+  }
+  ,
+  onFocusedWindowChanged: (cb) => {
+    ipcRenderer.on('focused-window-changed', (evt, payload) => cb(payload));
   }
   ,
   // Folder sync helpers

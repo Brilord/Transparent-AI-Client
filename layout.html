@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Window layout map</title>
+    <link rel="stylesheet" href="layout.css" />
+    <script defer src="layout.js"></script>
+  </head>
+  <body>
+    <div class="layout-shell">
+      <header class="layout-header">
+        <div>
+          <div id="layoutTitle" class="layout-title">Window layout</div>
+          <div id="layoutSubtitle" class="layout-subtitle">Live map of open windows and focus</div>
+        </div>
+        <div class="layout-meta">
+          <div id="displayCount" class="layout-chip">0 displays</div>
+          <div id="windowCount" class="layout-chip">0 windows</div>
+        </div>
+      </header>
+
+      <div class="layout-body">
+        <div class="layout-canvas-wrap">
+          <canvas id="layoutCanvas"></canvas>
+          <div id="layoutEmpty" class="layout-empty">No open windows to display.</div>
+        </div>
+        <aside class="layout-sidebar">
+          <div class="layout-section">
+            <div id="layoutFocusedTitle" class="layout-section-title">Focused window</div>
+            <div id="focusedWindow" class="layout-focus">None</div>
+          </div>
+          <div class="layout-section">
+            <div id="layoutOpenWindowsTitle" class="layout-section-title">Open windows</div>
+            <div id="windowList" class="layout-list"></div>
+          </div>
+          <div class="layout-section">
+            <div id="layoutLegendTitle" class="layout-section-title">Legend</div>
+            <div class="layout-legend">
+              <span class="legend-item"><span class="legend-swatch main"></span><span id="legendMain">Main</span></span>
+              <span class="legend-item"><span class="legend-swatch link"></span><span id="legendLink">Link</span></span>
+              <span class="legend-item"><span class="legend-swatch chat"></span><span id="legendChat">Chat</span></span>
+              <span class="legend-item"><span class="legend-swatch layout"></span><span id="legendLayout">Layout</span></span>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </body>
+</html>

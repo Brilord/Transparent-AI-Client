@@ -122,6 +122,8 @@ function openPerfWindow() {
     perfWindow = null;
     stopPerfStatsTimer();
   });
+  trackWindowForLayout(perfWindow);
+  scheduleLayoutSnapshot();
   startPerfStatsTimer();
 }
 
@@ -132,6 +134,9 @@ function closePerfWindow() {
 
 let mainWindow;
 let chatWindow;
+let layoutWindow;
+let focusedWindowInfo = null;
+let layoutSnapshotTimer = null;
 let appOpacity = 1.0; // global app opacity applied to all windows
 const linkWindows = new Set();
 const linkWindowMeta = new Map(); // track metadata for open link windows
@@ -178,6 +183,138 @@ try {
   ({ autoUpdater } = require('electron-updater'));
 } catch (err) {
   autoUpdater = null;
+}
+
+function getWindowDescriptor(win) {
+  if (!win || win.isDestroyed()) return null;
+  if (win === mainWindow) return { type: 'main', label: 'Main window' };
+  if (win === chatWindow) return { type: 'chat', label: 'Chat window' };
+  if (win === layoutWindow) return { type: 'layout', label: 'Layout map' };
+  if (win === perfWindow) return { type: 'perf', label: 'Performance monitor' };
+  const meta = linkWindowMeta.get(win);
+  if (meta && meta.url) {
+    return { type: 'link', id: meta.id || null, url: meta.url, label: summarizeUrl(meta.url) };
+  }
+  return { type: 'other', label: 'Window' };
+}
+
+function getWindowSnapshot(win) {
+  const descriptor = getWindowDescriptor(win);
+  if (!descriptor) return null;
+  let bounds = null;
+  let displayId = null;
+  try { bounds = win.getBounds(); } catch (err) {}
+  if (bounds) {
+    try {
+      const display = screen.getDisplayMatching(bounds);
+      if (display && typeof display.id !== 'undefined') displayId = display.id;
+    } catch (err) {}
+  }
+  let isMinimized = false;
+  let isMaximized = false;
+  try { isMinimized = typeof win.isMinimized === 'function' ? win.isMinimized() : false; } catch (err) {}
+  try { isMaximized = typeof win.isMaximized === 'function' ? win.isMaximized() : false; } catch (err) {}
+  return {
+    windowId: win.id,
+    type: descriptor.type,
+    label: descriptor.label,
+    id: descriptor.id || null,
+    url: descriptor.url || null,
+    bounds: bounds || null,
+    displayId,
+    isMinimized,
+    isMaximized
+  };
+}
+
+function getDisplaySnapshots() {
+  try {
+    return screen.getAllDisplays().map((display) => ({
+      id: display.id,
+      bounds: display.bounds,
+      workArea: display.workArea,
+      scaleFactor: display.scaleFactor
+    }));
+  } catch (err) {
+    return [];
+  }
+}
+
+function buildWindowLayoutSnapshot() {
+  const windows = [];
+  const pushWindow = (win) => {
+    const snapshot = getWindowSnapshot(win);
+    if (snapshot) windows.push(snapshot);
+  };
+  if (mainWindow && !mainWindow.isDestroyed()) pushWindow(mainWindow);
+  if (chatWindow && !chatWindow.isDestroyed()) pushWindow(chatWindow);
+  if (layoutWindow && !layoutWindow.isDestroyed()) pushWindow(layoutWindow);
+  if (perfWindow && !perfWindow.isDestroyed()) pushWindow(perfWindow);
+  for (const win of linkWindows) {
+    if (win && !win.isDestroyed()) pushWindow(win);
+  }
+  return {
+    ts: new Date().toISOString(),
+    displays: getDisplaySnapshots(),
+    windows,
+    focusedWindowId: focusedWindowInfo ? focusedWindowInfo.windowId : null,
+    focusedWindow: focusedWindowInfo
+  };
+}
+
+function sendLayoutSnapshot(targetWindow = layoutWindow) {
+  if (!targetWindow || targetWindow.isDestroyed()) return;
+  const payload = buildWindowLayoutSnapshot();
+  try { targetWindow.webContents.send('window-layout-snapshot', payload); } catch (err) {}
+}
+
+function scheduleLayoutSnapshot() {
+  if (!layoutWindow || layoutWindow.isDestroyed()) return;
+  if (layoutSnapshotTimer) return;
+  layoutSnapshotTimer = setTimeout(() => {
+    layoutSnapshotTimer = null;
+    sendLayoutSnapshot(layoutWindow);
+  }, 80);
+}
+
+function broadcastFocusedWindowChanged() {
+  const payload = focusedWindowInfo;
+  const targets = [mainWindow, chatWindow, layoutWindow, perfWindow]
+    .filter((win) => win && !win.isDestroyed());
+  targets.forEach((win) => {
+    try { win.webContents.send('focused-window-changed', payload); } catch (err) {}
+  });
+  scheduleLayoutSnapshot();
+}
+
+function setFocusedWindow(win) {
+  const nextSnapshot = win ? getWindowSnapshot(win) : null;
+  const nextId = nextSnapshot ? nextSnapshot.windowId : null;
+  const prevId = focusedWindowInfo ? focusedWindowInfo.windowId : null;
+  focusedWindowInfo = nextSnapshot;
+  if (nextId !== prevId) {
+    broadcastFocusedWindowChanged();
+  }
+}
+
+function trackWindowForLayout(win) {
+  if (!win) return;
+  const schedule = () => scheduleLayoutSnapshot();
+  win.on('move', schedule);
+  win.on('resize', schedule);
+  win.on('show', schedule);
+  win.on('hide', schedule);
+  win.on('minimize', schedule);
+  win.on('restore', schedule);
+  win.on('maximize', schedule);
+  win.on('unmaximize', schedule);
+  win.on('closed', () => {
+    scheduleLayoutSnapshot();
+    if (focusedWindowInfo && focusedWindowInfo.windowId === win.id) {
+      focusedWindowInfo = null;
+      broadcastFocusedWindowChanged();
+    }
+  });
 }
 
 function shouldLogDataCollection() {
@@ -1184,6 +1321,8 @@ function createWindow() {
       enableRemoteModule: false
     }
   });
+  trackWindowForLayout(mainWindow);
+  scheduleLayoutSnapshot();
 
   // Ensure main window honors global opacity
     // Notify main renderer of current app opacity so it can apply background-only transparency
@@ -1207,6 +1346,9 @@ function createWindow() {
     mainWindow = null;
     if (chatWindow && !chatWindow.isDestroyed()) {
       chatWindow.close();
+    }
+    if (layoutWindow && !layoutWindow.isDestroyed()) {
+      layoutWindow.close();
     }
   });
 
@@ -1238,6 +1380,8 @@ function openChatWindow() {
       enableRemoteModule: false
     }
   });
+  trackWindowForLayout(chatWindow);
+  scheduleLayoutSnapshot();
 
   chatWindow.webContents.on('did-finish-load', () => {
     try { chatWindow.webContents.send('app-opacity-changed', appOpacity); } catch (e) {}
@@ -1250,6 +1394,44 @@ function openChatWindow() {
     chatWindow = null;
   });
 
+  return true;
+}
+
+function openLayoutWindow() {
+  if (layoutWindow && !layoutWindow.isDestroyed()) {
+    try { layoutWindow.focus(); } catch (err) {}
+    return true;
+  }
+  layoutWindow = new BrowserWindow({
+    width: 860,
+    height: 560,
+    minWidth: 520,
+    minHeight: 360,
+    transparent: false,
+    frame: true,
+    backgroundColor: '#0f1216',
+    autoHideMenuBar: true,
+    alwaysOnTop: !!appSettings.alwaysOnTop,
+    resizable: true,
+    movable: true,
+    title: 'Window layout map',
+    icon: path.join(__dirname, 'assets', 'icons', 'png', '512x512.png'),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload-layout.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      enableRemoteModule: false
+    }
+  });
+
+  layoutWindow.loadFile('layout.html');
+  layoutWindow.webContents.on('did-finish-load', () => {
+    sendLayoutSnapshot(layoutWindow);
+  });
+  layoutWindow.on('closed', () => {
+    layoutWindow = null;
+  });
+  trackWindowForLayout(layoutWindow);
   return true;
 }
 
@@ -1332,6 +1514,17 @@ ipcMain.handle('reset-window-bounds', (event) => {
   }
 });
  
+app.on('browser-window-focus', (_event, win) => {
+  setFocusedWindow(win);
+});
+
+app.on('browser-window-blur', (_event, win) => {
+  if (focusedWindowInfo && win && focusedWindowInfo.windowId === win.id) {
+    focusedWindowInfo = null;
+    broadcastFocusedWindowChanged();
+  }
+});
+
 app.on('ready', () => {
   initializeLinksStorage();
   // load settings before creating windows
@@ -1363,6 +1556,9 @@ app.on('activate', function () {
 app.on('before-quit', () => {
   persistOpenLinksState();
   closeAllLinkWindows();
+  if (layoutWindow && !layoutWindow.isDestroyed()) {
+    layoutWindow.close();
+  }
   if (metadataTimer) clearInterval(metadataTimer);
   if (healthTimer) clearInterval(healthTimer);
 });
@@ -1766,11 +1962,22 @@ ipcMain.handle('minimize-window', () => {
 ipcMain.handle('close-window', () => {
   persistOpenLinksState();
   closeAllLinkWindows();
+  if (layoutWindow && !layoutWindow.isDestroyed()) {
+    layoutWindow.close();
+  }
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
 });
 
 ipcMain.handle('open-chat-window', () => {
   return openChatWindow();
+});
+
+ipcMain.handle('open-layout-window', () => {
+  return openLayoutWindow();
+});
+
+ipcMain.handle('get-focused-window', () => {
+  return focusedWindowInfo;
 });
 
 ipcMain.handle('close-current-window', (event) => {
@@ -1879,6 +2086,8 @@ function openLinkWindow(idOrUrl, maybeUrl, options = {}) {
   recordLinkOpen(id, url);
 
   let linkWindow = new BrowserWindow(winOpts);
+  linkWindowMeta.set(linkWindow, { id: id || null, url });
+  trackWindowForLayout(linkWindow);
   const linkOpenStart = PERF_BENCH ? process.hrtime.bigint() : null;
   const linkLabel = summarizeUrl(url);
   if (PERF_BENCH && linkOpenStart) {
@@ -1954,6 +2163,7 @@ function openLinkWindow(idOrUrl, maybeUrl, options = {}) {
       .map(v => ({ id: v.id || null, url: v.url }));
     if (appSettings.persistSettings) saveSettings();
   } catch (err) {}
+  scheduleLayoutSnapshot();
 
   // Save and persist window bounds for this link id when moved/resized (debounced)
   if (id) {
@@ -2154,6 +2364,10 @@ ipcMain.handle('link-copy-selection', (_event, text) => {
 
 ipcMain.handle('get-open-link-windows', () => {
   return getOpenLinkWindowsSnapshot();
+});
+
+ipcMain.handle('get-window-layout-snapshot', () => {
+  return buildWindowLayoutSnapshot();
 });
 
 ipcMain.handle('open-workspace', (event, workspaceId) => {

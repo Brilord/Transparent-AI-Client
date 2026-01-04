@@ -52,6 +52,7 @@ const linkSessionModeSelect = document.getElementById('linkSessionMode');
 const persistSettingsChk = document.getElementById('persistSettingsChk');
 const launchOnStartupChk = document.getElementById('launchOnStartupChk');
 const resetSettingsBtn = document.getElementById('resetSettingsBtn');
+const openLayoutBtn = document.getElementById('openLayoutBtn');
 const tagsInput = document.getElementById('tagsInput');
 const folderInput = document.getElementById('folderInput');
 const notesInput = document.getElementById('notesInput');
@@ -2505,6 +2506,13 @@ async function initSettingsUI() {
         const enabled = !!e.target.checked;
         developerModeEnabled = enabled;
         await window.electron.setSetting('developerMode', enabled);
+      });
+    }
+    if (openLayoutBtn) {
+      openLayoutBtn.addEventListener('click', async () => {
+        if (window.electron && typeof window.electron.openLayoutWindow === 'function') {
+          await window.electron.openLayoutWindow();
+        }
       });
     }
 
