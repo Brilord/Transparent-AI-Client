@@ -69,7 +69,10 @@
                     data-i18n-placeholder="placeholders.notesOptional"
                     rows="2"
                 ></textarea>
-                <button id="addBtn" class="add-btn" data-i18n="actions.addLink">Add Link</button>
+                <div class="capture-actions">
+                    <button id="addBtn" class="add-btn" data-i18n="actions.addLink">Add Link</button>
+                    <button id="importClipboardBtn" class="small-btn subtle" data-i18n="actions.importClipboard">Import clipboard</button>
+                </div>
                 <small class="hint inline-hint" data-i18n="hints.tagsComma">Tags help organize and power quick filters (comma separated).</small>
                 <div id="clipboardBanner" class="clipboard-banner hidden">
                     <div class="clipboard-text">
@@ -120,13 +123,16 @@
                         </div>
                     </div>
                     <div class="bulk-actions">
+                        <button id="openAllBtn" class="small-btn subtle" data-i18n="actions.openAll">Open all</button>
                         <button id="exportBtn" class="small-btn" data-i18n="actions.exportJson">Export JSON</button>
                         <button id="importBtn" class="small-btn" data-i18n="actions.importJson">Import JSON</button>
                         <button id="exportCsvBtn" class="small-btn" data-i18n="actions.exportCsv">Export CSV</button>
                         <button id="importCsvBtn" class="small-btn" data-i18n="actions.importCsv">Import CSV</button>
                         <button id="backupBtn" class="small-btn" data-i18n="actions.backup">Backup</button>
                         <button id="bulkTagBtn" class="small-btn" data-i18n="actions.tagSelected">Tag selected</button>
+                        <button id="restoreSelectedBtn" class="small-btn subtle" data-i18n="actions.restoreSelected">Restore selected</button>
                         <button id="deleteSelectedBtn" class="small-btn danger" data-i18n="actions.deleteSelected">Delete selected</button>
+                        <button id="showDeletedBtn" class="small-btn ghost" data-i18n="actions.showDeleted">Show deleted</button>
                     </div>
                 </div>
                 <div class="workspace-section collapsible" data-collapsible="workspaces">

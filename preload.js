@@ -48,6 +48,8 @@ contextBridge.exposeInMainWorld('electron', {
   // Link actions
   toggleFavorite: (id) => ipcRenderer.invoke('toggle-favorite', id),
   bulkDelete: (ids) => ipcRenderer.invoke('bulk-delete', ids),
+  bulkRestore: (ids) => ipcRenderer.invoke('bulk-restore', ids),
+  restoreLink: (id) => ipcRenderer.invoke('restore-link', id),
   bulkUpdateTags: (ids, tags, mode = 'replace') => ipcRenderer.invoke('bulk-update-tags', ids, tags, mode),
   setLinkPinned: (id, pinned) => ipcRenderer.invoke('set-link-pinned', id, pinned),
   openInBrowser: (url) => ipcRenderer.invoke('open-link-external', url),
@@ -56,6 +58,8 @@ contextBridge.exposeInMainWorld('electron', {
   refreshLinkMetadata: (id) => ipcRenderer.invoke('refresh-link-metadata', id),
   refreshLinkHealth: (id) => ipcRenderer.invoke('refresh-link-health', id),
   peekClipboardLink: () => ipcRenderer.invoke('peek-clipboard-link'),
+  importClipboardLinks: (options = {}) => ipcRenderer.invoke('import-clipboard-links', options),
+  undoLinkOpen: (id, previous) => ipcRenderer.invoke('undo-link-open', id, previous),
   // Generic settings API
   getSetting: (key) => ipcRenderer.invoke('get-setting', key),
   getAllSettings: () => ipcRenderer.invoke('get-all-settings'),

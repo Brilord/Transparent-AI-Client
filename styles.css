@@ -194,6 +194,13 @@ body {
     gap: 8px;
 }
 
+.capture-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
 .url-input,
 .title-input,
 .tags-input,
@@ -2101,6 +2108,10 @@ input[type="range"]:focus { outline: none; }
     transition: all 0.2s ease;
 }
 
+.link-item.is-deleted {
+    opacity: 0.6;
+}
+
 .link-item:hover {
     background: rgba(255, 255, 255, calc(var(--card-alpha) + 0.05));
     border-color: rgba(255, 255, 255, calc(var(--card-border-alpha) + 0.1));
@@ -2204,6 +2215,11 @@ input[type="range"]:focus { outline: none; }
 .pinned-badge {
     border-color: rgba(135, 180, 255, 0.6);
     color: #9fc0ff;
+}
+
+.deleted-badge {
+    border-color: rgba(255, 140, 140, 0.5);
+    color: rgba(255, 200, 200, 0.9);
 }
 
 .priority-badge {

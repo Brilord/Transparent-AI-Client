@@ -1,6 +1,7 @@
 const urlInput = document.getElementById('urlInput');
 const titleInput = document.getElementById('titleInput');
 const addBtn = document.getElementById('addBtn');
+const importClipboardBtn = document.getElementById('importClipboardBtn');
 const linksList = document.getElementById('linksList');
 const emptyState = document.getElementById('emptyState');
 const minimizeBtn = document.getElementById('minimizeBtn');
@@ -60,6 +61,10 @@ const prioritySelect = document.getElementById('prioritySelect');
 const tagFiltersEl = document.getElementById('tagFilters');
 const clearTagFiltersBtn = document.getElementById('clearTagFiltersBtn');
 const bulkTagBtn = document.getElementById('bulkTagBtn');
+const openAllBtn = document.getElementById('openAllBtn');
+const restoreSelectedBtn = document.getElementById('restoreSelectedBtn');
+const showDeletedBtn = document.getElementById('showDeletedBtn');
+const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
 const clipboardBanner = document.getElementById('clipboardBanner');
 const clipboardBannerValue = document.getElementById('clipboardBannerValue');
 const useClipboardLinkBtn = document.getElementById('useClipboardLinkBtn');
@@ -186,6 +191,7 @@ async function setLanguage(lang) {
   refreshCollapsibleLabels();
   applyLanguageSelection(normalized);
   syncSearchModeLabel();
+  syncDeletedToggleLabel();
   try { renderTagFilters(); } catch (err) {}
   try { renderLinks(); } catch (err) {}
   try { renderQuickAccess(); } catch (err) {}
@@ -392,6 +398,7 @@ const activeTagFilters = new Set();
 let pinnedTags = [];
 let searchMode = 'fuzzy';
 let groupingMode = 'none';
+let showDeleted = false;
 let clipboardCandidate = null;
 let clipboardDismissedToken = null;
 let defaultLinksPath = null;
@@ -404,11 +411,26 @@ let healthActivityUntil = 0;
 let lastMetadataStamp = 0;
 let lastHealthStamp = 0;
 let refreshIndicatorTimer = null;
+const recentOpenHistory = new Map();
+const RECENT_OPEN_UNDO_MS = 1000 * 60 * 5;
 
 function syncSearchModeLabel() {
   if (!searchModeToggle) return;
   searchModeToggle.textContent = searchMode === 'fuzzy' ? t('actions.fuzzySearch') : t('actions.exactSearch');
   searchModeToggle.classList.toggle('active', searchMode === 'fuzzy');
+}
+
+function syncDeletedToggleLabel() {
+  if (!showDeletedBtn) return;
+  showDeletedBtn.textContent = showDeleted ? t('actions.showActive') : t('actions.showDeleted');
+  showDeletedBtn.classList.toggle('active', showDeleted);
+}
+
+function syncBulkActionVisibility() {
+  if (restoreSelectedBtn) restoreSelectedBtn.style.display = showDeleted ? '' : 'none';
+  if (deleteSelectedBtn) deleteSelectedBtn.style.display = showDeleted ? 'none' : '';
+  if (openAllBtn) openAllBtn.disabled = showDeleted;
+  if (bulkTagBtn) bulkTagBtn.disabled = showDeleted;
 }
 
 function updateLinksFileDisplay(customPath) {
@@ -494,19 +516,19 @@ function formatRelativeTime(ts) {
 
 function getRecentLinks(limit = 5) {
   return currentLinks
-    .filter((link) => link.lastOpenedAt)
+    .filter((link) => !link.deletedAt && link.lastOpenedAt)
     .sort((a, b) => Date.parse(b.lastOpenedAt) - Date.parse(a.lastOpenedAt))
     .slice(0, limit);
 }
 
 function getFrequentLinks(limit = 5) {
   return currentLinks
-    .filter((link) => (link.openCount || 0) > 0)
+    .filter((link) => !link.deletedAt && (link.openCount || 0) > 0)
     .sort((a, b) => (b.openCount || 0) - (a.openCount || 0))
     .slice(0, limit);
 }
 
-function buildQuickAccessCard(link, metaText) {
+function buildQuickAccessCard(link, metaText, options = {}) {
   const card = document.createElement('div');
   card.className = 'quick-access-card';
   card.dataset.id = link.id;
@@ -555,6 +577,17 @@ function buildQuickAccessCard(link, metaText) {
   });
   actions.appendChild(pinBtn);
 
+  if (options.undoAction && typeof options.undoAction.onClick === 'function') {
+    const undoBtn = document.createElement('button');
+    undoBtn.className = 'action-btn ghost';
+    undoBtn.textContent = options.undoAction.label || t('actions.undo');
+    undoBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      options.undoAction.onClick();
+    });
+    actions.appendChild(undoBtn);
+  }
+
   card.appendChild(actions);
   return card;
 }
@@ -571,7 +604,11 @@ function renderQuickAccess() {
   if (recents.length) {
     recents.forEach((link) => {
       const meta = link.lastOpenedAt ? t('quickAccess.lastOpened', { time: formatRelativeTime(link.lastOpenedAt) }) : '';
-      recentLinksEl.appendChild(buildQuickAccessCard(link, meta));
+      const undoEntry = getUndoableOpen(link.id);
+      const undoAction = undoEntry
+        ? { label: t('actions.undo'), onClick: () => undoRecentOpen(link.id) }
+        : null;
+      recentLinksEl.appendChild(buildQuickAccessCard(link, meta, { undoAction }));
     });
     if (recentEmptyEl) recentEmptyEl.style.display = 'none';
   } else if (recentEmptyEl) {
@@ -591,9 +628,10 @@ function renderQuickAccess() {
 
 function renderQuickStats() {
   if (!quickStatsEl || !totalCountEl || !pinnedCountEl || !favoriteCountEl) return;
-  const total = currentLinks.length;
-  const pinned = currentLinks.filter((link) => !!link.pinned).length;
-  const favorites = currentLinks.filter((link) => !!link.favorite).length;
+  const activeLinks = currentLinks.filter((link) => !link.deletedAt);
+  const total = activeLinks.length;
+  const pinned = activeLinks.filter((link) => !!link.pinned).length;
+  const favorites = activeLinks.filter((link) => !!link.favorite).length;
   totalCountEl.textContent = String(total);
   pinnedCountEl.textContent = String(pinned);
   favoriteCountEl.textContent = String(favorites);
@@ -710,11 +748,47 @@ function recordLocalOpen(linkId) {
   const idx = currentLinks.findIndex((link) => Number(link.id) === Number(linkId));
   if (idx === -1) return;
   const link = Object.assign({}, currentLinks[idx]);
+  if (link.deletedAt) return;
+  recentOpenHistory.set(Number(linkId), {
+    openCount: link.openCount || 0,
+    lastOpenedAt: link.lastOpenedAt || null,
+    ts: Date.now()
+  });
   const count = Number(link.openCount);
   link.openCount = Number.isFinite(count) && count >= 0 ? count + 1 : 1;
   link.lastOpenedAt = new Date().toISOString();
   currentLinks[idx] = link;
   renderQuickAccess();
+}
+
+function getUndoableOpen(linkId) {
+  const entry = recentOpenHistory.get(Number(linkId));
+  if (!entry) return null;
+  if ((Date.now() - entry.ts) > RECENT_OPEN_UNDO_MS) {
+    recentOpenHistory.delete(Number(linkId));
+    return null;
+  }
+  return entry;
+}
+
+async function undoRecentOpen(linkId) {
+  const entry = getUndoableOpen(linkId);
+  if (!entry || !window.electron || typeof window.electron.undoLinkOpen !== 'function') return;
+  const ok = await window.electron.undoLinkOpen(linkId, {
+    openCount: entry.openCount,
+    lastOpenedAt: entry.lastOpenedAt
+  });
+  if (!ok) return;
+  const idx = currentLinks.findIndex((link) => Number(link.id) === Number(linkId));
+  if (idx !== -1) {
+    currentLinks[idx] = Object.assign({}, currentLinks[idx], {
+      openCount: entry.openCount,
+      lastOpenedAt: entry.lastOpenedAt
+    });
+  }
+  recentOpenHistory.delete(Number(linkId));
+  renderQuickAccess();
+  renderQuickStats();
 }
 
 function normalizeWorkspaces(raw) {
@@ -1840,7 +1914,10 @@ function renderTagFilters() {
   if (!tagFiltersEl) return;
   tagFiltersEl.innerHTML = '';
   const tagCounts = new Map();
-  currentLinks.forEach((link) => {
+  const sourceLinks = showDeleted
+    ? currentLinks.filter((link) => link.deletedAt)
+    : currentLinks.filter((link) => !link.deletedAt);
+  sourceLinks.forEach((link) => {
     (link.tags || []).forEach((tag) => {
       if (!tag) return;
       tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
@@ -1924,7 +2001,7 @@ async function togglePinnedTag(tag) {
 }
 
 function getFilteredLinks() {
-  let filtered = currentLinks.slice();
+  let filtered = currentLinks.filter((link) => showDeleted ? link.deletedAt : !link.deletedAt);
   const query = searchQuery.trim();
   if (query) {
     if (searchMode === 'fuzzy') {
@@ -2001,12 +2078,15 @@ function isCommandPaletteOpen() {
 
 function getPaletteMatches(query) {
   const trimmed = query.trim();
+  const sourceLinks = showDeleted
+    ? currentLinks.filter((link) => link.deletedAt)
+    : currentLinks.filter((link) => !link.deletedAt);
   if (!trimmed) {
     const recents = getRecentLinks(8);
     if (recents.length) return recents;
-    return currentLinks.slice(0, 8);
+    return sourceLinks.slice(0, 8);
   }
-  const scored = currentLinks
+  const scored = sourceLinks
     .map((link) => ({ link, score: computeFuzzyScore(link, trimmed) }))
     .filter((entry) => entry.score > 0)
     .sort((a, b) => b.score - a.score);
@@ -2187,6 +2267,27 @@ function toggleCommandPalette() {
 
 // Event listeners
 addBtn.addEventListener('click', addLink);
+
+if (importClipboardBtn) {
+  importClipboardBtn.addEventListener('click', async () => {
+    if (!window.electron || typeof window.electron.importClipboardLinks !== 'function') return;
+    const tags = tagsInput ? normalizeTagsInput(tagsInput.value) : [];
+    const folder = folderInput ? folderInput.value.trim() : '';
+    const notes = notesInput ? notesInput.value.trim() : '';
+    const priority = prioritySelect ? prioritySelect.value : 'normal';
+    const res = await window.electron.importClipboardLinks({ tags, folder, notes, priority });
+    if (!res || res.total === 0) {
+      alert(t('alerts.clipboardEmpty'));
+      return;
+    }
+    if (res.added === 0) {
+      alert(t('alerts.clipboardNoValidLinks'));
+      return;
+    }
+    alert(t('alerts.clipboardImported', { count: res.added }));
+    loadLinks();
+  });
+}
 urlInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') {
     addLink();
@@ -2768,6 +2869,7 @@ async function loadLinks() {
   renderLinks();
   renderQuickAccess();
   renderQuickStats();
+  syncBulkActionVisibility();
   updateRefreshIndicators();
   if (isCommandPaletteOpen()) updateCommandPaletteResults();
   if (!initialRenderReported && window.electron && typeof window.electron.reportRendererReady === 'function') {
@@ -2930,6 +3032,8 @@ function buildLinkElement(link, options = {}) {
   linkElement.className = 'link-item';
   linkElement.dataset.id = link.id;
   linkElement.dataset.groupKey = groupKey;
+  const isDeleted = !!link.deletedAt;
+  if (isDeleted) linkElement.classList.add('is-deleted');
 
   const titleText = escapeHtml(link.title || link.url);
   const urlText = escapeHtml(link.url);
@@ -2951,8 +3055,27 @@ function buildLinkElement(link, options = {}) {
     link.favorite ? `<span class="badge favorite-badge">${escapeHtml(t('links.favoriteBadge'))}</span>` : '',
     link.pinned ? `<span class="badge pinned-badge">${escapeHtml(t('links.pinnedBadge'))}</span>` : '',
     buildPriorityBadge(link.priority),
-    buildHealthBadge(link.health)
+    buildHealthBadge(link.health),
+    isDeleted ? `<span class="badge deleted-badge">${escapeHtml(t('links.deletedBadge'))}</span>` : ''
   ].filter(Boolean).join('');
+
+  const linkActions = isDeleted
+    ? `<button class="action-btn restore-btn" data-id="${link.id}">${escapeHtml(t('actions.restore'))}</button>`
+    : `
+        <button class="action-btn open-btn" data-id="${link.id}">${escapeHtml(t('actions.openWindow'))}</button>
+        <button class="action-btn browser-btn" data-id="${link.id}">${escapeHtml(t('actions.openBrowser'))}</button>
+        <button class="action-btn copy-btn" data-id="${link.id}">${escapeHtml(t('actions.copy'))}</button>
+        <button class="action-btn edit-btn" data-id="${link.id}">${escapeHtml(t('actions.edit'))}</button>
+        <button class="action-btn pin-btn" data-id="${link.id}">${escapeHtml(link.pinned ? t('actions.unpin') : t('actions.pin'))}</button>
+        <button class="action-btn fav-btn" data-id="${link.id}">${escapeHtml(link.favorite ? t('actions.unfav') : t('actions.fav'))}</button>
+        <button class="action-btn delete-btn danger" data-id="${link.id}">${escapeHtml(t('actions.delete'))}</button>
+      `;
+  const linkMetaActions = isDeleted
+    ? ''
+    : `
+        <button class="icon-btn refresh-meta-btn" data-id="${link.id}">${escapeHtml(t('metadata.refresh'))}</button>
+        <button class="icon-btn refresh-health-btn" data-id="${link.id}">${escapeHtml(t('health.check'))}</button>
+      `;
 
   linkElement.innerHTML = `
     <div class="link-select"><input type="checkbox" class="select-checkbox" data-id="${link.id}"></div>
@@ -2974,18 +3097,9 @@ function buildLinkElement(link, options = {}) {
         ${metadataPreview}
       </div>
       <div class="link-actions">
-        <button class="action-btn open-btn" data-id="${link.id}">${escapeHtml(t('actions.openWindow'))}</button>
-        <button class="action-btn browser-btn" data-id="${link.id}">${escapeHtml(t('actions.openBrowser'))}</button>
-        <button class="action-btn copy-btn" data-id="${link.id}">${escapeHtml(t('actions.copy'))}</button>
-        <button class="action-btn edit-btn" data-id="${link.id}">${escapeHtml(t('actions.edit'))}</button>
-        <button class="action-btn pin-btn" data-id="${link.id}">${escapeHtml(link.pinned ? t('actions.unpin') : t('actions.pin'))}</button>
-        <button class="action-btn fav-btn" data-id="${link.id}">${escapeHtml(link.favorite ? t('actions.unfav') : t('actions.fav'))}</button>
-        <button class="action-btn delete-btn danger" data-id="${link.id}">${escapeHtml(t('actions.delete'))}</button>
+        ${linkActions}
       </div>
-      <div class="link-meta-actions">
-        <button class="icon-btn refresh-meta-btn" data-id="${link.id}">${escapeHtml(t('metadata.refresh'))}</button>
-        <button class="icon-btn refresh-health-btn" data-id="${link.id}">${escapeHtml(t('health.check'))}</button>
-      </div>
+      ${linkMetaActions ? `<div class="link-meta-actions">${linkMetaActions}</div>` : ''}
       <div class="link-edit hidden">
         <div class="edit-grid">
           <label><span>${escapeHtml(t('fields.title'))}</span><input type="text" class="edit-title"></label>
@@ -3010,7 +3124,7 @@ function buildLinkElement(link, options = {}) {
   `;
 
   const displayEl = linkElement.querySelector('.link-display');
-  if (displayEl) {
+  if (displayEl && !isDeleted) {
     displayEl.addEventListener('click', () => {
       recordLocalOpen(link.id);
       try {
@@ -3022,7 +3136,7 @@ function buildLinkElement(link, options = {}) {
   }
 
   const openBtn = linkElement.querySelector('.open-btn');
-  if (openBtn) {
+  if (openBtn && !isDeleted) {
     openBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       recordLocalOpen(link.id);
@@ -3035,7 +3149,7 @@ function buildLinkElement(link, options = {}) {
   }
 
   const browserBtn = linkElement.querySelector('.browser-btn');
-  if (browserBtn) {
+  if (browserBtn && !isDeleted) {
     browserBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       await window.electron.openInBrowser(link.url);
@@ -3043,7 +3157,7 @@ function buildLinkElement(link, options = {}) {
   }
 
   const copyBtn = linkElement.querySelector('.copy-btn');
-  if (copyBtn) {
+  if (copyBtn && !isDeleted) {
     copyBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       await window.electron.copyLink(link.url);
@@ -3054,7 +3168,7 @@ function buildLinkElement(link, options = {}) {
   }
 
   const deleteBtn = linkElement.querySelector('.delete-btn');
-  if (deleteBtn) {
+  if (deleteBtn && !isDeleted) {
     deleteBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       if (!confirm(t('confirm.deleteLink'))) return;
@@ -3063,8 +3177,17 @@ function buildLinkElement(link, options = {}) {
     });
   }
 
+  const restoreBtn = linkElement.querySelector('.restore-btn');
+  if (restoreBtn) {
+    restoreBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await window.electron.restoreLink(link.id);
+      loadLinks();
+    });
+  }
+
   const favBtn = linkElement.querySelector('.fav-btn');
-  if (favBtn) {
+  if (favBtn && !isDeleted) {
     favBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       await window.electron.toggleFavorite(link.id);
@@ -3073,7 +3196,7 @@ function buildLinkElement(link, options = {}) {
   }
 
   const pinBtn = linkElement.querySelector('.pin-btn');
-  if (pinBtn) {
+  if (pinBtn && !isDeleted) {
     pinBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       await window.electron.setLinkPinned(link.id, !link.pinned);
@@ -3119,7 +3242,7 @@ function buildLinkElement(link, options = {}) {
     }
   };
 
-  if (editBtn) {
+  if (editBtn && !isDeleted) {
     editBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       const toggled = !linkElement.classList.contains('editing');
@@ -3160,7 +3283,7 @@ function buildLinkElement(link, options = {}) {
     });
   }
 
-  if (refreshMetaBtn) {
+  if (refreshMetaBtn && !isDeleted) {
     refreshMetaBtn.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -3172,7 +3295,7 @@ function buildLinkElement(link, options = {}) {
     });
   }
 
-  if (refreshHealthBtn) {
+  if (refreshHealthBtn && !isDeleted) {
     refreshHealthBtn.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -3343,6 +3466,20 @@ if (groupingSelect) {
   });
 }
 
+if (showDeletedBtn) {
+  syncDeletedToggleLabel();
+  syncBulkActionVisibility();
+  showDeletedBtn.addEventListener('click', () => {
+    showDeleted = !showDeleted;
+    syncDeletedToggleLabel();
+    syncBulkActionVisibility();
+    renderTagFilters();
+    renderLinks();
+    renderQuickAccess();
+    renderQuickStats();
+  });
+}
+
 if (clearTagFiltersBtn) {
   clearTagFiltersBtn.addEventListener('click', () => {
     activeTagFilters.clear();
@@ -3372,7 +3509,23 @@ const importBtn = document.getElementById('importBtn');
 const exportCsvBtn = document.getElementById('exportCsvBtn');
 const importCsvBtn = document.getElementById('importCsvBtn');
 const backupBtn = document.getElementById('backupBtn');
-const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+
+if (openAllBtn) openAllBtn.addEventListener('click', async () => {
+  const targets = getFilteredLinks().filter((link) => !link.deletedAt);
+  if (!targets.length) {
+    alert(t('alerts.noItemsSelected'));
+    return;
+  }
+  if (!confirm(t('confirm.openAll', { count: targets.length }))) return;
+  for (const link of targets) {
+    recordLocalOpen(link.id);
+    try {
+      await window.electron.openLinkWithId(Number(link.id), link.url);
+    } catch (err) {
+      await window.electron.openLink(link.url);
+    }
+  }
+});
 
 if (exportBtn) exportBtn.addEventListener('click', async () => {
   const path = await window.electron.exportLinks();
@@ -3410,6 +3563,13 @@ if (deleteSelectedBtn) deleteSelectedBtn.addEventListener('click', async () => {
   if (checked.length === 0) { alert(t('alerts.noItemsSelected')); return; }
   if (!confirm(t('confirm.deleteSelected', { count: checked.length }))) return;
   await window.electron.bulkDelete(checked);
+  loadLinks();
+});
+
+if (restoreSelectedBtn) restoreSelectedBtn.addEventListener('click', async () => {
+  const checked = getSelectedLinkIds();
+  if (checked.length === 0) { alert(t('alerts.noItemsSelected')); return; }
+  await window.electron.bulkRestore(checked);
   loadLinks();
 });
 

@@ -4,6 +4,11 @@ const fs = require('fs');
 const http = require('http');
 const https = require('https');
 
+const TEST_USER_DATA_DIR = process.env.PLANAV2_TEST_USER_DATA;
+if (TEST_USER_DATA_DIR) {
+  try { app.setPath('userData', TEST_USER_DATA_DIR); } catch (err) {}
+}
+
 const PERF_BENCH = process.env.PERF_BENCH === '1';
 const perfStart = PERF_BENCH ? process.hrtime.bigint() : null;
 const perfSessionStart = process.hrtime.bigint();
@@ -572,6 +577,13 @@ function normalizeLastOpenedAt(value) {
   return new Date(parsed).toISOString();
 }
 
+function normalizeDeletedAt(value) {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  if (isNaN(parsed)) return null;
+  return new Date(parsed).toISOString();
+}
+
 function getSortValue(link, fallbackIndex = 0) {
   if (link && typeof link.sortOrder === 'number' && !isNaN(link.sortOrder)) return link.sortOrder;
   if (link && link.createdAt) {
@@ -628,6 +640,11 @@ function normalizeLinkCollection(rawLinks) {
       nextLink.lastOpenedAt = normalizedOpenedAt;
       changed = true;
     }
+    const normalizedDeletedAt = normalizeDeletedAt(nextLink.deletedAt);
+    if (nextLink.deletedAt !== normalizedDeletedAt) {
+      nextLink.deletedAt = normalizedDeletedAt;
+      changed = true;
+    }
     const openCount = Number(nextLink.openCount);
     if (!Number.isFinite(openCount) || openCount < 0) {
       nextLink.openCount = 0;
@@ -676,6 +693,38 @@ function getNextSortOrder(links = []) {
   return max + 10;
 }
 
+function markLinksDeleted(links, ids = []) {
+  const idSet = new Set(ids.map((id) => Number(id)));
+  if (!idSet.size) return false;
+  let changed = false;
+  const now = new Date().toISOString();
+  links.forEach((link) => {
+    if (!link || !idSet.has(Number(link.id))) return;
+    if (!link.deletedAt) {
+      link.deletedAt = now;
+      link.updatedAt = now;
+      changed = true;
+    }
+  });
+  return changed;
+}
+
+function restoreLinksById(links, ids = []) {
+  const idSet = new Set(ids.map((id) => Number(id)));
+  if (!idSet.size) return false;
+  let changed = false;
+  const now = new Date().toISOString();
+  links.forEach((link) => {
+    if (!link || !idSet.has(Number(link.id))) return;
+    if (link.deletedAt) {
+      link.deletedAt = null;
+      link.updatedAt = now;
+      changed = true;
+    }
+  });
+  return changed;
+}
+
 function ensureBackgroundWorkersRunning() {
   if (!metadataTimer) {
     metadataTimer = setInterval(() => {
@@ -694,6 +743,7 @@ function scheduleBackgroundJobsForLinks(links = []) {
   ensureBackgroundWorkersRunning();
   const now = Date.now();
   links.forEach((link) => {
+    if (link && link.deletedAt) return;
     queueMetadataJob(link, false, now);
     queueHealthJob(link, false, now);
   });
@@ -701,6 +751,7 @@ function scheduleBackgroundJobsForLinks(links = []) {
 
 function queueMetadataJob(link, urgent = false, nowTs = Date.now()) {
   if (!link || !link.url || !link.id) return;
+  if (link.deletedAt) return;
   const id = Number(link.id);
   const lastFetched = link.metadata && link.metadata.lastFetchedAt ? Date.parse(link.metadata.lastFetchedAt) : 0;
   const nextRetryAt = link.metadata && link.metadata.nextRetryAt ? Date.parse(link.metadata.nextRetryAt) : 0;
@@ -719,6 +770,7 @@ function queueMetadataJob(link, urgent = false, nowTs = Date.now()) {
 
 function queueHealthJob(link, urgent = false, nowTs = Date.now()) {
   if (!link || !link.url || !link.id) return;
+  if (link.deletedAt) return;
   const id = Number(link.id);
   const lastChecked = link.health && link.health.checkedAt ? Date.parse(link.health.checkedAt) : 0;
   const nextRetryAt = link.health && link.health.nextRetryAt ? Date.parse(link.health.nextRetryAt) : 0;
@@ -775,6 +827,21 @@ function isSafeLinkUrl(targetUrl) {
   } catch (err) {
     return false;
   }
+}
+
+function extractUrlsFromText(text) {
+  if (!text || typeof text !== 'string') return [];
+  const matches = text.match(/https?:\/\/[^\s]+/gi) || [];
+  const urls = [];
+  matches.forEach((raw) => {
+    const cleaned = raw.replace(/[)\],.;!?]+$/g, '');
+    try {
+      if (!isSafeLinkUrl(cleaned)) return;
+      const parsed = new URL(cleaned);
+      urls.push(parsed.toString());
+    } catch (err) {}
+  });
+  return Array.from(new Set(urls));
 }
 
 function ensureLinkWindowCsp(linkWindow) {
@@ -1125,6 +1192,7 @@ function convertLinksToCsv(links = []) {
     'priority',
     'favorite',
     'pinned',
+    'deletedAt',
     'createdAt',
     'updatedAt'
   ];
@@ -1141,6 +1209,7 @@ function convertLinksToCsv(links = []) {
       escapeCsvValue(link.priority || DEFAULT_PRIORITY),
       escapeCsvValue(link.favorite ? '1' : '0'),
       escapeCsvValue(link.pinned ? '1' : '0'),
+      escapeCsvValue(link.deletedAt || ''),
       escapeCsvValue(link.createdAt || ''),
       escapeCsvValue(link.updatedAt || '')
     ].join(','));
@@ -1592,6 +1661,7 @@ ipcMain.handle('add-link', (event, link) => {
     priority,
     openCount: 0,
     lastOpenedAt: null,
+    deletedAt: null,
     sortOrder: getNextSortOrder(links),
     metadata: createEmptyMetadata(),
     health: createEmptyHealth()
@@ -1657,9 +1727,28 @@ ipcMain.handle('bulk-delete', (event, ids) => {
   try {
     if (!Array.isArray(ids) || ids.length === 0) return false;
     const links = getLinksNormalized();
-    const remaining = links.filter(l => !ids.includes(l.id));
-    saveLinks(remaining);
-    return true;
+    const changed = markLinksDeleted(links, ids);
+    if (changed) saveLinks(links);
+    return changed;
+  } catch (err) { return false; }
+});
+
+ipcMain.handle('bulk-restore', (event, ids) => {
+  try {
+    if (!Array.isArray(ids) || ids.length === 0) return false;
+    const links = getLinksNormalized();
+    const changed = restoreLinksById(links, ids);
+    if (changed) saveLinks(links);
+    return changed;
+  } catch (err) { return false; }
+});
+
+ipcMain.handle('restore-link', (event, id) => {
+  try {
+    const links = getLinksNormalized();
+    const changed = restoreLinksById(links, [Number(id)]);
+    if (changed) saveLinks(links);
+    return changed;
   } catch (err) { return false; }
 });
 
@@ -1739,7 +1828,7 @@ ipcMain.handle('refresh-link-metadata', (event, id) => {
   try {
     const links = getLinksNormalized();
     const link = links.find((item) => Number(item.id) === Number(id));
-    if (!link) return false;
+    if (!link || link.deletedAt) return false;
     queueMetadataJob(link, true);
     return true;
   } catch (err) {
@@ -1751,8 +1840,29 @@ ipcMain.handle('refresh-link-health', (event, id) => {
   try {
     const links = getLinksNormalized();
     const link = links.find((item) => Number(item.id) === Number(id));
-    if (!link) return false;
+    if (!link || link.deletedAt) return false;
     queueHealthJob(link, true);
+    return true;
+  } catch (err) {
+    return false;
+  }
+});
+
+ipcMain.handle('undo-link-open', (event, id, previous = {}) => {
+  try {
+    const linkId = Number(id);
+    if (!linkId) return false;
+    const links = getLinksNormalized();
+    const idx = links.findIndex((link) => Number(link.id) === linkId);
+    if (idx === -1) return false;
+    const prevCount = Number(previous.openCount);
+    const prevOpenedAt = normalizeLastOpenedAt(previous.lastOpenedAt);
+    if (Number.isFinite(prevCount) && prevCount >= 0) {
+      links[idx].openCount = prevCount;
+    }
+    links[idx].lastOpenedAt = prevOpenedAt;
+    links[idx].updatedAt = new Date().toISOString();
+    saveLinks(links);
     return true;
   } catch (err) {
     return false;
@@ -1769,6 +1879,53 @@ ipcMain.handle('peek-clipboard-link', () => {
     return parsed.toString();
   } catch (err) {
     return null;
+  }
+});
+
+ipcMain.handle('import-clipboard-links', (event, options = {}) => {
+  try {
+    const raw = clipboard.readText();
+    if (!raw) return { added: 0, total: 0 };
+    const urls = extractUrlsFromText(raw);
+    if (!urls.length) return { added: 0, total: 0 };
+    const links = getLinksNormalized();
+    const existingUrls = new Set(links.map((link) => link.url));
+    const normalizedTags = normalizeTags(options.tags);
+    const folder = sanitizeString(options.folder);
+    const notes = sanitizeString(options.notes);
+    const priority = normalizePriority(options.priority);
+    let added = 0;
+    urls.forEach((url) => {
+      if (existingUrls.has(url)) return;
+      let derivedTitle = '';
+      try { derivedTitle = new URL(url).hostname; } catch (err) { derivedTitle = url; }
+      const newLink = {
+        id: Date.now() + added,
+        url,
+        title: derivedTitle,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        favorite: false,
+        tags: normalizedTags,
+        pinned: false,
+        folder,
+        notes,
+        priority,
+        openCount: 0,
+        lastOpenedAt: null,
+        deletedAt: null,
+        sortOrder: getNextSortOrder(links),
+        metadata: createEmptyMetadata(),
+        health: createEmptyHealth()
+      };
+      links.push(newLink);
+      existingUrls.add(url);
+      added += 1;
+    });
+    if (added) saveLinks(links);
+    return { added, total: urls.length };
+  } catch (err) {
+    return { added: 0, total: 0 };
   }
 });
 
@@ -1827,6 +1984,7 @@ ipcMain.handle('import-links-csv', async () => {
         folder: sanitizeString(record.folder || record.Folder),
         notes: sanitizeString(record.notes || record.Notes),
         priority: normalizePriority(record.priority || record.Priority),
+        deletedAt: normalizeDeletedAt(record.deletedAt || record.DeletedAt),
         sortOrder: getNextSortOrder(links),
         metadata: createEmptyMetadata(),
         health: createEmptyHealth()
@@ -1893,6 +2051,7 @@ ipcMain.handle('import-links', async (event) => {
         folder: sanitizeString(item && item.folder),
         notes: sanitizeString(item && item.notes),
         priority: normalizePriority(item && item.priority),
+        deletedAt: normalizeDeletedAt(item && item.deletedAt),
         sortOrder: getNextSortOrder(links),
         metadata: Object.assign(createEmptyMetadata(), item && item.metadata ? item.metadata : {}),
         health: Object.assign(createEmptyHealth(), item && item.health ? item.health : {})
@@ -1926,10 +2085,14 @@ ipcMain.handle('manual-backup', (event, keepN = 5) => {
 });
 
 ipcMain.handle('delete-link', (event, id) => {
-  let links = getLinksNormalized();
-  links = links.filter(link => link.id !== id);
-  saveLinks(links);
-  return true;
+  try {
+    const links = getLinksNormalized();
+    const changed = markLinksDeleted(links, [Number(id)]);
+    if (changed) saveLinks(links);
+    return changed;
+  } catch (err) {
+    return false;
+  }
 });
 
 ipcMain.handle('open-link-external', (event, url) => {
@@ -2006,6 +2169,7 @@ function recordLinkOpen(id, url) {
     }
     if (idx === -1) return;
     const link = links[idx];
+    if (link.deletedAt) return;
     const count = Number(link.openCount);
     link.openCount = Number.isFinite(count) && count >= 0 ? count + 1 : 1;
     link.lastOpenedAt = new Date().toISOString();
@@ -2046,6 +2210,7 @@ function openLinkWindow(idOrUrl, maybeUrl, options = {}) {
     if (!savedBounds && id) {
       const links = getLinksNormalized();
       const found = links.find(l => Number(l.id) === Number(id));
+      if (found && found.deletedAt) return false;
       if (found && found.lastBounds) savedBounds = found.lastBounds;
     }
   } catch (err) {}
@@ -2388,6 +2553,7 @@ function reopenLastLinksIfAvailable() {
       let targetUrl = entry.url;
       if (entry.id) {
         const found = byId.get(Number(entry.id));
+        if (found && found.deletedAt) return;
         if (found && found.url) targetUrl = found.url;
       }
       openLinkWindow(entry.id || null, targetUrl);
