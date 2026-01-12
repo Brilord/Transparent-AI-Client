@@ -36,6 +36,15 @@ const selfChatRoomCancelBtn = document.getElementById('selfChatRoomCancelBtn');
 const selfChatImageInput = document.getElementById('selfChatImageInput');
 const selfChatAddImageBtn = document.getElementById('selfChatAddImageBtn');
 const selfChatAttachmentPreview = document.getElementById('selfChatAttachmentPreview');
+const selfChatPresetSelect = document.getElementById('selfChatPresetSelect');
+const selfChatSystemPrompt = document.getElementById('selfChatSystemPrompt');
+const selfChatUserPrompt = document.getElementById('selfChatUserPrompt');
+const selfChatPromptInsertBtn = document.getElementById('selfChatPromptInsertBtn');
+const selfChatPromptClearBtn = document.getElementById('selfChatPromptClearBtn');
+const selfChatBuildContextBtn = document.getElementById('selfChatBuildContextBtn');
+const selfChatInsertContextBtn = document.getElementById('selfChatInsertContextBtn');
+const selfChatClearContextBtn = document.getElementById('selfChatClearContextBtn');
+const selfChatContextInput = document.getElementById('selfChatContextInput');
 const isChatOnlyWindow = new URLSearchParams(window.location.search).get('chat') === '1';
 if (isChatOnlyWindow && document.body) {
   document.body.classList.add('chat-only');
@@ -923,6 +932,28 @@ const selfChatMaxChars = 2000;
 const selfChatMaxRooms = 50;
 const selfChatMaxImagesPerMessage = 4;
 const selfChatMaxImageBytes = 2 * 1024 * 1024;
+const promptPresets = [
+  {
+    id: 'research',
+    system: 'You are a research assistant. Focus on accuracy, cite sources by title + URL, and surface unknowns.',
+    user: 'Goal:\nAudience:\nScope:\nKey questions:\nOutput format:'
+  },
+  {
+    id: 'summarize',
+    system: 'You summarize clearly and concisely. Preserve key facts and avoid speculation.',
+    user: 'Summarize for:\nLength:\nKey points to include:\nTone:'
+  },
+  {
+    id: 'brainstorm',
+    system: 'You are a creative ideation partner. Generate many options before refining.',
+    user: 'Topic:\nConstraints:\nMust include:\nAvoid:\nOutput format:'
+  },
+  {
+    id: 'email',
+    system: 'You draft professional, friendly emails. Keep it concise and action-oriented.',
+    user: 'Recipient:\nPurpose:\nKey details:\nCall to action:\nTone:'
+  }
+];
 let selfChatState = null;
 let selfChatRoomFilter = '';
 let selfChatIdSeq = 0;
@@ -931,6 +962,100 @@ let selfChatPendingImages = [];
 function createChatId(prefix) {
   selfChatIdSeq += 1;
   return `${prefix}-${Date.now()}-${selfChatIdSeq}`;
+}
+
+function getPromptPresetById(id) {
+  return promptPresets.find((preset) => preset.id === id) || promptPresets[0];
+}
+
+function applyPromptPreset(presetId) {
+  const preset = getPromptPresetById(presetId);
+  if (!preset) return;
+  if (selfChatSystemPrompt) selfChatSystemPrompt.value = preset.system || '';
+  if (selfChatUserPrompt) selfChatUserPrompt.value = preset.user || '';
+}
+
+function buildPromptPayload() {
+  const parts = [];
+  const systemText = selfChatSystemPrompt ? selfChatSystemPrompt.value.trim() : '';
+  const userText = selfChatUserPrompt ? selfChatUserPrompt.value.trim() : '';
+  const contextText = selfChatContextInput ? selfChatContextInput.value.trim() : '';
+  if (systemText) parts.push(`[System]\n${systemText}`);
+  if (userText) parts.push(`[User]\n${userText}`);
+  if (contextText) parts.push(`[Context]\n${contextText}`);
+  return parts.join('\n\n').trim();
+}
+
+function insertPromptIntoInput() {
+  if (!selfChatInput) return;
+  const payload = buildPromptPayload();
+  if (!payload) return;
+  if (!selfChatInput.value.trim()) {
+    selfChatInput.value = payload;
+  } else {
+    selfChatInput.value = `${selfChatInput.value.trim()}\n\n${payload}`;
+  }
+  selfChatInput.focus();
+}
+
+function clearPromptTools() {
+  if (selfChatSystemPrompt) selfChatSystemPrompt.value = '';
+  if (selfChatUserPrompt) selfChatUserPrompt.value = '';
+  if (selfChatContextInput) selfChatContextInput.value = '';
+}
+
+function normalizeContextValue(value) {
+  if (!value) return '';
+  const trimmed = String(value).trim();
+  return trimmed ? trimmed : '';
+}
+
+function buildLinkContextBlock(links) {
+  if (!links.length) return '';
+  const lines = [t('prompt.contextHeader')];
+  links.forEach((link, idx) => {
+    const title = normalizeContextValue(link.title) || normalizeContextValue(link.url);
+    const url = normalizeContextValue(link.url);
+    lines.push(`\n${idx + 1}. ${title}`);
+    if (url) lines.push(`   URL: ${url}`);
+    const siteName = normalizeContextValue(link.metadata && link.metadata.siteName);
+    if (siteName) lines.push(`   Site: ${siteName}`);
+    const description = normalizeContextValue(link.metadata && link.metadata.description);
+    if (description) lines.push(`   Summary: ${description}`);
+    const notes = normalizeContextValue(link.notes);
+    if (notes) lines.push(`   Notes: ${notes}`);
+    const folder = normalizeContextValue(link.folder);
+    if (folder) lines.push(`   Folder: ${folder}`);
+    const tags = Array.isArray(link.tags) && link.tags.length ? link.tags.join(', ') : '';
+    if (tags) lines.push(`   Tags: ${tags}`);
+    const priority = normalizeContextValue(link.priority);
+    if (priority) lines.push(`   Priority: ${priority}`);
+  });
+  return lines.join('\n');
+}
+
+function buildContextFromSelection() {
+  const ids = getSelectedLinkIds();
+  if (!ids.length) {
+    alert(t('alerts.noLinksForContext'));
+    return;
+  }
+  const map = new Map(currentLinks.map((link) => [Number(link.id), link]));
+  const selectedLinks = ids.map((id) => map.get(Number(id))).filter(Boolean);
+  const contextBlock = buildLinkContextBlock(selectedLinks);
+  if (selfChatContextInput) selfChatContextInput.value = contextBlock;
+}
+
+function insertContextIntoUserPrompt() {
+  if (!selfChatUserPrompt || !selfChatContextInput) return;
+  const contextText = selfChatContextInput.value.trim();
+  if (!contextText) return;
+  if (!selfChatUserPrompt.value.trim()) {
+    selfChatUserPrompt.value = contextText;
+  } else {
+    selfChatUserPrompt.value = `${selfChatUserPrompt.value.trim()}\n\n${contextText}`;
+  }
+  selfChatUserPrompt.focus();
 }
 
 function normalizeSelfChatImages(raw) {
@@ -1611,6 +1736,47 @@ async function initSelfChat() {
       selfChatInput.value = '';
       clearSelfChatAttachments();
       selfChatInput.focus();
+    });
+  }
+
+  if (selfChatPresetSelect) {
+    selfChatPresetSelect.addEventListener('change', (e) => {
+      applyPromptPreset(e.target.value || 'research');
+    });
+    const systemEmpty = !selfChatSystemPrompt || !selfChatSystemPrompt.value.trim();
+    const userEmpty = !selfChatUserPrompt || !selfChatUserPrompt.value.trim();
+    if (systemEmpty && userEmpty) {
+      applyPromptPreset(selfChatPresetSelect.value || 'research');
+    }
+  }
+
+  if (selfChatPromptInsertBtn) {
+    selfChatPromptInsertBtn.addEventListener('click', () => {
+      insertPromptIntoInput();
+    });
+  }
+
+  if (selfChatPromptClearBtn) {
+    selfChatPromptClearBtn.addEventListener('click', () => {
+      clearPromptTools();
+    });
+  }
+
+  if (selfChatBuildContextBtn) {
+    selfChatBuildContextBtn.addEventListener('click', () => {
+      buildContextFromSelection();
+    });
+  }
+
+  if (selfChatInsertContextBtn) {
+    selfChatInsertContextBtn.addEventListener('click', () => {
+      insertContextIntoUserPrompt();
+    });
+  }
+
+  if (selfChatClearContextBtn) {
+    selfChatClearContextBtn.addEventListener('click', () => {
+      if (selfChatContextInput) selfChatContextInput.value = '';
     });
   }
 

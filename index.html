@@ -357,6 +357,46 @@
                         <button id="selfChatCloseBtn" class="small-btn ghost" type="button" title="Close" data-i18n-title="actions.close" data-i18n="actions.close">Close</button>
                     </div>
                 </div>
+                <div class="chat-prompt-tools">
+                    <div class="chat-prompt-header">
+                        <div class="chat-prompt-title" data-i18n="prompt.title">Prompt tools</div>
+                        <div class="chat-prompt-actions">
+                            <button id="selfChatPromptInsertBtn" class="small-btn" type="button" data-i18n="prompt.insertPrompt">Insert into input</button>
+                            <button id="selfChatPromptClearBtn" class="small-btn ghost" type="button" data-i18n="actions.clear">Clear</button>
+                        </div>
+                    </div>
+                    <div class="chat-prompt-grid">
+                        <label class="chat-prompt-field">
+                            <span data-i18n="prompt.modeLabel">Task mode</span>
+                            <select id="selfChatPresetSelect" class="chat-prompt-select">
+                                <option value="research" data-i18n="prompt.mode.research">Research</option>
+                                <option value="summarize" data-i18n="prompt.mode.summarize">Summarize</option>
+                                <option value="brainstorm" data-i18n="prompt.mode.brainstorm">Brainstorm</option>
+                                <option value="email" data-i18n="prompt.mode.email">Email draft</option>
+                            </select>
+                        </label>
+                        <label class="chat-prompt-field chat-prompt-field-full">
+                            <span data-i18n="prompt.systemLabel">System prompt</span>
+                            <textarea id="selfChatSystemPrompt" class="chat-prompt-textarea" rows="2" placeholder="System guidance" data-i18n-placeholder="prompt.systemPlaceholder"></textarea>
+                        </label>
+                        <label class="chat-prompt-field chat-prompt-field-full">
+                            <span data-i18n="prompt.userLabel">User prompt</span>
+                            <textarea id="selfChatUserPrompt" class="chat-prompt-textarea" rows="3" placeholder="User request" data-i18n-placeholder="prompt.userPlaceholder"></textarea>
+                        </label>
+                    </div>
+                    <div class="chat-context-tools">
+                        <div class="chat-context-header">
+                            <div class="chat-context-title" data-i18n="prompt.contextTitle">Link-to-context</div>
+                            <div class="chat-context-actions">
+                                <button id="selfChatBuildContextBtn" class="small-btn" type="button" data-i18n="prompt.contextBuild">Build from selected</button>
+                                <button id="selfChatInsertContextBtn" class="small-btn subtle" type="button" data-i18n="prompt.contextInsert">Insert into user</button>
+                                <button id="selfChatClearContextBtn" class="small-btn ghost" type="button" data-i18n="prompt.contextClear">Clear</button>
+                            </div>
+                        </div>
+                        <textarea id="selfChatContextInput" class="chat-prompt-textarea" rows="3" placeholder="Context block (editable)" data-i18n-placeholder="prompt.contextPlaceholder"></textarea>
+                        <small class="hint chat-prompt-hint" data-i18n="prompt.contextHint">Select links in the main list, then build context.</small>
+                    </div>
+                </div>
                 <div id="selfChatMessages" class="chat-messages"></div>
                 <div class="chat-composer">
                     <textarea id="selfChatInput" class="chat-input" rows="2" placeholder="Write a message or paste an image..." data-i18n-placeholder="chat.inputPlaceholder"></textarea>

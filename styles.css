@@ -1227,6 +1227,110 @@ body.chat-only .chat-panel {
     min-width: 0;
 }
 
+.chat-prompt-tools {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 14px;
+    border: 1px solid var(--chat-border);
+    background: rgba(12, 20, 26, 0.85);
+    backdrop-filter: blur(10px);
+}
+
+.chat-prompt-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.chat-prompt-title,
+.chat-context-title {
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--chat-muted);
+    font-weight: 600;
+}
+
+.chat-prompt-actions,
+.chat-context-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.chat-prompt-grid {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 12px;
+}
+
+.chat-prompt-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--chat-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.chat-prompt-field span {
+    color: var(--chat-muted);
+}
+
+.chat-prompt-field-full {
+    grid-column: 1 / -1;
+}
+
+.chat-prompt-select,
+.chat-prompt-textarea {
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--chat-ink);
+    font-size: 12px;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.chat-prompt-textarea {
+    resize: vertical;
+    min-height: 56px;
+}
+
+.chat-prompt-select:focus,
+.chat-prompt-textarea:focus {
+    outline: none;
+    border-color: var(--chat-accent);
+    box-shadow: 0 0 0 2px rgba(37, 211, 102, 0.18);
+}
+
+.chat-prompt-textarea::placeholder {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.chat-context-tools {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.chat-context-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.chat-prompt-hint {
+    color: rgba(255, 255, 255, 0.5);
+}
+
 .chat-main-header {
     display: flex;
     align-items: center;
@@ -1653,6 +1757,10 @@ body.chat-only .chat-panel {
     .chat-main-actions {
         width: 100%;
         justify-content: flex-start;
+    }
+
+    .chat-prompt-grid {
+        grid-template-columns: 1fr;
     }
 
     .chat-composer {
