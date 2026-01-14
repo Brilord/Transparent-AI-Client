@@ -3,7 +3,8 @@ const fs = require('fs');
 const os = require('os');
 const assert = require('assert/strict');
 const { _electron: electron } = require('playwright-core');
-const clipboardy = require('clipboardy');
+const { writeClipboardText } = require('./clipboard');
+const { createReporter } = require('./reporter');
 
 async function launchApp(userDataDir) {
   const app = await electron.launch({
@@ -142,7 +143,7 @@ async function runSettingsPersistenceTest() {
 
 async function runClipboardImportTest() {
   const urls = ['https://example.com/clipboard', 'https://example.org/clipboard'];
-  clipboardy.writeSync(urls.join('\n'));
+  await writeClipboardText(urls.join('\n'));
   const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'plana-clipboard-'));
   const { app, page } = await launchApp(baseDir);
   await page.waitForSelector('#addBtn');
@@ -221,15 +222,30 @@ async function runE2ePersistenceTest() {
 }
 
 (async () => {
-  await runIpcSmokeTest();
-  await runLanguageLinkingTest();
-  await runSettingsPersistenceTest();
-  await runClipboardImportTest();
-  await runLanguageApiTest();
-  await runAuxWindowTest();
-  await runE2ePersistenceTest();
-  console.log('Smoke tests passed.');
-})().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+  const reporter = createReporter('Smoke tests');
+  const run = async (label, fn) => {
+    reporter.start(label);
+    try {
+      await fn();
+      reporter.pass(label);
+    } catch (err) {
+      reporter.fail(label, err);
+      throw err;
+    }
+  };
+
+  try {
+    await run('IPC smoke', runIpcSmokeTest);
+    await run('Localization (DOM)', runLanguageLinkingTest);
+    await run('Settings persistence', runSettingsPersistenceTest);
+    await run('Clipboard import', runClipboardImportTest);
+    await run('Localization (API)', runLanguageApiTest);
+    await run('Aux windows', runAuxWindowTest);
+    await run('Persistence after relaunch', runE2ePersistenceTest);
+    reporter.finalize();
+    process.exit(0);
+  } catch (_err) {
+    reporter.finalize();
+    process.exit(1);
+  }
+})();

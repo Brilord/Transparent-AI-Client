@@ -1,214 +1,193 @@
 # Transparent AI Client
 
-A minimal Electron application (Transparent AI Client) with a transparent, glass-style UI for storing and managing website links.
+Transparent AI Client is a minimal Electron app for saving website links and opening them in transparent, glass-style windows. It includes tagging, quick filters, inline editing, and a flexible storage picker.
 
-## Features
+## Highlights
 
-- Transparent glass-style UI (frameless, transparent windows)
-- Add, view, and delete website links
-- Local persistent storage using JSON
-- Click links to open them inside transparent app windows
-- Keyboard and mouse controls for precise window movement and resizing
-- Custom storage picker so you can point Transparent AI Client at any `links.json` file, edit it manually, or keep it inside a synced folder.
-- Tag links, filter by tag chips, and bulk-apply tags to keep large libraries organized.
-- Manage every entry inline with edit, open-in-browser, copy, pin/unpin, and favorite toggles without leaving the catalog.
+- Transparent glass-style UI (frameless windows)
+- Save, tag, pin, and favorite links
+- Open links in embedded transparent windows or your browser
+- JSON storage with a custom picker (syncable file location)
+- Keyboard + mouse controls for move/resize
+- Metadata + health checks with smart search
+- CSV/JSON import/export and quick capture tools
 
-### Options / Transparency
+## Quick Start
 
-- New Options tab: open the settings (gear) in the titlebar to reveal a "Window transparency" slider. This adjusts the opacity of the main window and any currently open link windows in real time.
-Additional options in the same panel:
-
-- Always on top - keep the app and link windows above other apps.
-- Persist settings - save option changes (opacity / always-on-top / resizer injection) across app restarts.
-- Inject resizers - toggle whether the app attempts to insert invisible resizer handles into link windows (some websites block injection; if disabled use keyboard shortcuts for resizing instead).
-- Reset to defaults - quickly reset all options to the app defaults.
-  You can toggle each shortcut on/off from the Options panel.
-
-### Tags & Quick Filters
-
-- Add comma-separated tags when creating or editing a link.
-- The toolbar shows quick tag chips so you can scope the list to a single workflow in one click.
-- Use the "Tag selected" bulk action to replace or clear the tags for any set of selected links.
-
-### Inline Link Actions
-
-- Each card exposes "Open window", "Open browser", "Copy", "Edit", "Pin/Unpin", "Fav/Unfav", and "Delete" buttons.
-- Editing expands an inline form so you can update the title, URL, and tags without closing the main window.
-- Pinned links live in their own section at the top of the list so important dashboards are always within reach.
-
-### Resizer Injection Toggle
-
-- The Inject resizers option now controls both the glass overlays around the main window and the handles we inject into link windows.
-- Disable it if a specific site misbehaves (keyboard shortcuts and OS chrome remain available), or enable it to regain edge drag handles on embedded pages.
-
-### Smart search, metadata, and capture
-
-- Switch between fuzzy and exact search modes so typos or partial words still match. You can pin favorite tags (right-click on the chips) and even activate multiple tags at once for granular filtering.
-- Each saved URL now gathers metadata (title, description, favicon, theme color) and periodically runs HEAD checks to flag redirects or broken links. Badges on every card surface the latest status, and inline buttons let you requeue metadata or health refreshes instantly.
-- Capture more context with folder, priority, and notes fields. Group the catalog by folder or tag, and drag cards within a group or the pinned section to reorder them-order persists across app restarts.
-- Clipboard detection, drag-and-drop capture, and the mini form let you stash new links without manual typing. The app also supports JSON **and** CSV import/export so backups slot neatly into spreadsheets or other machines.
-
-## Installation
-
-1. Install dependencies:
+Install dependencies:
 ```powershell
 npm install
 ```
 
-## Running
-
-Start the application:
+Run the app:
 ```powershell
 npm start
 ```
 
-For development with debugging:
+Run in dev mode (debugging):
 ```powershell
 npm run dev
 ```
 
-- The smoke suite (`npm test`) now covers renderer localization, settings persistence, clipboard imports, layout window creation, and the language-setting API so those pieces stay wired together even as the directory layout evolves.
+## Features
 
-## Benchmarking (startup + first render)
+### Link Management
 
-Run the app with perf logging enabled:
+- Add links with optional titles and tags
+- Inline actions: open window, open browser, copy, edit, pin/unpin, favorite, delete
+- Pinned links stay at the top
+- Bulk tag actions and tag chips for quick filtering
+
+### Smart Search + Metadata
+
+- Fuzzy or exact search
+- Favorite tag chips and multi-tag filtering
+- Background metadata fetch (title, description, favicon, theme color)
+- Periodic URL health checks with status badges
+
+### Capture + Organization
+
+- Folder, priority, and notes fields
+- Drag-and-drop capture and clipboard detection
+- Grouping by folder or tag
+- Drag reorder within groups (order persists)
+- JSON and CSV import/export
+
+### Options and Window Controls
+
+Open the Options panel from the titlebar gear:
+
+- Window transparency slider (applies to all open windows)
+- Always on top
+- Persist settings across restarts
+- Inject resizers into link windows
+- Reset to defaults
+
+### Resizer Injection
+
+When enabled, the app injects invisible resizers into link windows to allow edge dragging. Some sites block injection via CSP; if so, use keyboard shortcuts or OS window controls.
+
+## Usage
+
+1. Enter a URL
+2. Add an optional title and tags
+3. Click Add Link (or press Enter)
+4. Click a card to open the link in a transparent window
+
+## Data Storage
+
+Default file location:
+
+- Windows: `%APPDATA%/electron-link-storage/links.json`
+- macOS: `~/Library/Application Support/electron-link-storage/links.json`
+- Linux: `~/.config/electron-link-storage/links.json`
+
+Use the Options panel to pick a custom `links.json` file (local or synced).
+
+## Keyboard Shortcuts
+
+### Window Movement and Resize
+
+- Drag: click and hold the top area of a window
+- Resize (mouse): drag any edge or corner (if resizers are enabled)
+- Resize (keyboard): `Ctrl + Alt + Arrow` (20px)
+- Move (keyboard): `Ctrl + Alt + Shift + Arrow` (20px)
+- Toggle maximize: `Ctrl + Alt + M`
+- Center window: `Ctrl + Alt + C`
+- Reset main window bounds: `Ctrl + Alt + R`
+
+### App Controls
+
+- Focus search: `Ctrl + Alt + F`
+- Focus capture URL: `Ctrl + Alt + L`
+- Toggle Options panel: `Ctrl + Alt + O`
+- Toggle Help: `Ctrl + H`
+- Toggle always-on-top: `Ctrl + Alt + T`
+- Toggle resizer injection: `Ctrl + Alt + I`
+- Adjust opacity: `Ctrl + Alt + [` / `Ctrl + Alt + ]`
+
+### Link Window Controls
+
+- Snap left third: `Alt + 6`
+- Snap right third: `Alt + 9`
+- Reload: `Alt + R`
+- Open in browser: `Alt + B`
+- Copy URL: `Alt + C`
+- Copy selection: `Alt + S`
+
+## Testing
+
+- Smoke suite: `npm test`
+
+## Benchmarking
+
+Run with perf logging:
 ```bash
 npm run bench:startup
 ```
 
-You will see `[perf]` logs in the terminal, including:
+Windows alternative:
+```powershell
+set PERF_BENCH=1 && electron .
+```
+
+Logs include:
+
 - app ready
-- main window `ready-to-show`
-- main window `did-finish-load`
+- main window ready-to-show
+- main window did-finish-load
 - renderer first render
 
-On Windows, run `set PERF_BENCH=1 && electron .` instead.
+## Build
 
-To create distributable builds (Windows installer and portable exe):
+### Windows
+
 ```powershell
 npm ci
 npm run build:win
 ```
 
-Build artifacts are written to the `transparent-ai-client-dist/` folder (installer and portable executable).
+Artifacts land in `transparent-ai-client-dist/`.
 
-## macOS build
+### macOS
 
-You can build macOS artifacts (dmg and zip) using electron-builder. Note: building macOS packages must run on macOS (locally or in CI). For macOS builds you can either build locally on a Mac or use the supplied GitHub Actions workflow.
-
-To build locally on macOS:
-
+Builds must run on macOS (locally or in CI):
 ```bash
-# Install deps
 npm ci
-
-# Build DMG and ZIP
 npm run build:mac
 ```
 
-If you do not have code signing set up, electron-builder can still create unsigned ZIP artifacts; DMG creation may attempt signing and can fail without a developer certificate. Use a CI mac runner or add signing credentials to create signed installers.
+Unsigned ZIPs are possible without signing; DMG signing may fail without credentials.
 
-Or use the included GitHub Actions workflow which runs on macOS and uploads build artifacts automatically:
-
-- .github/workflows/build-mac.yml (runs on push to main or manually via workflow_dispatch)
- - .github/workflows/build-windows.yml (runs on push to main or manually via workflow_dispatch)
-
-### Linux build
-
-You can build Linux artifacts (AppImage and deb) using electron-builder. Builds should run on a Linux machine or CI runner. The included GitHub Actions workflow will run on ubuntu-latest and upload the `transparent-ai-client-dist/` folder when the workflow completes.
-
-To build locally on Linux:
+### Linux
 
 ```bash
-# Install deps
 npm ci
-
-# Build AppImage and deb
 npm run build:linux
 ```
 
-Or use the included CI workflow:
+## CI Workflows
 
-- .github/workflows/build-linux.yml (runs on push to main or manually via workflow_dispatch)
- - .github/workflows/build-windows.yml (runs on push to main or manually via workflow_dispatch)
-
+- `.github/workflows/build-windows.yml`
+- `.github/workflows/build-mac.yml`
+- `.github/workflows/build-linux.yml`
 
 ## Project Structure
 
-- `src/` – Application source files are grouped under `src/` to keep the root focused on config and automation helpers.
-  - `src/main/main.js` – Electron’s main process entry plus the window/setup logic that coordinates IPC, links, settings, and perf/debug tooling.
-  - `src/main/preload*.js` – Preload scripts (`preload.js`, `preload-link.js`, `preload-perf.js`, `preload-layout.js`) stay beside the main entry so their `__dirname` helpers resolve cleanly.
-  - `src/renderer/` – Renderer assets (HTML, JS, styles, perf/layout views) live together so builds and dev servers target `src/renderer/index.html`.
-  - `src/locales/` – Locale JSON files stay near the renderer code and are fetched with `../locales` paths from the UI.
-- `assets/` – Electron-builder resources (icons, build metadata) remain at the repository root so packaging workflows continue to find them.
-- `tests/` – Playwright-based smoke tests now launch `src/main/main.js` directly.
-- `transparent-ai-client-dist/` and `dist/` – Build outputs are kept separate from source.
-- Root configs: `package.json`, `package-lock.json`, `README.md`, `TECHNICAL_README.md`, and `.github/` workflows define scripts, tooling, and documentation.
-
-## How to Use
-
-1. Enter a website URL in the input field
-2. Optionally add a custom title (defaults to domain name)
-3. Click "Add Link" or press Enter
-4. Click any stored link to open it in a transparent app window
-5. Click "Delete" to remove a link
-
-## Features Details
-
-### Transparent Background & Styling
-Windows are frameless and transparent. The app applies CSS to make content readable (white text) for link windows and provides a glass-like appearance for the main window.
-
-### Data Persistence
-Links are stored in the user's application data directory:
-- Windows: `%APPDATA%/electron-link-storage/links.json`
-- macOS: `~/Library/Application Support/electron-link-storage/links.json`
-- Linux: `~/.config/electron-link-storage/links.json`
-Prefer a different location? Use the Options "Links storage JSON" controls to choose any other file (and open it quickly for manual editing) without leaving the app.
-
-## Window Behavior & Shortcuts
-
-This app provides both mouse and keyboard controls for frameless windows.
-
-- Drag: click and hold the top area of any window to move it (main window: titlebar; link windows: top 40px area).
-- Resize (mouse): move cursor to any window edge or corner; drag to resize. The main window includes visible resizer targets; link windows receive injected resizers where page security allows.
-- Keyboard resize: hold `Ctrl + Alt` and press arrow keys to resize by 20px.
- - Keyboard move: hold `Ctrl + Alt + Shift` and press arrow keys to move the window by 20px.
- - Toggle maximize: `Ctrl + Alt + M` toggles maximize/restore.
- - Center window: `Ctrl + Alt + C`.
- - Reset main window bounds: `Ctrl + Alt + R` (main window only).
- - Focus search: `Ctrl + Alt + F` (main window).
- - Focus capture URL: `Ctrl + Alt + L` (main window).
- - Toggle Options panel: `Ctrl + Alt + O` (main window).
- - Toggle Help: `Ctrl + H` (main window).
- - Toggle always-on-top: `Ctrl + Alt + T` (all windows).
- - Toggle resizer injection: `Ctrl + Alt + I` (main window).
- - Adjust opacity: `Ctrl + Alt + [` / `Ctrl + Alt + ]` (all windows).
- - Snap link window to left third: `Alt + 6` (link windows only).
- - Snap link window to right third: `Alt + 9` (link windows only).
- - Link window actions: `Alt + R` reload, `Alt + B` open in browser, `Alt + C` copy URL, `Alt + S` copy selection.
- - Dragging a window near a screen edge lets the operating system snap it, just like any other application. Transparent AI Client no longer adds extra snap layouts.
-
-## Link Windows (External Pages)
-
-- Clicking a stored link opens it inside a new transparent window (the app loads the URL in an Electron BrowserWindow).
-- The app injects CSS to make text readable and, where allowed, injects invisible resizer elements so you can resize the window directly.
-- Some websites enforce Content Security Policy (CSP) or block DOM/CSS injection; when injection is blocked use keyboard shortcuts or the top-drag area to move/resize.
-
-## Building
-
-- Build for Windows installer + portable exe:
-```powershell
-npm ci
-npm run build:win
-```
-- Outputs will be placed in `transparent-ai-client-dist/`.
-
-If the build fails, check `transparent-ai-client-dist/builder-effective-config.yaml` for the resolved configuration and ensure your environment can download the Electron runtime.
+- `src/` application code
+  - `src/main/main.js` main process entry
+  - `src/main/preload*.js` preload scripts
+  - `src/renderer/` renderer HTML/JS/CSS
+  - `src/locales/` locale JSON
+- `assets/` packaging resources
+- `tests/` Playwright smoke tests
+- `transparent-ai-client-dist/` and `dist/` build outputs
+- Root configs: `package.json`, `README.md`, `TECHNICAL_README.md`
 
 ## Troubleshooting
 
-- If `npm install` fails, try removing `node_modules` and `package-lock.json` then run `npm install` again.
-- If a link window does not show injected resizers due to CSP, use keyboard shortcuts or the top drag area.
+- If `npm install` fails, delete `node_modules` and `package-lock.json`, then rerun `npm install`.
+- If resizer injection fails due to CSP, use keyboard shortcuts or OS window controls.
 
 ## License
 
