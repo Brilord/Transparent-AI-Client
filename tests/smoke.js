@@ -3,7 +3,7 @@ const fs = require('fs');
 const os = require('os');
 const assert = require('assert/strict');
 const { _electron: electron } = require('playwright-core');
-const { clipboard } = require('electron');
+const clipboardy = require('clipboardy');
 
 async function launchApp(userDataDir) {
   const app = await electron.launch({
@@ -142,7 +142,7 @@ async function runSettingsPersistenceTest() {
 
 async function runClipboardImportTest() {
   const urls = ['https://example.com/clipboard', 'https://example.org/clipboard'];
-  clipboard.writeText(urls.join('\n'));
+  clipboardy.writeSync(urls.join('\n'));
   const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'plana-clipboard-'));
   const { app, page } = await launchApp(baseDir);
   await page.waitForSelector('#addBtn');
