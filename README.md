@@ -67,6 +67,8 @@ For development with debugging:
 npm run dev
 ```
 
+- The smoke suite (`npm test`) now covers renderer localization, settings persistence, clipboard imports, layout window creation, and the language-setting API so those pieces stay wired together even as the directory layout evolves.
+
 ## Benchmarking (startup + first render)
 
 Run the app with perf logging enabled:
@@ -133,13 +135,15 @@ Or use the included CI workflow:
 
 ## Project Structure
 
-- `main.js` - Electron main process with IPC handlers
-- `preload.js` - Preload script for secure IPC communication (main window)
-- `preload-link.js` - Preload script injected into link windows for dragging/resizing shortcuts
-- `renderer.js` - Frontend logic for the main window
-- `index.html` - Main UI markup
-- `styles.css` - Styling with transparency effects
-- `package.json` - Project configuration
+- `src/` – Application source files are grouped under `src/` to keep the root focused on config and automation helpers.
+  - `src/main/main.js` – Electron’s main process entry plus the window/setup logic that coordinates IPC, links, settings, and perf/debug tooling.
+  - `src/main/preload*.js` – Preload scripts (`preload.js`, `preload-link.js`, `preload-perf.js`, `preload-layout.js`) stay beside the main entry so their `__dirname` helpers resolve cleanly.
+  - `src/renderer/` – Renderer assets (HTML, JS, styles, perf/layout views) live together so builds and dev servers target `src/renderer/index.html`.
+  - `src/locales/` – Locale JSON files stay near the renderer code and are fetched with `../locales` paths from the UI.
+- `assets/` – Electron-builder resources (icons, build metadata) remain at the repository root so packaging workflows continue to find them.
+- `tests/` – Playwright-based smoke tests now launch `src/main/main.js` directly.
+- `transparent-ai-client-dist/` and `dist/` – Build outputs are kept separate from source.
+- Root configs: `package.json`, `package-lock.json`, `README.md`, `TECHNICAL_README.md`, and `.github/` workflows define scripts, tooling, and documentation.
 
 ## How to Use
 

@@ -113,7 +113,7 @@ function openPerfWindow() {
     alwaysOnTop: !!appSettings.alwaysOnTop,
     resizable: true,
     movable: true,
-    icon: path.join(__dirname, 'assets', 'icons', 'png', '512x512.png'),
+    icon: path.join(__dirname, '..', 'assets', 'icons', 'png', '512x512.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload-perf.js'),
       nodeIntegration: false,
@@ -122,7 +122,7 @@ function openPerfWindow() {
     }
   });
 
-  perfWindow.loadFile('perf.html');
+  perfWindow.loadFile(path.join(__dirname, '..', 'renderer', 'perf.html'));
   perfWindow.on('closed', () => {
     perfWindow = null;
     stopPerfStatsTimer();
@@ -1382,7 +1382,7 @@ function createWindow() {
     alwaysOnTop: !!appSettings.alwaysOnTop,
     resizable: true,
     movable: true,
-    icon: path.join(__dirname, 'assets', 'icons', 'png', '512x512.png'),
+    icon: path.join(__dirname, '..', 'assets', 'icons', 'png', '512x512.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -1406,7 +1406,7 @@ function createWindow() {
   }
   mainWindow.once('ready-to-show', () => pushPerfEvent('main-window ready-to-show'));
 
-  mainWindow.loadFile('index.html');
+  mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
   // Open dev tools in development
   // mainWindow.webContents.openDevTools();
@@ -1441,7 +1441,7 @@ function openChatWindow() {
     alwaysOnTop: !!appSettings.alwaysOnTop,
     resizable: true,
     movable: true,
-    icon: path.join(__dirname, 'assets', 'icons', 'png', '512x512.png'),
+    icon: path.join(__dirname, '..', 'assets', 'icons', 'png', '512x512.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -1457,7 +1457,7 @@ function openChatWindow() {
     try { emitTelemetryStateSnapshot('chat-window-ready'); } catch (err) {}
   });
 
-  chatWindow.loadFile('index.html', { query: { chat: '1' } });
+  chatWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'), { query: { chat: '1' } });
 
   chatWindow.on('closed', function () {
     chatWindow = null;
@@ -1484,7 +1484,7 @@ function openLayoutWindow() {
     resizable: true,
     movable: true,
     title: 'Window layout map',
-    icon: path.join(__dirname, 'assets', 'icons', 'png', '512x512.png'),
+    icon: path.join(__dirname, '..', 'assets', 'icons', 'png', '512x512.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload-layout.js'),
       nodeIntegration: false,
@@ -1493,7 +1493,7 @@ function openLayoutWindow() {
     }
   });
 
-  layoutWindow.loadFile(path.join(__dirname, 'layout.html'));
+  layoutWindow.loadFile(path.join(__dirname, '..', 'renderer', 'layout.html'));
   layoutWindow.webContents.on('did-finish-load', () => {
     sendLayoutSnapshot(layoutWindow);
   });
@@ -2676,7 +2676,7 @@ ipcMain.handle('get-all-settings', () => {
 ipcMain.handle('read-locale', (event, lang) => {
   try {
     const normalized = normalizeLanguage(lang);
-    const file = path.join(__dirname, 'locales', `${normalized}.json`);
+    const file = path.join(__dirname, '..', 'locales', `${normalized}.json`);
     if (!fs.existsSync(file)) return null;
     const raw = fs.readFileSync(file, 'utf8');
     return JSON.parse(raw || '{}');

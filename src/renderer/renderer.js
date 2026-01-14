@@ -110,7 +110,7 @@ const paletteEditPriority = document.getElementById('paletteEditPriority');
 
 const DEFAULT_APP_NAME = 'Transparent AI Client';
 const DEFAULT_LANGUAGE = 'en';
-const LOCALE_PATH = 'locales';
+const LOCALE_PATH = '../locales';
 const LOCALE_FALLBACK = {
   'collapsible.collapse': 'Collapse',
   'collapsible.expand': 'Expand',
