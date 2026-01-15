@@ -7,6 +7,31 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <div class="hud-ambience" aria-hidden="true">
+        <div class="hud-grid"></div>
+        <div class="hud-scanlines"></div>
+        <div class="hud-rings">
+            <div class="hud-ring hud-ring-outer"></div>
+            <div class="hud-ring hud-ring-inner"></div>
+        </div>
+        <div class="hud-readouts">
+            <div class="hud-readout">
+                <span class="hud-readout-label">Flux Capacity</span>
+                <span class="hud-readout-value">98%</span>
+            </div>
+            <div class="hud-readout">
+                <span class="hud-readout-label">Target Lock</span>
+                <span class="hud-readout-value">2 active</span>
+            </div>
+            <div class="hud-readout">
+                <span class="hud-readout-label">Latency</span>
+                <span class="hud-readout-value">17ms</span>
+            </div>
+        </div>
+        <div class="hud-focus-indicator">
+            <div class="hud-focus-circle"></div>
+        </div>
+    </div>
     <div class="container">
         <div class="titlebar">
             <h1 id="appTitle">Transparent AI Client</h1>

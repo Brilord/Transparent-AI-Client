@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "clipboardy": "^3.0.0",
-    "electron": "39.2.7",
+    "electron": "^24.8.8",
     "electron-builder": "^24.6.4",
     "playwright-core": "^1.48.0"
   },

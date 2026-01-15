@@ -1,4 +1,7 @@
 const { app, BrowserWindow, Menu, ipcMain, screen, dialog, shell, clipboard, crashReporter } = require('electron');
+if (typeof global.require === 'undefined' && typeof module !== 'undefined') {
+  global.require = module.require;
+}
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -182,6 +185,22 @@ let healthTimer = null;
 const metadataRetryTimers = new Map();
 const healthRetryTimers = new Map();
 const linkWindowCspSessions = new Map();
+
+const hasSingleInstanceLock = app.requestSingleInstanceLock ? app.requestSingleInstanceLock() : false;
+if (!hasSingleInstanceLock) {
+  app.quit();
+  return;
+}
+
+function focusMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  try { mainWindow.focus(); } catch (err) {}
+}
+
+app.on('second-instance', () => {
+  focusMainWindow();
+});
 
 let crashReporterInitialized = false;
 let dataCollectionSeq = 0;
@@ -946,9 +965,39 @@ function ensureLinkWindowCsp(linkWindow) {
     linkWindowCspSessions.set(session, entry);
   }
   entry.webContentsIds.add(webContentsId);
-  linkWindow.on('closed', () => {
-    entry.webContentsIds.delete(webContentsId);
-  });
+}
+
+function releaseLinkWindowSession(linkWindow) {
+  if (!linkWindow) return;
+  let session;
+  try { session = linkWindow.webContents.session; } catch (err) { session = null; }
+  if (session) {
+    const entry = linkWindowCspSessions.get(session);
+    const webContentsId = linkWindow.webContents && linkWindow.webContents.id;
+    if (entry) {
+      if (webContentsId) {
+        entry.webContentsIds.delete(webContentsId);
+      }
+      if (!entry.webContentsIds.size) {
+        try {
+          const webRequest = session.webRequest;
+          if (webRequest) {
+            if (typeof webRequest.off === 'function') {
+              webRequest.off('headers-received', entry.handler);
+            } else if (typeof webRequest.removeListener === 'function') {
+              webRequest.removeListener('headers-received', entry.handler);
+            }
+          }
+        } catch (err) {}
+        linkWindowCspSessions.delete(session);
+      }
+    }
+  }
+  const meta = linkWindowMeta.get(linkWindow);
+  const partition = meta && meta.sessionPartition;
+  if (partition && session && typeof session.clearStorageData === 'function') {
+    session.clearStorageData().catch(() => {});
+  }
 }
 
 async function processNextMetadataJob() {
@@ -2327,6 +2376,7 @@ function openLinkWindow(idOrUrl, maybeUrl, options = {}) {
     options && options.sessionMode ? options.sessionMode : appSettings.linkSessionMode
   );
   const sessionPartition = getLinkSessionPartition(sessionMode, id);
+  const partitionLabel = sessionPartition || null;
   const webPreferences = {
     nodeIntegration: false,
     contextIsolation: true,
@@ -2378,7 +2428,7 @@ function openLinkWindow(idOrUrl, maybeUrl, options = {}) {
   recordLinkOpen(id, url);
 
   let linkWindow = new BrowserWindow(winOpts);
-  linkWindowMeta.set(linkWindow, { id: id || null, url });
+  linkWindowMeta.set(linkWindow, { id: id || null, url, sessionPartition: partitionLabel });
   trackWindowForLayout(linkWindow);
   const linkOpenStart = PERF_BENCH ? process.hrtime.bigint() : null;
   const linkLabel = summarizeUrl(url);
@@ -2449,7 +2499,7 @@ function openLinkWindow(idOrUrl, maybeUrl, options = {}) {
 
   // Remember the last opened link so we can restore it on next launch
   try {
-    linkWindowMeta.set(linkWindow, { id: id || null, url });
+    linkWindowMeta.set(linkWindow, { id: id || null, url, sessionPartition: partitionLabel });
     appSettings.lastOpenedLinks = Array.from(linkWindowMeta.values())
       .filter(v => v && v.url)
       .map(v => ({ id: v.id || null, url: v.url }));
@@ -2492,6 +2542,7 @@ function openLinkWindow(idOrUrl, maybeUrl, options = {}) {
   }
 
   linkWindow.on('closed', function () {
+    releaseLinkWindowSession(linkWindow);
     linkWindows.delete(linkWindow);
     linkWindowMeta.delete(linkWindow);
     linkWindow = null;

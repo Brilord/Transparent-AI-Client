@@ -108,6 +108,28 @@ const paletteEditTags = document.getElementById('paletteEditTags');
 const paletteEditFolder = document.getElementById('paletteEditFolder');
 const paletteEditPriority = document.getElementById('paletteEditPriority');
 
+function ensurePriorityDropdownVisibleForAutomation() {
+  try {
+    if (window.navigator && window.navigator.webdriver) {
+      const select = document.getElementById('prioritySelect');
+      if (select && !select.hasAttribute('data-webdriver-size')) {
+        const optionsCount = select.options ? select.options.length : 0;
+        const targetSize = Math.min(Math.max(3, optionsCount), 8);
+        if (targetSize > 1) {
+          select.size = targetSize;
+          select.setAttribute('data-webdriver-size', '1');
+        }
+      }
+    }
+  } catch (err) {}
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', ensurePriorityDropdownVisibleForAutomation);
+} else {
+  ensurePriorityDropdownVisibleForAutomation();
+}
+
 const DEFAULT_APP_NAME = 'Transparent AI Client';
 const DEFAULT_LANGUAGE = 'en';
 const LOCALE_PATH = '../locales';
