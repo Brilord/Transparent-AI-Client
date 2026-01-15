@@ -691,13 +691,13 @@ body {
     top: 64px;
     width: 320px;
     max-width: calc(100% - 32px);
-    background: rgba(30, 30, 40, var(--surface-alpha));
-    border: 1px solid rgba(255,255,255,var(--panel-border-alpha));
+    background: linear-gradient(160deg, rgba(30, 38, 56, 0.92), rgba(10, 14, 22, 0.9));
+    border: 1px solid rgba(90, 170, 220, 0.22);
     padding: 12px;
     border-radius: 8px;
     z-index: 100000;
     -webkit-app-region: no-drag;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    box-shadow: 0 16px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
 }
 
 .settings-panel.hidden { display: none; }
@@ -737,7 +737,13 @@ body {
     padding: 10px;
     border-radius: 10px;
     border: 1px solid rgba(255,255,255,0.08);
-    background: rgba(12, 16, 26, 0.35);
+    background: rgba(12, 16, 26, 0.4);
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.setting-row:hover {
+    border-color: rgba(90, 170, 220, 0.35);
+    background: rgba(18, 24, 38, 0.6);
 }
 
 .setting-row > button {
@@ -781,7 +787,67 @@ body {
 }
 
 .settings-panel label { color: rgba(255,255,255,0.9); font-size: 13px; display: flex; align-items: center; gap: 8px; }
-.settings-panel input[type="checkbox"] { width: 14px; height: 14px; }
+.settings-panel input[type="checkbox"]:not(.toggle-input) { width: 14px; height: 14px; }
+.setting-toggle {
+    width: 100%;
+    position: relative;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.setting-toggle .toggle-text {
+    flex: 1;
+}
+
+.toggle-input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+}
+
+.setting-toggle .toggle-pill {
+    position: relative;
+    width: 40px;
+    height: 22px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.22);
+    background: rgba(255,255,255,0.08);
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25);
+    transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.setting-toggle .toggle-pill::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.9);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.toggle-input:checked ~ .toggle-pill {
+    background: linear-gradient(120deg, rgba(60, 210, 255, 0.9), rgba(120, 230, 175, 0.95));
+    border-color: rgba(120, 230, 200, 0.8);
+    box-shadow: 0 0 0 1px rgba(30, 180, 210, 0.35);
+}
+
+.toggle-input:checked ~ .toggle-pill::after {
+    transform: translateX(18px);
+    background: #0b1b22;
+}
+
+.setting-toggle:hover .toggle-pill {
+    border-color: rgba(160, 210, 240, 0.6);
+}
+
+.toggle-input:focus-visible ~ .toggle-pill {
+    box-shadow: 0 0 0 2px rgba(120, 180, 255, 0.4);
+}
 .settings-select {
     width: 100%;
     min-width: 0;

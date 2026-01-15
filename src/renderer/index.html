@@ -218,17 +218,29 @@
                     </div>
 
                     <div class="setting-row">
-                        <label><input id="nativeTransparencyChk" type="checkbox"> <span data-i18n="settings.nativeTransparency">Native transparent windows</span></label>
+                        <label class="setting-toggle">
+                            <input id="nativeTransparencyChk" type="checkbox" class="toggle-input">
+                            <span class="toggle-text" data-i18n="settings.nativeTransparency">Native transparent windows</span>
+                            <span class="toggle-pill" aria-hidden="true"></span>
+                        </label>
                         <small class="hint" data-i18n="settings.nativeTransparencyHint">Uses Electron native transparency; restart required to apply</small>
                     </div>
 
                     <div class="setting-row">
-                        <label><input id="alwaysOnTopChk" type="checkbox"> <span data-i18n="settings.alwaysOnTop">Always on top (all windows)</span></label>
+                        <label class="setting-toggle">
+                            <input id="alwaysOnTopChk" type="checkbox" class="toggle-input">
+                            <span class="toggle-text" data-i18n="settings.alwaysOnTop">Always on top (all windows)</span>
+                            <span class="toggle-pill" aria-hidden="true"></span>
+                        </label>
                         <small class="hint" data-i18n="settings.alwaysOnTopHint">When enabled windows will be kept above other apps</small>
                     </div>
 
                     <div class="setting-row">
-                        <label><input id="injectResizersChk" type="checkbox"> <span data-i18n="settings.injectResizers">Inject resizer handles into opened link pages</span></label>
+                        <label class="setting-toggle">
+                            <input id="injectResizersChk" type="checkbox" class="toggle-input">
+                            <span class="toggle-text" data-i18n="settings.injectResizers">Inject resizer handles into opened link pages</span>
+                            <span class="toggle-pill" aria-hidden="true"></span>
+                        </label>
                         <small class="hint" data-i18n="settings.injectResizersHint">When disabled, injected resizers for external pages will not be added (use keyboard shortcuts instead)</small>
                     </div>
 
@@ -243,17 +255,29 @@
                     </div>
 
                     <div class="setting-row">
-                        <label><input id="persistSettingsChk" type="checkbox"> <span data-i18n="settings.persistSettings">Persist settings between launches</span></label>
+                        <label class="setting-toggle">
+                            <input id="persistSettingsChk" type="checkbox" class="toggle-input">
+                            <span class="toggle-text" data-i18n="settings.persistSettings">Persist settings between launches</span>
+                            <span class="toggle-pill" aria-hidden="true"></span>
+                        </label>
                         <small class="hint" data-i18n="settings.persistSettingsHint">Save your options so they persist across restarts</small>
                     </div>
 
                     <div class="setting-row">
-                        <label><input id="launchOnStartupChk" type="checkbox"> <span data-i18n="settings.launchOnStartup">Launch on system startup</span></label>
+                        <label class="setting-toggle">
+                            <input id="launchOnStartupChk" type="checkbox" class="toggle-input">
+                            <span class="toggle-text" data-i18n="settings.launchOnStartup">Launch on system startup</span>
+                            <span class="toggle-pill" aria-hidden="true"></span>
+                        </label>
                         <small class="hint" data-i18n="settings.launchOnStartupHint">Automatically start Transparent AI Client when you sign in to your computer</small>
                     </div>
 
                     <div class="setting-row">
-                        <label><input id="useFolderSyncChk" type="checkbox"> <span data-i18n="settings.useFolderSync">Enable folder sync (save links to a synced folder)</span></label>
+                        <label class="setting-toggle">
+                            <input id="useFolderSyncChk" type="checkbox" class="toggle-input">
+                            <span class="toggle-text" data-i18n="settings.useFolderSync">Enable folder sync (save links to a synced folder)</span>
+                            <span class="toggle-pill" aria-hidden="true"></span>
+                        </label>
                         <small class="hint" data-i18n="settings.useFolderSyncHint">Store links.json in a folder synced by OneDrive/Google Drive. Choose a folder below.</small>
                         <div class="folder-row">
                             <div id="syncFolderPath" class="sync-path" data-i18n="settings.syncPathNotSet">Not set</div>
@@ -291,12 +315,20 @@
                     </div>
 
                     <div class="setting-row">
-                        <label><input id="telemetryChk" type="checkbox"> <span data-i18n="settings.telemetry">Enable crash reporting (anonymous, opt-in)</span></label>
+                        <label class="setting-toggle">
+                            <input id="telemetryChk" type="checkbox" class="toggle-input">
+                            <span class="toggle-text" data-i18n="settings.telemetry">Enable crash reporting (anonymous, opt-in)</span>
+                            <span class="toggle-pill" aria-hidden="true"></span>
+                        </label>
                         <small class="hint" data-i18n="settings.telemetryHint">Help improve the app by sending anonymous crash reports. Data is opt-in and can be revoked anytime.</small>
                     </div>
 
                     <div class="setting-row">
-                        <label><input id="developerModeChk" type="checkbox"> <span data-i18n="settings.developerMode">Developer mode (auto-open performance monitor)</span></label>
+                        <label class="setting-toggle">
+                            <input id="developerModeChk" type="checkbox" class="toggle-input">
+                            <span class="toggle-text" data-i18n="settings.developerMode">Developer mode (auto-open performance monitor)</span>
+                            <span class="toggle-pill" aria-hidden="true"></span>
+                        </label>
                         <small class="hint" data-i18n="settings.developerModeHint">Shows a live window with startup timings and responsiveness metrics.</small>
                     </div>
 
