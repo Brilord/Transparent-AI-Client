@@ -31,19 +31,20 @@ async function runWithApp(prefix, handler) {
     await handler({ app, page, baseDir });
   } finally {
     await app.close();
+    fs.rmSync(baseDir, { recursive: true, force: true });
   }
 }
 
 async function stubSaveDialog(app, filePath) {
   await app.evaluate(({ filePath: target }) => {
-    const { dialog } = process.mainModule.require('electron');
+    const { dialog } = require('electron');
     dialog.showSaveDialog = async () => ({ canceled: false, filePath: target });
   }, { filePath });
 }
 
 async function stubOpenDialog(app, filePath) {
   await app.evaluate(({ filePath: target }) => {
-    const { dialog } = process.mainModule.require('electron');
+    const { dialog } = require('electron');
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [target] });
   }, { filePath });
 }
@@ -56,6 +57,32 @@ async function waitFor(condition, { timeoutMs = 15000, intervalMs = 250 } = {}) 
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
   return false;
+}
+
+async function waitForOrThrow(condition, message, options) {
+  const ok = await waitFor(condition, options);
+  if (!ok) {
+    throw new Error(message);
+  }
+}
+
+async function getWindowPartition(app, target) {
+  return app.evaluate(({ target }) => {
+    const { BrowserWindow } = require('electron');
+    const win = BrowserWindow.getAllWindows().find((w) => {
+      try { return w.webContents.getURL().includes(target); } catch (err) { return false; }
+    });
+    if (!win) return null;
+    return { partition: win.webContents.session.getPartition() };
+  }, { target });
+}
+
+async function focusApp(page) {
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+}
+
+async function isClipboardBannerVisible(page) {
+  return page.evaluate(() => !document.getElementById('clipboardBanner')?.classList.contains('hidden'));
 }
 
 function startTestServer() {
@@ -215,49 +242,51 @@ async function runManualBackupTest() {
 async function runFolderSyncTest() {
   await runWithApp('plana-sync-', async ({ page }) => {
     const syncDir = createTempDir('plana-sync-folder-');
-    const syncFile = path.join(syncDir, 'links.json');
-    await page.evaluate(() => window.electron.addLink({
-      url: 'https://example.com/sync-local',
-      title: 'Sync Local'
-    }));
-    await page.evaluate((dir) => window.electron.setSetting('syncFolder', dir), syncDir);
-    await page.evaluate(() => window.electron.setSetting('useFolderSync', true));
+    try {
+      const syncFile = path.join(syncDir, 'links.json');
+      await page.evaluate(() => window.electron.addLink({
+        url: 'https://example.com/sync-local',
+        title: 'Sync Local'
+      }));
+      await page.evaluate((dir) => window.electron.setSetting('syncFolder', dir), syncDir);
+      await page.evaluate(() => window.electron.setSetting('useFolderSync', true));
 
-    const syncExists = await waitFor(() => fs.existsSync(syncFile), { timeoutMs: 10000 });
-    assert.ok(syncExists, 'sync file should be written');
-    const wrapper = JSON.parse(fs.readFileSync(syncFile, 'utf8'));
-    assert.ok(wrapper && wrapper.updatedAt && Array.isArray(wrapper.links));
-    assert.ok(wrapper.links.some((link) => link.url === 'https://example.com/sync-local'));
+      await waitForOrThrow(() => fs.existsSync(syncFile), 'sync file should be written', { timeoutMs: 10000 });
+      const wrapper = JSON.parse(fs.readFileSync(syncFile, 'utf8'));
+      assert.ok(wrapper && wrapper.updatedAt && Array.isArray(wrapper.links));
+      assert.ok(wrapper.links.some((link) => link.url === 'https://example.com/sync-local'));
 
-    const incoming = {
-      updatedAt: Date.now() + 1000,
-      links: [{
-        id: Date.now(),
-        url: 'https://example.com/sync-remote',
-        title: 'Sync Remote',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        favorite: false,
-        tags: [],
-        pinned: false,
-        folder: '',
-        notes: '',
-        priority: 'normal',
-        openCount: 0,
-        lastOpenedAt: null,
-        deletedAt: null,
-        sortOrder: 10,
-        metadata: {},
-        health: {}
-      }]
-    };
-    fs.writeFileSync(syncFile, JSON.stringify(incoming, null, 2), 'utf8');
+      const incoming = {
+        updatedAt: Date.now() + 1000,
+        links: [{
+          id: Date.now(),
+          url: 'https://example.com/sync-remote',
+          title: 'Sync Remote',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          favorite: false,
+          tags: [],
+          pinned: false,
+          folder: '',
+          notes: '',
+          priority: 'normal',
+          openCount: 0,
+          lastOpenedAt: null,
+          deletedAt: null,
+          sortOrder: 10,
+          metadata: {},
+          health: {}
+        }]
+      };
+      fs.writeFileSync(syncFile, JSON.stringify(incoming, null, 2), 'utf8');
 
-    const synced = await waitFor(async () => {
-      const links = await page.evaluate(() => window.electron.getLinks());
-      return links.some((link) => link.url === 'https://example.com/sync-remote');
-    }, { timeoutMs: 12000, intervalMs: 500 });
-    assert.ok(synced, 'sync should pull remote link');
+      await waitForOrThrow(async () => {
+        const links = await page.evaluate(() => window.electron.getLinks());
+        return links.some((link) => link.url === 'https://example.com/sync-remote');
+      }, 'sync should pull remote link', { timeoutMs: 12000, intervalMs: 500 });
+    } finally {
+      fs.rmSync(syncDir, { recursive: true, force: true });
+    }
   });
 }
 
@@ -273,12 +302,11 @@ async function runMetadataHealthTest() {
       await page.evaluate((id) => window.electron.refreshLinkMetadata(id), created.id);
       await page.evaluate((id) => window.electron.refreshLinkHealth(id), created.id);
 
-      const ready = await waitFor(async () => {
+      await waitForOrThrow(async () => {
         const links = await page.evaluate(() => window.electron.getLinks());
         const link = links.find((item) => item.id === created.id);
         return !!(link && link.metadata && link.metadata.lastFetchedAt && link.health && link.health.checkedAt);
-      }, { timeoutMs: 20000, intervalMs: 500 });
-      assert.ok(ready, 'metadata and health should refresh');
+      }, 'metadata and health should refresh', { timeoutMs: 20000, intervalMs: 500 });
 
       const link = await page.evaluate((id) => {
         return window.electron.getLinks().then((links) => links.find((item) => item.id === id));
@@ -304,47 +332,46 @@ async function runLinkSessionModeTest() {
       let winPromise = app.waitForEvent('window');
       await page.evaluate((id, url) => window.electron.openLinkWithId(id, url), link.id, link.url);
       let linkWindow = await winPromise;
-      let info = await app.evaluate(({ target }) => {
-        const { BrowserWindow } = require('electron');
-        const win = BrowserWindow.getAllWindows().find((w) => {
-          try { return w.webContents.getURL().includes(target); } catch (err) { return false; }
-        });
-        if (!win) return null;
-        return { partition: win.webContents.session.getPartition() };
-      }, { target: server.baseUrl });
-      assert.ok(info);
-      assert.ok(!info.partition || info.partition === 'persist:default');
-      await linkWindow.close();
+      try {
+        let info;
+        await waitForOrThrow(async () => {
+          info = await getWindowPartition(app, server.baseUrl);
+          return !!info;
+        }, 'shared mode window should appear');
+        assert.ok(!info.partition || info.partition === 'persist:default');
+      } finally {
+        await linkWindow.close();
+      }
 
       await page.evaluate(() => window.electron.setSetting('linkSessionMode', 'per-link'));
       winPromise = app.waitForEvent('window');
       await page.evaluate((id, url) => window.electron.openLinkWithId(id, url), link.id, link.url);
       linkWindow = await winPromise;
-      info = await app.evaluate(({ target }) => {
-        const { BrowserWindow } = require('electron');
-        const win = BrowserWindow.getAllWindows().find((w) => {
-          try { return w.webContents.getURL().includes(target); } catch (err) { return false; }
-        });
-        if (!win) return null;
-        return { partition: win.webContents.session.getPartition() };
-      }, { target: server.baseUrl });
-      assert.strictEqual(info.partition, `persist:link-${Math.floor(link.id)}`);
-      await linkWindow.close();
+      try {
+        let info;
+        await waitForOrThrow(async () => {
+          info = await getWindowPartition(app, server.baseUrl);
+          return !!info;
+        }, 'per-link window should appear');
+        assert.strictEqual(info.partition, `persist:link-${Math.floor(link.id)}`);
+      } finally {
+        await linkWindow.close();
+      }
 
       await page.evaluate(() => window.electron.setSetting('linkSessionMode', 'incognito'));
       winPromise = app.waitForEvent('window');
       await page.evaluate((id, url) => window.electron.openLinkWithId(id, url), link.id, link.url);
       linkWindow = await winPromise;
-      info = await app.evaluate(({ target }) => {
-        const { BrowserWindow } = require('electron');
-        const win = BrowserWindow.getAllWindows().find((w) => {
-          try { return w.webContents.getURL().includes(target); } catch (err) { return false; }
-        });
-        if (!win) return null;
-        return { partition: win.webContents.session.getPartition() };
-      }, { target: server.baseUrl });
-      assert.ok(info.partition && info.partition.startsWith('temp-'));
-      await linkWindow.close();
+      try {
+        let info;
+        await waitForOrThrow(async () => {
+          info = await getWindowPartition(app, server.baseUrl);
+          return !!info;
+        }, 'incognito window should appear');
+        assert.ok(info.partition && info.partition.startsWith('temp-'));
+      } finally {
+        await linkWindow.close();
+      }
     });
   } finally {
     await server.close();
@@ -391,18 +418,16 @@ async function runWindowControlsTest() {
     const start = await page.evaluate(() => windowManager.getBounds());
     assert.ok(start);
     await page.keyboard.press('Control+Alt+ArrowRight');
-    const resizedOk = await waitFor(async () => {
+    await waitForOrThrow(async () => {
       const bounds = await page.evaluate(() => windowManager.getBounds());
       return bounds.width >= start.width + 10;
-    }, { timeoutMs: 3000, intervalMs: 200 });
-    assert.ok(resizedOk, 'window should resize');
+    }, 'window should resize', { timeoutMs: 3000, intervalMs: 200 });
 
     await page.keyboard.press('Control+Alt+Shift+ArrowDown');
-    const movedOk = await waitFor(async () => {
+    await waitForOrThrow(async () => {
       const bounds = await page.evaluate(() => windowManager.getBounds());
       return bounds.y >= start.y + 10;
-    }, { timeoutMs: 3000, intervalMs: 200 });
-    assert.ok(movedOk, 'window should move');
+    }, 'window should move', { timeoutMs: 3000, intervalMs: 200 });
 
     const reset = await page.evaluate(() => window.electron.resetWindowBounds());
     assert.strictEqual(reset, true);
@@ -418,22 +443,16 @@ async function runClipboardBannerTest() {
     assert.strictEqual(invalid, null);
 
     await writeClipboardText('https://example.com/banner');
-    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-    const shown = await waitFor(async () => {
-      return page.evaluate(() => !document.getElementById('clipboardBanner')?.classList.contains('hidden'));
-    }, { timeoutMs: 8000, intervalMs: 250 });
-    assert.ok(shown, 'clipboard banner should show');
+    await focusApp(page);
+    await waitForOrThrow(() => isClipboardBannerVisible(page), 'clipboard banner should show', { timeoutMs: 8000, intervalMs: 250 });
 
     await page.click('#dismissClipboardBannerBtn');
     const hidden = await page.evaluate(() => document.getElementById('clipboardBanner')?.classList.contains('hidden'));
     assert.strictEqual(hidden, true);
 
     await writeClipboardText('https://example.com/banner2');
-    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-    const shownAgain = await waitFor(async () => {
-      return page.evaluate(() => !document.getElementById('clipboardBanner')?.classList.contains('hidden'));
-    }, { timeoutMs: 8000, intervalMs: 250 });
-    assert.ok(shownAgain, 'clipboard banner should show again');
+    await focusApp(page);
+    await waitForOrThrow(() => isClipboardBannerVisible(page), 'clipboard banner should show again', { timeoutMs: 8000, intervalMs: 250 });
 
     await page.click('#useClipboardLinkBtn');
     const inputValue = await page.evaluate(() => document.getElementById('urlInput')?.value);
@@ -470,33 +489,35 @@ async function runLinkWindowNavigationTest() {
       const winPromise = app.waitForEvent('window');
       await page.evaluate((id, url) => window.electron.openLinkWithId(id, url), link.id, link.url);
       const linkWindow = await winPromise;
-      await linkWindow.waitForLoadState('domcontentloaded');
-      await linkWindow.evaluate((target) => { window.location.href = `${target}/page2`; }, server.baseUrl);
-      await linkWindow.waitForLoadState('domcontentloaded');
-      assert.ok(linkWindow.url().includes('/page2'));
+      try {
+        await linkWindow.waitForLoadState('domcontentloaded');
+        await linkWindow.evaluate((target) => { window.location.href = `${target}/page2`; }, server.baseUrl);
+        await linkWindow.waitForLoadState('domcontentloaded');
+        assert.ok(linkWindow.url().includes('/page2'));
 
-      await linkWindow.keyboard.press('Alt+ArrowLeft');
-      await linkWindow.waitForLoadState('domcontentloaded');
-      await waitFor(() => linkWindow.url().includes('/page1'), { timeoutMs: 8000 });
-      assert.ok(linkWindow.url().includes('/page1'));
+        await linkWindow.keyboard.press('Alt+ArrowLeft');
+        await linkWindow.waitForLoadState('domcontentloaded');
+        await waitForOrThrow(() => linkWindow.url().includes('/page1'), 'back navigation should reach page1', { timeoutMs: 8000 });
 
-      await linkWindow.keyboard.press('Alt+ArrowRight');
-      await linkWindow.waitForLoadState('domcontentloaded');
-      await waitFor(() => linkWindow.url().includes('/page2'), { timeoutMs: 8000 });
-      assert.ok(linkWindow.url().includes('/page2'));
+        await linkWindow.keyboard.press('Alt+ArrowRight');
+        await linkWindow.waitForLoadState('domcontentloaded');
+        await waitForOrThrow(() => linkWindow.url().includes('/page2'), 'forward navigation should reach page2', { timeoutMs: 8000 });
 
-      await linkWindow.goto(`${server.baseUrl}/reload`);
-      const before = await linkWindow.evaluate(() => document.getElementById('count')?.textContent);
-      await linkWindow.keyboard.press('Alt+R');
-      await linkWindow.waitForLoadState('domcontentloaded');
-      const after = await linkWindow.evaluate(() => document.getElementById('count')?.textContent);
-      assert.notStrictEqual(after, before);
+        await linkWindow.goto(`${server.baseUrl}/reload`);
+        const before = await linkWindow.evaluate(() => document.getElementById('count')?.textContent);
+        await linkWindow.keyboard.press('Alt+R');
+        await linkWindow.waitForLoadState('domcontentloaded');
+        const after = await linkWindow.evaluate(() => document.getElementById('count')?.textContent);
+        assert.notStrictEqual(after, before);
 
-      await linkWindow.keyboard.press('Alt+C');
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      const copied = await readClipboardText();
-      assert.ok(copied.includes('/reload'));
-      await linkWindow.close();
+        await linkWindow.keyboard.press('Alt+C');
+        await waitForOrThrow(async () => {
+          const copied = await readClipboardText();
+          return copied.includes('/reload');
+        }, 'clipboard should contain reloaded URL', { timeoutMs: 2000, intervalMs: 100 });
+      } finally {
+        await linkWindow.close();
+      }
     });
   } finally {
     await server.close();
@@ -508,9 +529,12 @@ async function runAuxWindowTest() {
     const chatPromise = app.waitForEvent('window');
     await page.evaluate(() => window.electron.openChatWindow());
     const chatWindow = await chatPromise;
-    await chatWindow.waitForLoadState('domcontentloaded');
-    assert.ok(chatWindow.url().includes('chat=1'));
-    await chatWindow.close();
+    try {
+      await chatWindow.waitForLoadState('domcontentloaded');
+      assert.ok(chatWindow.url().includes('chat=1'));
+    } finally {
+      await chatWindow.close();
+    }
   });
 }
 
