@@ -150,9 +150,11 @@ const settingsFile = path.join(app.getPath('userData'), 'settings.json');
 const MIN_LINK_WINDOW_OPACITY = 0.68; // keep remote link text readable even when slider hits 0%
 const DEFAULT_MAIN_WINDOW_WIDTH = 600;
 const DEFAULT_MAIN_WINDOW_HEIGHT = 800;
+const DEFAULT_LINK_WINDOW_WIDTH = 1000;
+const DEFAULT_LINK_WINDOW_HEIGHT = 800;
 const TELEMETRY_SUBMIT_URL = 'https://telemetry.invalid/crash';
-const METADATA_REFRESH_INTERVAL_MS = 1000 * 60 * 60 * 6;
-const HEALTH_REFRESH_INTERVAL_MS = 1000 * 60 * 60 * 12;
+const DEFAULT_METADATA_REFRESH_MINUTES = 360;
+const DEFAULT_HEALTH_REFRESH_MINUTES = 720;
 const METADATA_POLL_INTERVAL_MS = 7000;
 const HEALTH_POLL_INTERVAL_MS = 12000;
 const METADATA_BACKOFF_BASE_MS = 1000 * 30;
@@ -166,6 +168,7 @@ const ALLOWED_PRIORITIES = new Set(['low', 'normal', 'high']);
 const LINK_SESSION_MODES = new Set(['shared', 'per-link', 'incognito']);
 const SUPPORTED_LANGUAGES = new Set(['en', 'ko']);
 const SAFE_LINK_SCHEMES = new Set(['http:', 'https:']);
+const QUICK_ACCESS_ORDERS = new Set(['recents-first', 'frequent-first']);
 const LINK_WINDOW_CSP = "default-src * data: blob: 'unsafe-inline' 'unsafe-eval'; object-src 'none'; base-uri 'self'";
 
 const metadataQueue = [];
@@ -440,6 +443,37 @@ function applyOpacityToLinkWindows() {
   }
 }
 
+function getLinkWindowDefaultBounds() {
+  const widthValue = Number(appSettings && appSettings.linkWindowDefaultWidth);
+  const heightValue = Number(appSettings && appSettings.linkWindowDefaultHeight);
+  const width = Number.isFinite(widthValue) && widthValue > 0 ? Math.round(widthValue) : DEFAULT_LINK_WINDOW_WIDTH;
+  const height = Number.isFinite(heightValue) && heightValue > 0 ? Math.round(heightValue) : DEFAULT_LINK_WINDOW_HEIGHT;
+  return {
+    width: Math.max(320, width),
+    height: Math.max(240, height)
+  };
+}
+
+function isMetadataEnabled() {
+  return appSettings.metadataEnabled !== false;
+}
+
+function isHealthEnabled() {
+  return appSettings.healthEnabled !== false;
+}
+
+function getMetadataRefreshIntervalMs() {
+  const minutes = Number(appSettings.metadataRefreshIntervalMinutes);
+  const normalized = Number.isFinite(minutes) && minutes > 0 ? minutes : DEFAULT_METADATA_REFRESH_MINUTES;
+  return Math.max(1, Math.round(normalized)) * 60 * 1000;
+}
+
+function getHealthRefreshIntervalMs() {
+  const minutes = Number(appSettings.healthRefreshIntervalMinutes);
+  const normalized = Number.isFinite(minutes) && minutes > 0 ? minutes : DEFAULT_HEALTH_REFRESH_MINUTES;
+  return Math.max(1, Math.round(normalized)) * 60 * 1000;
+}
+
 // Default app settings
 const DEFAULT_SETTINGS = {
   appDisplayName: 'Transparent AI Client',
@@ -461,13 +495,35 @@ const DEFAULT_SETTINGS = {
   developerMode: false,
   // Launch behavior
   launchOnStartup: false,
+  // Capture defaults
+  defaultCaptureTags: [],
+  defaultCaptureFolder: '',
+  defaultCapturePriority: 'normal',
+  autoFavoriteCapturedLinks: false,
+  autoPinCapturedLinks: false,
+  autoOpenCapturedLinks: false,
+  // Link window defaults
+  linkWindowDefaultWidth: DEFAULT_LINK_WINDOW_WIDTH,
+  linkWindowDefaultHeight: DEFAULT_LINK_WINDOW_HEIGHT,
+  linkWindowCenterOnOpen: true,
+  restoreLastLinksOnLaunch: true,
   // Last opened links (to restore on next launch)
   lastOpenedLinks: [],
+  // Metadata and health worker controls
+  metadataEnabled: true,
+  healthEnabled: true,
+  metadataRefreshIntervalMinutes: DEFAULT_METADATA_REFRESH_MINUTES,
+  healthRefreshIntervalMinutes: DEFAULT_HEALTH_REFRESH_MINUTES,
+  // Saved workspace layouts
+  workspaces: [],
+  autoSaveWorkspaceOnExit: false,
   // Quick filter preferences
   pinnedTags: [],
   groupingPreference: 'none',
-  // Saved workspace layouts
-  workspaces: [],
+  // Quick access layout
+  quickAccessRecentsEnabled: true,
+  quickAccessFrequentEnabled: true,
+  quickAccessOrder: 'recents-first',
   // Self chat notes
   selfChatNotes: [],
   selfChatRoomsV2: null
@@ -725,17 +781,37 @@ function restoreLinksById(links, ids = []) {
   return changed;
 }
 
+function stopMetadataWorker() {
+  if (!metadataTimer) return;
+  clearInterval(metadataTimer);
+  metadataTimer = null;
+}
+
+function startMetadataWorker() {
+  stopMetadataWorker();
+  if (!isMetadataEnabled()) return;
+  metadataTimer = setInterval(() => {
+    try { processNextMetadataJob(); } catch (err) { console.error('Metadata job error:', err); }
+  }, METADATA_POLL_INTERVAL_MS);
+}
+
+function stopHealthWorker() {
+  if (!healthTimer) return;
+  clearInterval(healthTimer);
+  healthTimer = null;
+}
+
+function startHealthWorker() {
+  stopHealthWorker();
+  if (!isHealthEnabled()) return;
+  healthTimer = setInterval(() => {
+    try { processNextHealthJob(); } catch (err) { console.error('Health job error:', err); }
+  }, HEALTH_POLL_INTERVAL_MS);
+}
+
 function ensureBackgroundWorkersRunning() {
-  if (!metadataTimer) {
-    metadataTimer = setInterval(() => {
-      try { processNextMetadataJob(); } catch (err) { console.error('Metadata job error:', err); }
-    }, METADATA_POLL_INTERVAL_MS);
-  }
-  if (!healthTimer) {
-    healthTimer = setInterval(() => {
-      try { processNextHealthJob(); } catch (err) { console.error('Health job error:', err); }
-    }, HEALTH_POLL_INTERVAL_MS);
-  }
+  startMetadataWorker();
+  startHealthWorker();
 }
 
 function scheduleBackgroundJobsForLinks(links = []) {
@@ -751,12 +827,13 @@ function scheduleBackgroundJobsForLinks(links = []) {
 
 function queueMetadataJob(link, urgent = false, nowTs = Date.now()) {
   if (!link || !link.url || !link.id) return;
+  if (!isMetadataEnabled()) return;
   if (link.deletedAt) return;
   const id = Number(link.id);
   const lastFetched = link.metadata && link.metadata.lastFetchedAt ? Date.parse(link.metadata.lastFetchedAt) : 0;
   const nextRetryAt = link.metadata && link.metadata.nextRetryAt ? Date.parse(link.metadata.nextRetryAt) : 0;
   const hasMetadata = !!(link.metadata && (link.metadata.title || link.metadata.description || link.metadata.favicon));
-  const needsUpdate = !hasMetadata || !lastFetched || (nowTs - lastFetched) > METADATA_REFRESH_INTERVAL_MS;
+  const needsUpdate = !hasMetadata || !lastFetched || (nowTs - lastFetched) > getMetadataRefreshIntervalMs();
   if (!urgent && nextRetryAt && nowTs < nextRetryAt) {
     scheduleRetry(metadataRetryTimers, id, nextRetryAt - nowTs, () => queueMetadataJobById(id, false));
     return;
@@ -770,11 +847,12 @@ function queueMetadataJob(link, urgent = false, nowTs = Date.now()) {
 
 function queueHealthJob(link, urgent = false, nowTs = Date.now()) {
   if (!link || !link.url || !link.id) return;
+  if (!isHealthEnabled()) return;
   if (link.deletedAt) return;
   const id = Number(link.id);
   const lastChecked = link.health && link.health.checkedAt ? Date.parse(link.health.checkedAt) : 0;
   const nextRetryAt = link.health && link.health.nextRetryAt ? Date.parse(link.health.nextRetryAt) : 0;
-  const needsUpdate = !lastChecked || (nowTs - lastChecked) > HEALTH_REFRESH_INTERVAL_MS || urgent;
+  const needsUpdate = !lastChecked || (nowTs - lastChecked) > getHealthRefreshIntervalMs() || urgent;
   if (!urgent && nextRetryAt && nowTs < nextRetryAt) {
     scheduleRetry(healthRetryTimers, id, nextRetryAt - nowTs, () => queueHealthJobById(id, false));
     return;
@@ -1353,6 +1431,35 @@ function persistOpenLinksState() {
   }
 }
 
+function saveAutoWorkspaceIfEnabled() {
+  if (!appSettings.autoSaveWorkspaceOnExit) return;
+  const items = getOpenLinkWindowsSnapshot();
+  if (!items.length) return;
+  const now = new Date().toISOString();
+  const name = `Auto workspace (${new Date().toLocaleString()})`;
+  const workspace = {
+    id: Date.now(),
+    name,
+    items,
+    updatedAt: now,
+    lastOpenedAt: now,
+    autoSaved: true
+  };
+  const list = Array.isArray(appSettings.workspaces) ? appSettings.workspaces.slice() : [];
+  const existingIdx = list.findIndex((entry) => entry && entry.autoSaved);
+  if (existingIdx !== -1) {
+    workspace.id = list[existingIdx].id;
+    list[existingIdx] = workspace;
+  } else {
+    list.unshift(workspace);
+  }
+  appSettings.workspaces = list;
+  if (appSettings.persistSettings) saveSettings();
+  BrowserWindow.getAllWindows().forEach((w) => {
+    try { w.webContents.send('setting-changed', 'workspaces', appSettings.workspaces); } catch (e) {}
+  });
+}
+
 function getDefaultMainWindowBounds(win) {
   const fallbackDisplay = screen.getPrimaryDisplay();
   let display = fallbackDisplay;
@@ -1623,13 +1730,14 @@ app.on('activate', function () {
 });
 
 app.on('before-quit', () => {
+  saveAutoWorkspaceIfEnabled();
   persistOpenLinksState();
   closeAllLinkWindows();
   if (layoutWindow && !layoutWindow.isDestroyed()) {
     layoutWindow.close();
   }
-  if (metadataTimer) clearInterval(metadataTimer);
-  if (healthTimer) clearInterval(healthTimer);
+  stopMetadataWorker();
+  stopHealthWorker();
 });
 
 // IPC handlers
@@ -2227,9 +2335,10 @@ function openLinkWindow(idOrUrl, maybeUrl, options = {}) {
   if (sessionPartition) webPreferences.partition = sessionPartition;
 
   const useNativeTransparency = !!appSettings.nativeTransparency;
+  const defaultLinkBounds = getLinkWindowDefaultBounds();
   let winOpts = {
-    width: 1000,
-    height: 800,
+    width: defaultLinkBounds.width,
+    height: defaultLinkBounds.height,
     transparent: useNativeTransparency,
     frame: !useNativeTransparency,
     resizable: true,
@@ -2239,6 +2348,24 @@ function openLinkWindow(idOrUrl, maybeUrl, options = {}) {
     alwaysOnTop: !!appSettings.alwaysOnTop,
     webPreferences
   };
+
+  if (!savedBounds && appSettings.linkWindowCenterOnOpen) {
+    let targetDisplay = screen.getPrimaryDisplay();
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        const bounds = mainWindow.getBounds();
+        if (bounds) {
+          const display = screen.getDisplayMatching(bounds);
+          if (display) targetDisplay = display;
+        }
+      }
+    } catch (err) { /* ignore */ }
+    const workArea = targetDisplay && targetDisplay.workArea ? targetDisplay.workArea : null;
+    if (workArea) {
+      winOpts.x = Math.round(workArea.x + Math.max(0, (workArea.width - defaultLinkBounds.width) / 2));
+      winOpts.y = Math.round(workArea.y + Math.max(0, (workArea.height - defaultLinkBounds.height) / 2));
+    }
+  }
 
   if (savedBounds) {
     // apply saved bounds
@@ -2542,6 +2669,7 @@ ipcMain.handle('open-workspace', (event, workspaceId) => {
 // Try to restore the last opened links when the app launches
 function reopenLastLinksIfAvailable() {
   try {
+    if (!appSettings.restoreLastLinksOnLaunch) return;
     const lastList = Array.isArray(appSettings.lastOpenedLinks) ? appSettings.lastOpenedLinks : [];
     if (!lastList.length) return;
     const links = getLinksNormalized();
@@ -2716,6 +2844,49 @@ ipcMain.handle('set-setting', (event, key, value) => {
   if (key === 'language') {
     nextValue = normalizeLanguage(value);
   }
+  if (key === 'defaultCaptureTags') {
+    const normalized = normalizeTags(value);
+    nextValue = Array.isArray(normalized) ? normalized : [];
+  }
+  if (key === 'defaultCaptureFolder') {
+    nextValue = sanitizeString(value);
+  }
+  if (key === 'defaultCapturePriority') {
+    const normalized = normalizePriority(value);
+    nextValue = normalized || DEFAULT_SETTINGS.defaultCapturePriority;
+  }
+  if (key === 'autoFavoriteCapturedLinks' || key === 'autoPinCapturedLinks' || key === 'autoOpenCapturedLinks') {
+    nextValue = !!value;
+  }
+  if (key === 'linkWindowDefaultWidth') {
+    const parsed = parseInt(value, 10);
+    nextValue = Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_LINK_WINDOW_WIDTH;
+  }
+  if (key === 'linkWindowDefaultHeight') {
+    const parsed = parseInt(value, 10);
+    nextValue = Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_LINK_WINDOW_HEIGHT;
+  }
+  if (key === 'linkWindowCenterOnOpen' || key === 'restoreLastLinksOnLaunch') {
+    nextValue = !!value;
+  }
+  if (key === 'metadataEnabled' || key === 'healthEnabled' || key === 'autoSaveWorkspaceOnExit') {
+    nextValue = !!value;
+  }
+  if (key === 'metadataRefreshIntervalMinutes') {
+    const parsed = Math.round(Number(value));
+    nextValue = Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_METADATA_REFRESH_MINUTES;
+  }
+  if (key === 'healthRefreshIntervalMinutes') {
+    const parsed = Math.round(Number(value));
+    nextValue = Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_HEALTH_REFRESH_MINUTES;
+  }
+  if (key === 'quickAccessRecentsEnabled' || key === 'quickAccessFrequentEnabled') {
+    nextValue = !!value;
+  }
+  if (key === 'quickAccessOrder') {
+    const normalized = typeof value === 'string' ? value : '';
+    nextValue = QUICK_ACCESS_ORDERS.has(normalized) ? normalized : DEFAULT_SETTINGS.quickAccessOrder;
+  }
   appSettings[key] = nextValue;
   // Persist settings if enabled
   if (appSettings.persistSettings) saveSettings();
@@ -2772,6 +2943,20 @@ ipcMain.handle('set-setting', (event, key, value) => {
     if (key === 'developerMode') {
       if (value) openPerfWindow();
       else closePerfWindow();
+    }
+    if (key === 'metadataEnabled') {
+      if (isMetadataEnabled()) startMetadataWorker();
+      else stopMetadataWorker();
+    }
+    if (key === 'healthEnabled') {
+      if (isHealthEnabled()) startHealthWorker();
+      else stopHealthWorker();
+    }
+    if (key === 'metadataRefreshIntervalMinutes') {
+      startMetadataWorker();
+    }
+    if (key === 'healthRefreshIntervalMinutes') {
+      startHealthWorker();
     }
   } catch (err) { /* ignore */ }
 

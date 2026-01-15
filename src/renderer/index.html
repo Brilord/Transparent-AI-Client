@@ -154,12 +154,12 @@
                     </div>
                     <div id="quickAccessBody" class="section-body">
                         <div id="quickAccess" class="quick-access">
-                            <div class="quick-access-section">
+                            <div class="quick-access-section" id="quickAccessRecentsSection">
                                 <div class="quick-access-title" data-i18n="quickAccess.recents">Recents</div>
                                 <div id="recentLinks" class="quick-access-grid"></div>
                                 <div id="recentEmpty" class="quick-access-empty" data-i18n="quickAccess.recentEmpty">No recent links yet</div>
                             </div>
-                            <div class="quick-access-section">
+                            <div class="quick-access-section" id="quickAccessFrequentSection">
                                 <div class="quick-access-title" data-i18n="quickAccess.frequent">Frequently used</div>
                                 <div id="frequentLinks" class="quick-access-grid"></div>
                                 <div id="frequentEmpty" class="quick-access-empty" data-i18n="quickAccess.frequentEmpty">No frequent links yet</div>
@@ -197,6 +197,53 @@
                             <button id="appNameResetBtn" class="small-btn subtle" type="button" data-i18n="actions.reset">Reset</button>
                         </div>
                         <small class="hint" data-i18n="settings.appNameHint">Shown in the title bar of the main window.</small>
+                    </div>
+
+                    <div class="setting-row">
+                        <label data-i18n="settings.captureDefaultsTitle">Capture defaults</label>
+                        <div class="setting-grid capture-defaults-grid">
+                            <label>
+                                <span data-i18n="settings.defaultTagsLabel">Default tags</span>
+                                <input id="defaultCaptureTagsInput" type="text" class="settings-input" placeholder="ui, research" data-i18n-placeholder="placeholders.tagsComma">
+                            </label>
+                            <label>
+                                <span data-i18n="settings.defaultFolderLabel">Default folder</span>
+                                <input id="defaultCaptureFolderInput" type="text" class="settings-input" placeholder="Folder name" data-i18n-placeholder="placeholders.folderOptional">
+                            </label>
+                            <label>
+                                <span data-i18n="settings.defaultPriorityLabel">Default priority</span>
+                                <select id="defaultCapturePrioritySelect" class="settings-select">
+                                    <option value="high" data-i18n="priority.high">High</option>
+                                    <option value="normal" data-i18n="priority.normal">Normal</option>
+                                    <option value="low" data-i18n="priority.low">Low</option>
+                                </select>
+                            </label>
+                        </div>
+                        <small class="hint" data-i18n="settings.captureDefaultsHint">Use these values when the capture form fields are empty.</small>
+                    </div>
+                    <div class="setting-row">
+                        <label class="setting-toggle">
+                            <input id="autoFavoriteCapturedLinksChk" type="checkbox" class="toggle-input">
+                            <span class="toggle-text" data-i18n="settings.autoFavoriteCapturedLinks">Auto-favorite captured links</span>
+                            <span class="toggle-pill" aria-hidden="true"></span>
+                        </label>
+                        <small class="hint" data-i18n="settings.autoFavoriteCapturedLinksHint">New links will automatically be marked as favorites.</small>
+                    </div>
+                    <div class="setting-row">
+                        <label class="setting-toggle">
+                            <input id="autoPinCapturedLinksChk" type="checkbox" class="toggle-input">
+                            <span class="toggle-text" data-i18n="settings.autoPinCapturedLinks">Auto-pin captured links</span>
+                            <span class="toggle-pill" aria-hidden="true"></span>
+                        </label>
+                        <small class="hint" data-i18n="settings.autoPinCapturedLinksHint">Pins link cards to the top as soon as they are added.</small>
+                    </div>
+                    <div class="setting-row">
+                        <label class="setting-toggle">
+                            <input id="autoOpenCapturedLinksChk" type="checkbox" class="toggle-input">
+                            <span class="toggle-text" data-i18n="settings.autoOpenCapturedLinks">Open captured links automatically</span>
+                            <span class="toggle-pill" aria-hidden="true"></span>
+                        </label>
+                        <small class="hint" data-i18n="settings.autoOpenCapturedLinksHint">Launch the transparent window immediately after capture.</small>
                     </div>
 
                     <div class="setting-row">
@@ -245,6 +292,29 @@
                     </div>
 
                     <div class="setting-row">
+                        <label data-i18n="settings.linkWindowDefaultsTitle">Link window defaults</label>
+                        <div class="setting-grid">
+                            <label>
+                                <span data-i18n="settings.linkWindowWidthLabel">Default width</span>
+                                <input id="linkWindowWidthInput" type="number" min="320" step="10" class="settings-input">
+                            </label>
+                            <label>
+                                <span data-i18n="settings.linkWindowHeightLabel">Default height</span>
+                                <input id="linkWindowHeightInput" type="number" min="240" step="10" class="settings-input">
+                            </label>
+                        </div>
+                        <small class="hint" data-i18n="settings.linkWindowDefaultsHint">Sets the size that link windows open with when no saved bounds are available.</small>
+                    </div>
+                    <div class="setting-row">
+                        <label class="setting-toggle">
+                            <input id="linkWindowCenterChk" type="checkbox" class="toggle-input">
+                            <span class="toggle-text" data-i18n="settings.linkWindowCenterLabel">Center link windows on open</span>
+                            <span class="toggle-pill" aria-hidden="true"></span>
+                        </label>
+                        <small class="hint" data-i18n="settings.linkWindowCenterHint">New windows will be centered on the current display.</small>
+                    </div>
+
+                    <div class="setting-row">
                         <label for="linkSessionMode" data-i18n="settings.linkSessionLabel">Link window session</label>
                         <select id="linkSessionMode" class="settings-select">
                             <option value="shared" data-i18n="settings.linkSessionShared">Shared (default)</option>
@@ -261,6 +331,14 @@
                             <span class="toggle-pill" aria-hidden="true"></span>
                         </label>
                         <small class="hint" data-i18n="settings.persistSettingsHint">Save your options so they persist across restarts</small>
+                    </div>
+                    <div class="setting-row">
+                        <label class="setting-toggle">
+                            <input id="restoreLastLinksChk" type="checkbox" class="toggle-input">
+                            <span class="toggle-text" data-i18n="settings.restoreLastLinksLabel">Restore last session</span>
+                            <span class="toggle-pill" aria-hidden="true"></span>
+                        </label>
+                        <small class="hint" data-i18n="settings.restoreLastLinksHint">Reopen previously open link windows at launch.</small>
                     </div>
 
                     <div class="setting-row">
@@ -322,6 +400,32 @@
                         </label>
                         <small class="hint" data-i18n="settings.telemetryHint">Help improve the app by sending anonymous crash reports. Data is opt-in and can be revoked anytime.</small>
                     </div>
+                    <div class="setting-row">
+                        <label data-i18n="settings.metadataHealthTitle">Metadata & health refresh</label>
+                        <div class="setting-grid">
+                            <label class="setting-toggle">
+                                <input id="metadataEnabledChk" type="checkbox" class="toggle-input">
+                                <span class="toggle-text" data-i18n="settings.metadataEnabled">Run metadata enrichment</span>
+                                <span class="toggle-pill" aria-hidden="true"></span>
+                            </label>
+                            <label class="setting-toggle">
+                                <input id="healthEnabledChk" type="checkbox" class="toggle-input">
+                                <span class="toggle-text" data-i18n="settings.healthEnabled">Run health checks</span>
+                                <span class="toggle-pill" aria-hidden="true"></span>
+                            </label>
+                        </div>
+                        <div class="setting-grid">
+                            <label>
+                                <span data-i18n="settings.metadataIntervalLabel">Metadata refresh interval (minutes)</span>
+                                <input id="metadataIntervalInput" type="number" min="5" step="5" class="settings-input">
+                            </label>
+                            <label>
+                                <span data-i18n="settings.healthIntervalLabel">Health refresh interval (minutes)</span>
+                                <input id="healthIntervalInput" type="number" min="5" step="5" class="settings-input">
+                            </label>
+                        </div>
+                        <small class="hint" data-i18n="settings.metadataIntervalHint">Longer intervals reduce background traffic.</small>
+                    </div>
 
                     <div class="setting-row">
                         <label class="setting-toggle">
@@ -338,6 +442,37 @@
                         <button id="openLayoutBtn" class="small-btn" type="button" data-i18n="actions.openWindowLayout">Open layout map</button>
                     </div>
 
+                    <div class="setting-row">
+                        <label class="setting-toggle">
+                            <input id="autoSaveWorkspaceChk" type="checkbox" class="toggle-input">
+                            <span class="toggle-text" data-i18n="settings.autoSaveWorkspaceLabel">Auto-save workspace on exit</span>
+                            <span class="toggle-pill" aria-hidden="true"></span>
+                        </label>
+                        <small class="hint" data-i18n="settings.autoSaveWorkspaceHint">Capture open link windows as a workspace when quitting.</small>
+                    </div>
+                    <div class="setting-row">
+                        <label data-i18n="settings.quickAccessTitle">Quick access layout</label>
+                        <div class="setting-grid quick-access-form">
+                            <label class="setting-toggle">
+                                <input id="quickAccessRecentsChk" type="checkbox" class="toggle-input">
+                                <span class="toggle-text" data-i18n="settings.quickAccessRecents">Show Recents section</span>
+                                <span class="toggle-pill" aria-hidden="true"></span>
+                            </label>
+                            <label class="setting-toggle">
+                                <input id="quickAccessFrequentChk" type="checkbox" class="toggle-input">
+                                <span class="toggle-text" data-i18n="settings.quickAccessFrequent">Show Frequent section</span>
+                                <span class="toggle-pill" aria-hidden="true"></span>
+                            </label>
+                            <label>
+                                <span data-i18n="settings.quickAccessOrderLabel">Section order</span>
+                                <select id="quickAccessOrderSelect" class="settings-select">
+                                    <option value="recents-first" data-i18n="settings.quickAccessOrderRecentsFirst">Recents first</option>
+                                    <option value="frequent-first" data-i18n="settings.quickAccessOrderFrequentFirst">Frequent first</option>
+                                </select>
+                            </label>
+                        </div>
+                        <small class="hint" data-i18n="settings.quickAccessHint">Hide sections you do not use and reorder them to fit your flow.</small>
+                    </div>
                     <div class="setting-row data-collection-row">
                         <div class="data-collection-header">
                             <span class="data-collection-title" data-i18n="dataCollection.title">Data collection debugger</span>

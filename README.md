@@ -55,13 +55,17 @@ npm run dev
 
 ### Options and Window Controls
 
-Open the Options panel from the titlebar gear:
+Open the Options panel from the titlebar gear to tweak capture defaults, window behavior, and background refresh jobs:
 
 - Window transparency slider (applies to all open windows)
 - Always on top
 - Persist settings across restarts
 - Inject resizers into link windows
 - Reset to defaults
+- Capture defaults (preset tags/folder/priority plus auto-favorite/pin/open)
+- Tune link window defaults (size, centering, and whether to restore the previous session)
+- Control metadata and health refresh toggles/intervals
+- Auto-save workspace on exit and customize quick access layout
 
 ### Resizer Injection
 

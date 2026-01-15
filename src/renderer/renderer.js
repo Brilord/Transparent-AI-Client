@@ -121,6 +121,21 @@ let activeLanguage = DEFAULT_LANGUAGE;
 let localeFallback = Object.assign({}, LOCALE_FALLBACK);
 let localeStrings = Object.assign({}, LOCALE_FALLBACK);
 const localeCache = new Map();
+const VALID_CAPTURE_PRIORITIES = new Set(['low', 'normal', 'high']);
+const QUICK_ACCESS_ORDER_VALUES = ['recents-first', 'frequent-first'];
+let captureDefaultsState = {
+  tags: [],
+  folder: '',
+  priority: 'normal',
+  favorite: false,
+  pin: false,
+  autoOpen: false
+};
+let quickAccessConfig = {
+  recents: true,
+  frequent: true,
+  order: 'recents-first'
+};
 
 function normalizeLanguageCode(value) {
   const normalized = typeof value === 'string' ? value.toLowerCase() : DEFAULT_LANGUAGE;
@@ -242,6 +257,26 @@ const dataCollectionStatus = document.getElementById('dataCollectionStatus');
 const dataCollectionLog = document.getElementById('dataCollectionLog');
 const dataCollectionEmpty = document.getElementById('dataCollectionEmpty');
 const clearDataCollectionBtn = document.getElementById('clearDataCollectionBtn');
+const defaultCaptureTagsInput = document.getElementById('defaultCaptureTagsInput');
+const defaultCaptureFolderInput = document.getElementById('defaultCaptureFolderInput');
+const defaultCapturePrioritySelect = document.getElementById('defaultCapturePrioritySelect');
+const autoFavoriteCapturedLinksChk = document.getElementById('autoFavoriteCapturedLinksChk');
+const autoPinCapturedLinksChk = document.getElementById('autoPinCapturedLinksChk');
+const autoOpenCapturedLinksChk = document.getElementById('autoOpenCapturedLinksChk');
+const linkWindowWidthInput = document.getElementById('linkWindowWidthInput');
+const linkWindowHeightInput = document.getElementById('linkWindowHeightInput');
+const linkWindowCenterChk = document.getElementById('linkWindowCenterChk');
+const restoreLastLinksChk = document.getElementById('restoreLastLinksChk');
+const metadataEnabledChk = document.getElementById('metadataEnabledChk');
+const healthEnabledChk = document.getElementById('healthEnabledChk');
+const metadataIntervalInput = document.getElementById('metadataIntervalInput');
+const healthIntervalInput = document.getElementById('healthIntervalInput');
+const autoSaveWorkspaceChk = document.getElementById('autoSaveWorkspaceChk');
+const quickAccessRecentsChk = document.getElementById('quickAccessRecentsChk');
+const quickAccessFrequentChk = document.getElementById('quickAccessFrequentChk');
+const quickAccessOrderSelect = document.getElementById('quickAccessOrderSelect');
+const quickAccessRecentsSection = document.getElementById('quickAccessRecentsSection');
+const quickAccessFrequentSection = document.getElementById('quickAccessFrequentSection');
 const collapsibleSections = Array.from(document.querySelectorAll('[data-collapsible]'));
 const collapseStateKey = 'plana:collapsedSections';
 let collapseState = {};
@@ -497,6 +532,11 @@ function normalizeTagsInput(raw) {
   return tags;
 }
 
+function normalizeCapturePriority(value) {
+  const normalized = typeof value === 'string' ? value.toLowerCase() : '';
+  return VALID_CAPTURE_PRIORITIES.has(normalized) ? normalized : 'normal';
+}
+
 function escapeHtml(value) {
   if (value === undefined || value === null) return '';
   return String(value).replace(/[&<>"']/g, (char) => {
@@ -601,8 +641,37 @@ function buildQuickAccessCard(link, metaText, options = {}) {
   return card;
 }
 
+function reorderQuickAccessSections() {
+  if (!quickAccessEl || !quickAccessRecentsSection || !quickAccessFrequentSection) return;
+  if (quickAccessConfig.order === 'frequent-first') {
+    quickAccessEl.appendChild(quickAccessFrequentSection);
+    quickAccessEl.appendChild(quickAccessRecentsSection);
+  } else {
+    quickAccessEl.appendChild(quickAccessRecentsSection);
+    quickAccessEl.appendChild(quickAccessFrequentSection);
+  }
+}
+
 function renderQuickAccess() {
   if (!quickAccessEl || !recentLinksEl || !frequentLinksEl) return;
+
+  reorderQuickAccessSections();
+  const showRecents = quickAccessConfig.recents;
+  const showFrequent = quickAccessConfig.frequent;
+  if (quickAccessEl) {
+    quickAccessEl.style.display = (showRecents || showFrequent) ? '' : 'none';
+  }
+  if (quickAccessRecentsSection) quickAccessRecentsSection.style.display = showRecents ? '' : 'none';
+  if (quickAccessFrequentSection) quickAccessFrequentSection.style.display = showFrequent ? '' : 'none';
+
+  if (!showRecents) {
+    recentLinksEl.innerHTML = '';
+    if (recentEmptyEl) recentEmptyEl.style.display = 'none';
+  }
+  if (!showFrequent) {
+    frequentLinksEl.innerHTML = '';
+    if (frequentEmptyEl) frequentEmptyEl.style.display = 'none';
+  }
 
   const recents = getRecentLinks(5);
   const frequent = getFrequentLinks(5);
@@ -610,7 +679,7 @@ function renderQuickAccess() {
   recentLinksEl.innerHTML = '';
   frequentLinksEl.innerHTML = '';
 
-  if (recents.length) {
+  if (showRecents && recents.length) {
     recents.forEach((link) => {
       const meta = link.lastOpenedAt ? t('quickAccess.lastOpened', { time: formatRelativeTime(link.lastOpenedAt) }) : '';
       const undoEntry = getUndoableOpen(link.id);
@@ -620,17 +689,17 @@ function renderQuickAccess() {
       recentLinksEl.appendChild(buildQuickAccessCard(link, meta, { undoAction }));
     });
     if (recentEmptyEl) recentEmptyEl.style.display = 'none';
-  } else if (recentEmptyEl) {
+  } else if (showRecents && recentEmptyEl) {
     recentEmptyEl.style.display = 'block';
   }
 
-  if (frequent.length) {
+  if (showFrequent && frequent.length) {
     frequent.forEach((link) => {
       const meta = t('quickAccess.openedCount', { count: link.openCount || 0 });
       frequentLinksEl.appendChild(buildQuickAccessCard(link, meta));
     });
     if (frequentEmptyEl) frequentEmptyEl.style.display = 'none';
-  } else if (frequentEmptyEl) {
+  } else if (showFrequent && frequentEmptyEl) {
     frequentEmptyEl.style.display = 'block';
   }
 }
@@ -2707,6 +2776,47 @@ async function initSettingsUI() {
       if (developerModeChk) developerModeChk.checked = s.developerMode;
     }
 
+    // Capture defaults
+    captureDefaultsState.tags = Array.isArray(s.defaultCaptureTags) ? s.defaultCaptureTags.slice() : [];
+    captureDefaultsState.folder = typeof s.defaultCaptureFolder === 'string' ? s.defaultCaptureFolder : '';
+    captureDefaultsState.priority = normalizeCapturePriority(s.defaultCapturePriority);
+    captureDefaultsState.favorite = !!s.autoFavoriteCapturedLinks;
+    captureDefaultsState.pin = !!s.autoPinCapturedLinks;
+    captureDefaultsState.autoOpen = !!s.autoOpenCapturedLinks;
+    if (defaultCaptureTagsInput) defaultCaptureTagsInput.value = captureDefaultsState.tags.join(', ');
+    if (defaultCaptureFolderInput) defaultCaptureFolderInput.value = captureDefaultsState.folder;
+    if (defaultCapturePrioritySelect) defaultCapturePrioritySelect.value = captureDefaultsState.priority;
+    if (autoFavoriteCapturedLinksChk) autoFavoriteCapturedLinksChk.checked = captureDefaultsState.favorite;
+    if (autoPinCapturedLinksChk) autoPinCapturedLinksChk.checked = captureDefaultsState.pin;
+    if (autoOpenCapturedLinksChk) autoOpenCapturedLinksChk.checked = captureDefaultsState.autoOpen;
+
+    // Link window defaults & behavior
+    const widthValue = Number.isFinite(Number(s.linkWindowDefaultWidth)) ? Number(s.linkWindowDefaultWidth) : null;
+    const heightValue = Number.isFinite(Number(s.linkWindowDefaultHeight)) ? Number(s.linkWindowDefaultHeight) : null;
+    if (linkWindowWidthInput) linkWindowWidthInput.value = widthValue || linkWindowWidthInput.min || '';
+    if (linkWindowHeightInput) linkWindowHeightInput.value = heightValue || linkWindowHeightInput.min || '';
+    if (linkWindowCenterChk) linkWindowCenterChk.checked = s.linkWindowCenterOnOpen !== false;
+    if (restoreLastLinksChk) restoreLastLinksChk.checked = s.restoreLastLinksOnLaunch !== false;
+
+    // Metadata & health
+    if (metadataEnabledChk) metadataEnabledChk.checked = s.metadataEnabled !== false;
+    if (healthEnabledChk) healthEnabledChk.checked = s.healthEnabled !== false;
+    if (metadataIntervalInput) {
+      metadataIntervalInput.value = Number.isFinite(Number(s.metadataRefreshIntervalMinutes)) ? s.metadataRefreshIntervalMinutes : '';
+    }
+    if (healthIntervalInput) {
+      healthIntervalInput.value = Number.isFinite(Number(s.healthRefreshIntervalMinutes)) ? s.healthRefreshIntervalMinutes : '';
+    }
+
+    // Workspace & quick access
+    if (autoSaveWorkspaceChk) autoSaveWorkspaceChk.checked = !!s.autoSaveWorkspaceOnExit;
+    quickAccessConfig.recents = typeof s.quickAccessRecentsEnabled === 'boolean' ? s.quickAccessRecentsEnabled : true;
+    quickAccessConfig.frequent = typeof s.quickAccessFrequentEnabled === 'boolean' ? s.quickAccessFrequentEnabled : true;
+    quickAccessConfig.order = QUICK_ACCESS_ORDER_VALUES.includes(s.quickAccessOrder) ? s.quickAccessOrder : 'recents-first';
+    if (quickAccessRecentsChk) quickAccessRecentsChk.checked = quickAccessConfig.recents;
+    if (quickAccessFrequentChk) quickAccessFrequentChk.checked = quickAccessConfig.frequent;
+    if (quickAccessOrderSelect) quickAccessOrderSelect.value = quickAccessConfig.order;
+
     await loadLinks();
 
     if (appNameSaveBtn && appNameInput) {
@@ -2780,6 +2890,167 @@ async function initSettingsUI() {
         if (window.electron && typeof window.electron.openLayoutWindow === 'function') {
           await window.electron.openLayoutWindow();
         }
+      });
+    }
+
+    const commitCaptureTags = async () => {
+      if (!defaultCaptureTagsInput) return;
+      const tags = normalizeTagsInput(defaultCaptureTagsInput.value);
+      captureDefaultsState.tags = tags;
+      await window.electron.setSetting('defaultCaptureTags', tags);
+    };
+
+    const commitCaptureFolder = async () => {
+      if (!defaultCaptureFolderInput) return;
+      const folder = defaultCaptureFolderInput.value.trim();
+      captureDefaultsState.folder = folder;
+      await window.electron.setSetting('defaultCaptureFolder', folder);
+    };
+
+    const commitCapturePriority = async () => {
+      if (!defaultCapturePrioritySelect) return;
+      const next = normalizeCapturePriority(defaultCapturePrioritySelect.value);
+      captureDefaultsState.priority = next;
+      if (defaultCapturePrioritySelect.value !== next) defaultCapturePrioritySelect.value = next;
+      await window.electron.setSetting('defaultCapturePriority', next);
+    };
+
+    const commitLinkWindowWidth = async () => {
+      if (!linkWindowWidthInput) return;
+      const parsed = parseInt(linkWindowWidthInput.value, 10);
+      const value = Number.isFinite(parsed) && parsed > 0 ? parsed : Number(linkWindowWidthInput.min) || 0;
+      if (linkWindowWidthInput.value !== String(value)) linkWindowWidthInput.value = value;
+      await window.electron.setSetting('linkWindowDefaultWidth', value);
+    };
+
+    const commitLinkWindowHeight = async () => {
+      if (!linkWindowHeightInput) return;
+      const parsed = parseInt(linkWindowHeightInput.value, 10);
+      const value = Number.isFinite(parsed) && parsed > 0 ? parsed : Number(linkWindowHeightInput.min) || 0;
+      if (linkWindowHeightInput.value !== String(value)) linkWindowHeightInput.value = value;
+      await window.electron.setSetting('linkWindowDefaultHeight', value);
+    };
+
+    const commitMetadataInterval = async () => {
+      if (!metadataIntervalInput) return;
+      const parsed = parseInt(metadataIntervalInput.value, 10);
+      const value = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+      if (value !== null) metadataIntervalInput.value = value;
+      await window.electron.setSetting('metadataRefreshIntervalMinutes', value !== null ? value : undefined);
+    };
+
+    const commitHealthInterval = async () => {
+      if (!healthIntervalInput) return;
+      const parsed = parseInt(healthIntervalInput.value, 10);
+      const value = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+      if (value !== null) healthIntervalInput.value = value;
+      await window.electron.setSetting('healthRefreshIntervalMinutes', value !== null ? value : undefined);
+    };
+
+    if (defaultCaptureTagsInput) {
+      defaultCaptureTagsInput.addEventListener('blur', commitCaptureTags);
+      defaultCaptureTagsInput.addEventListener('keydown', async (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        await commitCaptureTags();
+        defaultCaptureTagsInput.blur();
+      });
+    }
+
+    if (defaultCaptureFolderInput) {
+      defaultCaptureFolderInput.addEventListener('blur', commitCaptureFolder);
+      defaultCaptureFolderInput.addEventListener('keydown', async (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        await commitCaptureFolder();
+        defaultCaptureFolderInput.blur();
+      });
+    }
+
+    if (defaultCapturePrioritySelect) {
+      defaultCapturePrioritySelect.addEventListener('change', commitCapturePriority);
+    }
+
+    if (autoFavoriteCapturedLinksChk) {
+      autoFavoriteCapturedLinksChk.addEventListener('change', async (e) => {
+        captureDefaultsState.favorite = !!e.target.checked;
+        await window.electron.setSetting('autoFavoriteCapturedLinks', captureDefaultsState.favorite);
+      });
+    }
+    if (autoPinCapturedLinksChk) {
+      autoPinCapturedLinksChk.addEventListener('change', async (e) => {
+        captureDefaultsState.pin = !!e.target.checked;
+        await window.electron.setSetting('autoPinCapturedLinks', captureDefaultsState.pin);
+      });
+    }
+    if (autoOpenCapturedLinksChk) {
+      autoOpenCapturedLinksChk.addEventListener('change', async (e) => {
+        captureDefaultsState.autoOpen = !!e.target.checked;
+        await window.electron.setSetting('autoOpenCapturedLinks', captureDefaultsState.autoOpen);
+      });
+    }
+
+    if (linkWindowWidthInput) {
+      linkWindowWidthInput.addEventListener('change', commitLinkWindowWidth);
+    }
+    if (linkWindowHeightInput) {
+      linkWindowHeightInput.addEventListener('change', commitLinkWindowHeight);
+    }
+    if (linkWindowCenterChk) {
+      linkWindowCenterChk.addEventListener('change', async (e) => {
+        await window.electron.setSetting('linkWindowCenterOnOpen', !!e.target.checked);
+      });
+    }
+    if (restoreLastLinksChk) {
+      restoreLastLinksChk.addEventListener('change', async (e) => {
+        await window.electron.setSetting('restoreLastLinksOnLaunch', !!e.target.checked);
+      });
+    }
+
+    if (metadataEnabledChk) {
+      metadataEnabledChk.addEventListener('change', async (e) => {
+        await window.electron.setSetting('metadataEnabled', !!e.target.checked);
+      });
+    }
+    if (healthEnabledChk) {
+      healthEnabledChk.addEventListener('change', async (e) => {
+        await window.electron.setSetting('healthEnabled', !!e.target.checked);
+      });
+    }
+    if (metadataIntervalInput) {
+      metadataIntervalInput.addEventListener('change', commitMetadataInterval);
+    }
+    if (healthIntervalInput) {
+      healthIntervalInput.addEventListener('change', commitHealthInterval);
+    }
+
+    if (autoSaveWorkspaceChk) {
+      autoSaveWorkspaceChk.addEventListener('change', async (e) => {
+        await window.electron.setSetting('autoSaveWorkspaceOnExit', !!e.target.checked);
+      });
+    }
+
+    if (quickAccessRecentsChk) {
+      quickAccessRecentsChk.addEventListener('change', async (e) => {
+        quickAccessConfig.recents = !!e.target.checked;
+        await window.electron.setSetting('quickAccessRecentsEnabled', quickAccessConfig.recents);
+        renderQuickAccess();
+      });
+    }
+    if (quickAccessFrequentChk) {
+      quickAccessFrequentChk.addEventListener('change', async (e) => {
+        quickAccessConfig.frequent = !!e.target.checked;
+        await window.electron.setSetting('quickAccessFrequentEnabled', quickAccessConfig.frequent);
+        renderQuickAccess();
+      });
+    }
+    if (quickAccessOrderSelect) {
+      quickAccessOrderSelect.addEventListener('change', async (e) => {
+        const next = e.target.value;
+        if (!QUICK_ACCESS_ORDER_VALUES.includes(next)) return;
+        quickAccessConfig.order = next;
+        await window.electron.setSetting('quickAccessOrder', quickAccessConfig.order);
+        renderQuickAccess();
       });
     }
 
@@ -2872,6 +3143,34 @@ async function initSettingsUI() {
         applyAppDisplayName(newSettings.appDisplayName || DEFAULT_APP_NAME);
         selfChatState = normalizeSelfChatState(newSettings[selfChatSettingKey]) || createDefaultChatState();
         renderSelfChat();
+        captureDefaultsState.tags = Array.isArray(newSettings.defaultCaptureTags) ? newSettings.defaultCaptureTags.slice() : [];
+        captureDefaultsState.folder = typeof newSettings.defaultCaptureFolder === 'string' ? newSettings.defaultCaptureFolder : '';
+        captureDefaultsState.priority = normalizeCapturePriority(newSettings.defaultCapturePriority);
+        captureDefaultsState.favorite = !!newSettings.autoFavoriteCapturedLinks;
+        captureDefaultsState.pin = !!newSettings.autoPinCapturedLinks;
+        captureDefaultsState.autoOpen = !!newSettings.autoOpenCapturedLinks;
+        if (defaultCaptureTagsInput) defaultCaptureTagsInput.value = captureDefaultsState.tags.join(', ');
+        if (defaultCaptureFolderInput) defaultCaptureFolderInput.value = captureDefaultsState.folder;
+        if (defaultCapturePrioritySelect) defaultCapturePrioritySelect.value = captureDefaultsState.priority;
+        if (autoFavoriteCapturedLinksChk) autoFavoriteCapturedLinksChk.checked = captureDefaultsState.favorite;
+        if (autoPinCapturedLinksChk) autoPinCapturedLinksChk.checked = captureDefaultsState.pin;
+        if (autoOpenCapturedLinksChk) autoOpenCapturedLinksChk.checked = captureDefaultsState.autoOpen;
+        if (linkWindowWidthInput) linkWindowWidthInput.value = Number.isFinite(Number(newSettings.linkWindowDefaultWidth)) ? newSettings.linkWindowDefaultWidth : '';
+        if (linkWindowHeightInput) linkWindowHeightInput.value = Number.isFinite(Number(newSettings.linkWindowDefaultHeight)) ? newSettings.linkWindowDefaultHeight : '';
+        if (linkWindowCenterChk) linkWindowCenterChk.checked = newSettings.linkWindowCenterOnOpen !== false;
+        if (restoreLastLinksChk) restoreLastLinksChk.checked = newSettings.restoreLastLinksOnLaunch !== false;
+        if (metadataEnabledChk) metadataEnabledChk.checked = newSettings.metadataEnabled !== false;
+        if (healthEnabledChk) healthEnabledChk.checked = newSettings.healthEnabled !== false;
+        if (metadataIntervalInput) metadataIntervalInput.value = Number.isFinite(Number(newSettings.metadataRefreshIntervalMinutes)) ? newSettings.metadataRefreshIntervalMinutes : '';
+        if (healthIntervalInput) healthIntervalInput.value = Number.isFinite(Number(newSettings.healthRefreshIntervalMinutes)) ? newSettings.healthRefreshIntervalMinutes : '';
+        if (autoSaveWorkspaceChk) autoSaveWorkspaceChk.checked = !!newSettings.autoSaveWorkspaceOnExit;
+        quickAccessConfig.recents = typeof newSettings.quickAccessRecentsEnabled === 'boolean' ? newSettings.quickAccessRecentsEnabled : true;
+        quickAccessConfig.frequent = typeof newSettings.quickAccessFrequentEnabled === 'boolean' ? newSettings.quickAccessFrequentEnabled : true;
+        quickAccessConfig.order = QUICK_ACCESS_ORDER_VALUES.includes(newSettings.quickAccessOrder) ? newSettings.quickAccessOrder : 'recents-first';
+        if (quickAccessRecentsChk) quickAccessRecentsChk.checked = quickAccessConfig.recents;
+        if (quickAccessFrequentChk) quickAccessFrequentChk.checked = quickAccessConfig.frequent;
+        if (quickAccessOrderSelect) quickAccessOrderSelect.value = quickAccessConfig.order;
+        renderQuickAccess();
       }
     });
 
@@ -2911,9 +3210,74 @@ async function initSettingsUI() {
           if (key === 'backgroundImagePath') {
             applyCustomBackground(value || null);
           }
+          if (key === 'defaultCaptureTags') {
+            captureDefaultsState.tags = Array.isArray(value) ? value : [];
+            if (defaultCaptureTagsInput) defaultCaptureTagsInput.value = captureDefaultsState.tags.join(', ');
+          }
+          if (key === 'defaultCaptureFolder') {
+            captureDefaultsState.folder = typeof value === 'string' ? value : '';
+            if (defaultCaptureFolderInput) defaultCaptureFolderInput.value = captureDefaultsState.folder;
+          }
+          if (key === 'defaultCapturePriority') {
+            captureDefaultsState.priority = normalizeCapturePriority(value);
+            if (defaultCapturePrioritySelect) defaultCapturePrioritySelect.value = captureDefaultsState.priority;
+          }
+          if (key === 'autoFavoriteCapturedLinks' || key === 'autoPinCapturedLinks' || key === 'autoOpenCapturedLinks') {
+            const target = key === 'autoFavoriteCapturedLinks'
+              ? autoFavoriteCapturedLinksChk
+              : key === 'autoPinCapturedLinks'
+                ? autoPinCapturedLinksChk
+                : autoOpenCapturedLinksChk;
+            captureDefaultsState.favorite = key === 'autoFavoriteCapturedLinks' ? !!value : captureDefaultsState.favorite;
+            captureDefaultsState.pin = key === 'autoPinCapturedLinks' ? !!value : captureDefaultsState.pin;
+            captureDefaultsState.autoOpen = key === 'autoOpenCapturedLinks' ? !!value : captureDefaultsState.autoOpen;
+            if (target) target.checked = !!value;
+          }
+          if (key === 'linkWindowDefaultWidth' && linkWindowWidthInput) {
+            linkWindowWidthInput.value = Number.isFinite(Number(value)) ? value : linkWindowWidthInput.min || '';
+          }
+          if (key === 'linkWindowDefaultHeight' && linkWindowHeightInput) {
+            linkWindowHeightInput.value = Number.isFinite(Number(value)) ? value : linkWindowHeightInput.min || '';
+          }
+          if (key === 'linkWindowCenterOnOpen' && linkWindowCenterChk) {
+            linkWindowCenterChk.checked = value !== false;
+          }
+          if (key === 'restoreLastLinksOnLaunch' && restoreLastLinksChk) {
+            restoreLastLinksChk.checked = value !== false;
+          }
           if (key === 'telemetryEnabled') {
             if (telemetryChk) telemetryChk.checked = !!value;
             updateDataCollectionStatus(!!value);
+          }
+          if (key === 'metadataEnabled' && metadataEnabledChk) {
+            metadataEnabledChk.checked = value !== false;
+          }
+          if (key === 'healthEnabled' && healthEnabledChk) {
+            healthEnabledChk.checked = value !== false;
+          }
+          if (key === 'metadataRefreshIntervalMinutes' && metadataIntervalInput) {
+            metadataIntervalInput.value = Number.isFinite(Number(value)) ? value : metadataIntervalInput.value;
+          }
+          if (key === 'healthRefreshIntervalMinutes' && healthIntervalInput) {
+            healthIntervalInput.value = Number.isFinite(Number(value)) ? value : healthIntervalInput.value;
+          }
+          if (key === 'autoSaveWorkspaceOnExit' && autoSaveWorkspaceChk) {
+            autoSaveWorkspaceChk.checked = !!value;
+          }
+          if (key === 'quickAccessRecentsEnabled') {
+            quickAccessConfig.recents = !!value;
+            if (quickAccessRecentsChk) quickAccessRecentsChk.checked = quickAccessConfig.recents;
+            renderQuickAccess();
+          }
+          if (key === 'quickAccessFrequentEnabled') {
+            quickAccessConfig.frequent = !!value;
+            if (quickAccessFrequentChk) quickAccessFrequentChk.checked = quickAccessConfig.frequent;
+            renderQuickAccess();
+          }
+          if (key === 'quickAccessOrder') {
+            quickAccessConfig.order = QUICK_ACCESS_ORDER_VALUES.includes(value) ? value : 'recents-first';
+            if (quickAccessOrderSelect) quickAccessOrderSelect.value = quickAccessConfig.order;
+            renderQuickAccess();
           }
           if (key === 'pinnedTags') {
             pinnedTags = Array.isArray(value) ? value : [];
@@ -3047,10 +3411,13 @@ async function loadLinks() {
 async function addLink() {
   const url = urlInput.value.trim();
   const title = titleInput.value.trim();
-  const tags = tagsInput ? normalizeTagsInput(tagsInput.value) : [];
-  const folder = folderInput ? folderInput.value.trim() : '';
+  const userTags = tagsInput ? normalizeTagsInput(tagsInput.value) : [];
+  const tags = userTags.length ? userTags : captureDefaultsState.tags.slice();
+  const folderValue = folderInput ? folderInput.value.trim() : '';
+  const folder = folderValue || captureDefaultsState.folder;
   const notes = notesInput ? notesInput.value.trim() : '';
-  const priority = prioritySelect ? prioritySelect.value : 'normal';
+  const priorityValue = prioritySelect ? normalizeCapturePriority(prioritySelect.value) : captureDefaultsState.priority;
+  const priority = priorityValue || captureDefaultsState.priority;
 
   if (!url) {
     alert(t('alerts.enterUrl'));
@@ -3071,16 +3438,29 @@ async function addLink() {
     tags,
     folder,
     notes,
-    priority
+    priority,
+    favorite: !!captureDefaultsState.favorite,
+    pinned: !!captureDefaultsState.pin
   };
 
-  await window.electron.addLink(link);
+  const created = await window.electron.addLink(link);
+  if (captureDefaultsState.autoOpen && created) {
+    try {
+      if (typeof created.id !== 'undefined' && created.id !== null) {
+        await window.electron.openLinkWithId(Number(created.id), created.url);
+      } else {
+        await window.electron.openLink(created.url);
+      }
+    } catch (err) {
+      // ignore
+    }
+  }
   urlInput.value = '';
   titleInput.value = '';
-  if (tagsInput) tagsInput.value = '';
-  if (folderInput) folderInput.value = '';
+  if (tagsInput) tagsInput.value = captureDefaultsState.tags.join(', ');
+  if (folderInput) folderInput.value = captureDefaultsState.folder;
   if (notesInput) notesInput.value = '';
-  if (prioritySelect) prioritySelect.value = 'normal';
+  if (prioritySelect) prioritySelect.value = captureDefaultsState.priority;
   urlInput.focus();
   loadLinks();
 }
