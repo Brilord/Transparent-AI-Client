@@ -250,6 +250,12 @@ body {
     background-repeat: no-repeat;
 }
 
+/* keep dropdown options readable when the native popup renders on a light surface */
+select option {
+    color: rgba(11, 20, 26, 0.95);
+    background: rgba(255, 255, 255, 0.97);
+}
+
 .notes-input {
     min-height: 48px;
     resize: vertical;

@@ -141,6 +141,30 @@ async function runSettingsPersistenceTest() {
   await app.close();
 }
 
+async function runDropdownReadabilityTest() {
+  const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'plana-dropdown-'));
+  const { app, page } = await launchApp(baseDir);
+
+  await page.waitForSelector('#prioritySelect option', { timeout: 10000 });
+  const colors = await page.evaluate(() => {
+    const option = document.querySelector('#prioritySelect option');
+    if (!option) return null;
+    const computed = window.getComputedStyle(option).color;
+    const match = computed.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (!match) return null;
+    return {
+      r: Number(match[1]),
+      g: Number(match[2]),
+      b: Number(match[3])
+    };
+  });
+
+  assert.ok(colors, 'priority select should expose at least one option');
+  assert.ok(colors.r !== 255 || colors.g !== 255 || colors.b !== 255, 'dropdown option text should not be pure white');
+
+  await app.close();
+}
+
 async function runClipboardImportTest() {
   const urls = ['https://example.com/clipboard', 'https://example.org/clipboard'];
   await writeClipboardText(urls.join('\n'));
@@ -238,6 +262,7 @@ async function runE2ePersistenceTest() {
     await run('IPC smoke', runIpcSmokeTest);
     await run('Localization (DOM)', runLanguageLinkingTest);
     await run('Settings persistence', runSettingsPersistenceTest);
+    await run('Dropdown readability', runDropdownReadabilityTest);
     await run('Clipboard import', runClipboardImportTest);
     await run('Localization (API)', runLanguageApiTest);
     await run('Aux windows', runAuxWindowTest);
