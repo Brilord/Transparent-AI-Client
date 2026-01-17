@@ -145,6 +145,10 @@ let localeStrings = Object.assign({}, LOCALE_FALLBACK);
 const localeCache = new Map();
 const VALID_CAPTURE_PRIORITIES = new Set(['low', 'normal', 'high']);
 const QUICK_ACCESS_ORDER_VALUES = ['recents-first', 'frequent-first'];
+const DEFAULT_LINK_WINDOW_OPEN_OPTIONS = Object.freeze({
+  forceDefaultBounds: true,
+  centerOnDefault: true
+});
 let captureDefaultsState = {
   tags: [],
   folder: '',
@@ -638,6 +642,16 @@ function buildQuickAccessCard(link, metaText, options = {}) {
   });
   actions.appendChild(openBtn);
 
+  const defaultSizeBtn = document.createElement('button');
+  defaultSizeBtn.className = 'action-btn ghost';
+  defaultSizeBtn.textContent = t('actions.openDefaultWindow');
+  defaultSizeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    recordLocalOpen(link.id);
+    openLinkWithDefaultSize(link);
+  });
+  actions.appendChild(defaultSizeBtn);
+
   const pinBtn = document.createElement('button');
   pinBtn.className = 'action-btn ghost';
   pinBtn.textContent = link.pinned ? t('actions.unpin') : t('actions.pin');
@@ -859,6 +873,16 @@ function recordLocalOpen(linkId) {
   link.lastOpenedAt = new Date().toISOString();
   currentLinks[idx] = link;
   renderQuickAccess();
+}
+
+function openLinkWithDefaultSize(link) {
+  if (!link || !link.url) return;
+  const opts = DEFAULT_LINK_WINDOW_OPEN_OPTIONS;
+  try {
+    window.electron.openLinkWithId(Number(link.id), link.url, opts);
+  } catch (err) {
+    window.electron.openLink(link.url, opts);
+  }
 }
 
 function getUndoableOpen(linkId) {
@@ -3631,6 +3655,7 @@ function buildLinkElement(link, options = {}) {
     ? `<button class="action-btn restore-btn" data-id="${link.id}">${escapeHtml(t('actions.restore'))}</button>`
     : `
         <button class="action-btn open-btn" data-id="${link.id}">${escapeHtml(t('actions.openWindow'))}</button>
+        <button class="action-btn default-window-btn" data-id="${link.id}">${escapeHtml(t('actions.openDefaultWindow'))}</button>
         <button class="action-btn browser-btn" data-id="${link.id}">${escapeHtml(t('actions.openBrowser'))}</button>
         <button class="action-btn copy-btn" data-id="${link.id}">${escapeHtml(t('actions.copy'))}</button>
         <button class="action-btn edit-btn" data-id="${link.id}">${escapeHtml(t('actions.edit'))}</button>
@@ -3713,6 +3738,15 @@ function buildLinkElement(link, options = {}) {
       } catch (err) {
         window.electron.openLink(link.url);
       }
+    });
+  }
+
+  const defaultWindowBtn = linkElement.querySelector('.default-window-btn');
+  if (defaultWindowBtn && !isDeleted) {
+    defaultWindowBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      recordLocalOpen(link.id);
+      openLinkWithDefaultSize(link);
     });
   }
 

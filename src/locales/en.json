@@ -29,6 +29,7 @@
   "actions.openFile": "Open file",
   "actions.openWindowLayout": "Open layout map",
   "actions.openWindow": "Open window",
+  "actions.openDefaultWindow": "Open default window",
   "actions.pin": "Pin",
   "actions.rename": "Rename",
   "actions.reset": "Reset",

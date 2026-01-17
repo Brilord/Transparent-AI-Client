@@ -8,10 +8,8 @@ contextBridge.exposeInMainWorld('electron', {
   minimizeWindow: () => ipcRenderer.invoke('minimize-window'),
   closeWindow: () => ipcRenderer.invoke('close-window'),
   resetWindowBounds: () => ipcRenderer.invoke('reset-window-bounds'),
-  openLink: (url) => ipcRenderer.invoke('open-link', url)
-  ,
-  openLinkWithId: (id, url) => ipcRenderer.invoke('open-link', id, url)
-  ,
+  openLink: (url, options) => ipcRenderer.invoke('open-link', url, undefined, options),
+  openLinkWithId: (id, url, options) => ipcRenderer.invoke('open-link', id, url, options),
   openChatWindow: () => ipcRenderer.invoke('open-chat-window'),
   openLayoutWindow: () => ipcRenderer.invoke('open-layout-window'),
   closeCurrentWindow: () => ipcRenderer.invoke('close-current-window'),

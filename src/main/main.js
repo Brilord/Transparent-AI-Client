@@ -2356,15 +2356,19 @@ function openLinkWindow(idOrUrl, maybeUrl, options = {}) {
   if (!isSafeLinkUrl(url)) return false;
 
   // Find saved bounds for this link id if available
+  const opts = options && typeof options === 'object' ? options : {};
+  const forceDefaultBounds = !!opts.forceDefaultBounds;
+  const centerOnDefault = !!opts.centerOnDefault;
+
   let savedBounds = null;
-  const overrideBounds = options && options.bounds && typeof options.bounds === 'object'
-    ? options.bounds
+  const overrideBounds = opts.bounds && typeof opts.bounds === 'object'
+    ? opts.bounds
     : null;
   if (overrideBounds) {
     savedBounds = overrideBounds;
   }
   try {
-    if (!savedBounds && id) {
+    if (!savedBounds && !forceDefaultBounds && id) {
       const links = getLinksNormalized();
       const found = links.find(l => Number(l.id) === Number(id));
       if (found && found.deletedAt) return false;
@@ -2373,7 +2377,7 @@ function openLinkWindow(idOrUrl, maybeUrl, options = {}) {
   } catch (err) {}
 
   const sessionMode = normalizeLinkSessionMode(
-    options && options.sessionMode ? options.sessionMode : appSettings.linkSessionMode
+    opts && opts.sessionMode ? opts.sessionMode : appSettings.linkSessionMode
   );
   const sessionPartition = getLinkSessionPartition(sessionMode, id);
   const partitionLabel = sessionPartition || null;
@@ -2399,7 +2403,8 @@ function openLinkWindow(idOrUrl, maybeUrl, options = {}) {
     webPreferences
   };
 
-  if (!savedBounds && appSettings.linkWindowCenterOnOpen) {
+  const shouldCenter = !savedBounds && (centerOnDefault || appSettings.linkWindowCenterOnOpen);
+  if (shouldCenter) {
     let targetDisplay = screen.getPrimaryDisplay();
     try {
       if (mainWindow && !mainWindow.isDestroyed()) {

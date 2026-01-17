@@ -29,6 +29,7 @@
   "actions.openFile": "파일 열기",
   "actions.openWindowLayout": "창 레이아웃 열기",
   "actions.openWindow": "창 열기",
+  "actions.openDefaultWindow": "기본 크기로 열기",
   "actions.pin": "고정",
   "actions.rename": "이름 변경",
   "actions.reset": "재설정",
