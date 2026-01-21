@@ -3927,10 +3927,14 @@ function buildMetadataPreview(link) {
   const description = metadata.description ? `<p>${escapeHtml(metadata.description)}</p>` : '';
   const site = metadata.siteName ? `<span class="meta-site">${escapeHtml(metadata.siteName)}</span>` : '';
   const favicon = metadata.favicon ? `<img src="${escapeHtml(metadata.favicon)}" alt="" class="meta-favicon">` : '';
-  if (!description && !site && !favicon) return '';
+  const previewAlt = metadata.title || metadata.siteName || 'Preview image';
+  const previewImage = metadata.previewImage
+    ? `<div class="metadata-image-wrap"><img src="${escapeHtml(metadata.previewImage)}" alt="${escapeHtml(previewAlt)}" class="metadata-preview-image"></div>`
+    : '';
+  if (!description && !site && !favicon && !previewImage) return '';
   const accentColor = safeColorValue(metadata.dominantColor);
   const accent = accentColor ? ` style="--accent-color:${accentColor}"` : '';
-  return `<div class="metadata-preview"${accent}>${favicon}<div class="metadata-copy">${site}${description}</div></div>`;
+  return `<div class="metadata-preview"${accent}>${previewImage}${favicon}<div class="metadata-copy">${site}${description}</div></div>`;
 }
 
 function safeColorValue(value) {
